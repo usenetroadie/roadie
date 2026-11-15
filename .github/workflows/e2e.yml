@@ -1,0 +1,57 @@
+name: end-to-end
+
+# Full unattended run of the wizard on a fresh Ubuntu 24.04 runner: real Docker, real
+# images from versions.json, self-signed certificate and a fake indexer (test mode).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"  # weekly: notices when upstream changes break the pinned setup
+  push:
+    paths: ["roadie/data/versions.json"]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Prepare a "fresh" server (runners ship Docker; the wizard expects none)
+        run: |
+          sudo systemctl stop docker.socket docker.service containerd || true
+          sudo apt-get purge -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin moby-* || true
+          sudo rm -rf /var/lib/docker /etc/docker /usr/bin/docker /usr/libexec/docker
+          sudo bash install.sh
+      - name: Fake indexer and answer file
+        run: |
+          ip=$(hostname -I | awk '{print $1}')
+          nohup python3 tests/e2e/mock_newznab.py 8099 >/dev/null 2>&1 &
+          ssh-keygen -q -t ed25519 -N "" -f "$HOME/testkey"
+          python3 - "$ip" <<'PY'
+          import json, os, sys
+          d = json.load(open("examples/answers.example.json"))
+          d["test_mode"] = True
+          d["admin_user"] = "roadieadmin"
+          d["indexers"][0]["url"] = f"http://{sys.argv[1]}:8099"
+          d["ssh_public_key"] = open(os.path.expanduser("~/testkey.pub")).read().strip()
+          json.dump(d, open("/tmp/answers.json", "w"))
+          PY
+      - name: Run the wizard
+        run: |
+          sudo ufw allow 8099/tcp || true
+          sudo roadie setup --answers /tmp/answers.json | tee /tmp/run.log
+      - name: Check the result
+        run: sudo bash tests/e2e/verify.sh example.duckdns.org /tmp/run.log
+      - name: Re-run must be harmless (idempotent)
+        run: sudo roadie setup --answers /tmp/answers.json && sudo bash tests/e2e/verify.sh example.duckdns.org
+      - name: Backup and status
+        run: |
+          sudo roadie backup || true
+          sudo roadie status
+      - name: Problem report (redacted) on failure
+        if: failure()
+        run: sudo roadie diagnose || true

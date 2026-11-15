@@ -1,0 +1,114 @@
+"""Thin helpers that change the system: run commands, write rendered files.
+Commands never get secrets as arguments (visible in `ps`); use input= or a pty."""
+
+import os
+import pty
+import re
+import select
+import shutil
+import signal
+import subprocess
+import time
+from pathlib import Path
+
+from roadie.paths import atomic_write
+from roadie.render import RenderedFile
+
+
+class CommandFailed(Exception):
+    def __init__(self, cmd: list[str], code: int, output: str):
+        tail = "\n".join(output.strip().splitlines()[-5:])
+        super().__init__(f"'{' '.join(cmd[:3])}' failed (exit {code}): {tail}")
+        self.code = code
+        self.output = output
+
+
+def run(cmd: list[str], input: str | None = None, check: bool = True, timeout: float = 900,
+        env: dict | None = None, cwd: str | None = None) -> str:
+    full_env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive", "LC_ALL": "C", **(env or {})}
+    proc = subprocess.run(cmd, input=input, capture_output=True, text=True, timeout=timeout,
+                          env=full_env, cwd=cwd)
+    output = proc.stdout + proc.stderr
+    if check and proc.returncode != 0:
+        raise CommandFailed(cmd, proc.returncode, output)
+    return output
+
+
+def container_ip(cid: str) -> str:
+    """Address of a container on its Docker network (reachable from the server itself)."""
+    return run(["docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", cid]).strip()
+
+
+def ok(cmd: list[str]) -> bool:
+    try:
+        return subprocess.run(cmd, capture_output=True, timeout=60).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def write_files(files: list[RenderedFile], base: Path, root: Path = Path("/")) -> None:
+    """Relative paths go under base; absolute ones under root. An existing system file
+    is saved once as <name>.roadie-bak before it is replaced."""
+    for f in files:
+        if f.path.startswith("/"):
+            target = root / f.path.lstrip("/")
+            backup = target.with_name(target.name + ".roadie-bak")
+            if (target.exists() or target.is_symlink()) and not (backup.exists() or backup.is_symlink()):
+                shutil.copy2(target, backup, follow_symlinks=False)  # keeps the mode; a link stays a link
+            if not target.parent.exists():
+                target.parent.mkdir(parents=True, mode=0o755)
+        else:
+            target = base / f.path
+            if not target.parent.exists():
+                target.parent.mkdir(parents=True, mode=0o700)
+        atomic_write(target, f.content, f.mode)
+
+
+def run_with_pty_secret(cmd: list[str], secret: str, prompt: str = "password", timeout: float = 120) -> str:
+    """Run a command that insists on reading a secret from a terminal; the secret is typed
+    into a pseudo-terminal, so it never appears in the process list."""
+    pid, fd = pty.fork()
+    if pid == 0:  # child: must never return into the wizard, even if the program is missing
+        try:
+            os.execvp(cmd[0], cmd)
+        finally:
+            os._exit(127)
+    output, sent, deadline = b"", False, time.time() + timeout
+    try:
+        while time.time() < deadline:
+            ready, _, _ = select.select([fd], [], [], 1)
+            if ready:
+                try:
+                    chunk = os.read(fd, 4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                output += chunk
+                # some programs print the prompt one character per line on a size-less pty
+                seen = b"".join(output.lower().split())
+                if not sent and prompt.encode() in seen:
+                    os.write(fd, secret.encode() + b"\r")
+                    sent = True
+            elif os.waitpid(pid, os.WNOHANG)[0]:
+                pid = 0
+                break
+    finally:
+        os.close(fd)
+        if pid:
+            try:
+                if not os.waitpid(pid, os.WNOHANG)[0]:
+                    os.kill(pid, signal.SIGKILL)  # timed out: never hang
+                    os.waitpid(pid, 0)
+            except (ChildProcessError, ProcessLookupError):
+                pass
+    return output.decode("utf-8", "replace").replace(secret, "***")
+
+
+def authelia_hash(image: str, password: str) -> str:
+    out = run_with_pty_secret(["docker", "run", "--rm", "-it", image, "authelia", "crypto", "hash", "generate",
+                               "argon2", "--no-confirm"], password)
+    match = re.search(r"\$argon2id\$[^\s\x1b]+", out)
+    if not match:
+        raise RuntimeError("could not create the password hash")
+    return match.group(0)

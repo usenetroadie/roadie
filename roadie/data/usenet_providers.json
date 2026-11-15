@@ -1,0 +1,614 @@
+{
+ "_source": "usenetalmanac.com/providers (saved 14.11.2026), which takes backbones and reseller relations from the community map usenet.rexum.space. Re-check before each release.",
+ "_note": "networks = which server networks a brand sells; a backup only helps if it adds a network the main provider lacks. 'owner' groups networks of one company: same owner does not prove the same posts, but is worth a hint. host/port/tls only where known; the wizard tests every login live.",
+ "as_of": "2026-11-14",
+ "networks": {
+  "omicron": {
+   "name": "Omicron",
+   "company": "Eweka Internet Services B.V. and Base IP B.V.",
+   "as": [
+    "AS34343",
+    "AS34305"
+   ],
+   "owner": "eweka"
+  },
+  "abavia": {
+   "name": "Abavia",
+   "company": "Abavia S.r.l.",
+   "as": [
+    "AS48345",
+    "AS6206"
+   ],
+   "owner": "abavia"
+  },
+  "usenetexpress": {
+   "name": "UsenetExpress",
+   "company": "Vital Network Group, LLC",
+   "as": [
+    "AS62296"
+   ],
+   "owner": "vital"
+  },
+  "giganews": {
+   "name": "Giganews",
+   "company": "Giganews, Inc.",
+   "as": [
+    "AS22363",
+    "AS30094"
+   ],
+   "owner": "giganews"
+  },
+  "netnews": {
+   "name": "NetNews",
+   "company": "Usenet Solutions LLC",
+   "as": [
+    "AS30094",
+    "AS22363"
+   ],
+   "owner": "usenetsolutions"
+  },
+  "itshosted": {
+   "name": "Its Hosted",
+   "company": "Its Hosted",
+   "as": [
+    "AS50655"
+   ],
+   "owner": "itshosted"
+  },
+  "uzoreto": {
+   "name": "Uzo Reto",
+   "company": "Vital Network Group, LLC",
+   "as": [
+    "AS62296"
+   ],
+   "owner": "vital"
+  },
+  "baseip": {
+   "name": "Base IP",
+   "company": "Base IP B.V.",
+   "as": [
+    "AS34343"
+   ],
+   "owner": "eweka"
+  },
+  "elbracht": {
+   "name": "Elbracht",
+   "company": "Elbracht-Computer Netzwerk & Grafik Service GmbH",
+   "as": [
+    "AS29404"
+   ],
+   "owner": "elbracht"
+  },
+  "ewekais": {
+   "name": "Eweka IS",
+   "company": "Eweka Internet Services B.V.",
+   "as": [
+    "AS34343"
+   ],
+   "owner": "eweka"
+  }
+ },
+ "providers": [
+  {
+   "id": "123usenet",
+   "name": "123usenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "5eurousenet",
+   "name": "5 Euro Usenet",
+   "networks": []
+  },
+  {
+   "id": "agentusenet",
+   "name": "Agent Usenet",
+   "networks": []
+  },
+  {
+   "id": "anonynews",
+   "name": "AnonyNews",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "astraweb",
+   "name": "Astraweb",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "binaryboy",
+   "name": "Binary Boy",
+   "networks": [
+    "usenetexpress"
+   ]
+  },
+  {
+   "id": "bintube",
+   "name": "BinTube",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "blocknews",
+   "name": "Blocknews",
+   "networks": [
+    "netnews"
+   ]
+  },
+  {
+   "id": "bulknews",
+   "name": "Bulknews",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "cheapnews",
+   "name": "CheapNews",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "easynews",
+   "name": "EasyNews",
+   "networks": [
+    "omicron"
+   ],
+   "host": "news.easynews.com",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "easyusenet",
+   "name": "EasyUsenet",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "eweka",
+   "name": "Eweka",
+   "networks": [
+    "ewekais"
+   ],
+   "host": "news.eweka.nl",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "extremeusenet",
+   "name": "ExtremeUsenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "fast-usenet",
+   "name": "Fast-Usenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "freediscussions",
+   "name": "FreeDiscussions",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "frugalusenet",
+   "name": "Frugal Usenet",
+   "networks": [
+    "abavia",
+    "netnews"
+   ]
+  },
+  {
+   "id": "gebruikhet",
+   "name": "Gebruikhet",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "giganews",
+   "name": "Giganews",
+   "networks": [
+    "giganews"
+   ],
+   "host": "news.giganews.com",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "hitnews",
+   "name": "HitNews",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "i-telligent",
+   "name": "I-Telligent",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "iloadusenet",
+   "name": "iLoad USENET",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "ixinews",
+   "name": "Ixinews",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "latinusenet",
+   "name": "LatinUsenet",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "maximumusenet",
+   "name": "MaximumUSENET",
+   "networks": [
+    "usenetexpress"
+   ]
+  },
+  {
+   "id": "mijnusenet",
+   "name": "Mijn Usenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "newsdemon",
+   "name": "NewsDemon",
+   "networks": [
+    "usenetexpress"
+   ]
+  },
+  {
+   "id": "newsgrabber",
+   "name": "NewsGrabber",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "newsgroupninja",
+   "name": "Newsgroup Ninja",
+   "networks": [
+    "omicron"
+   ],
+   "host": "news.newsgroup.ninja",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "newsgroupdirect",
+   "name": "NewsgroupDirect",
+   "networks": [
+    "usenetexpress",
+    "giganews",
+    "itshosted",
+    "uzoreto"
+   ]
+  },
+  {
+   "id": "newshosting",
+   "name": "Newshosting",
+   "networks": [
+    "omicron",
+    "baseip"
+   ],
+   "host": "news.newshosting.com",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "newsleecher",
+   "name": "NewsLeecher",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "newsxs",
+   "name": "NewsXS",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "ngroups",
+   "name": "Ngroups",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "premiumnews",
+   "name": "Premium News",
+   "networks": [
+    "elbracht"
+   ]
+  },
+  {
+   "id": "prepaid-usenet",
+   "name": "Prepaid-Usenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "pureusenet",
+   "name": "PureUsenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "shemes",
+   "name": "Shemes",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "simonnews",
+   "name": "SimonNews",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "snelnl",
+   "name": "SnelNL",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "spotnews",
+   "name": "Spotnews",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "stingyusenet",
+   "name": "StingyUsenet",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "sunnyusenet",
+   "name": "SunnyUsenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "supernews",
+   "name": "Supernews",
+   "networks": [
+    "giganews"
+   ]
+  },
+  {
+   "id": "thecubenet",
+   "name": "theCubeNet",
+   "networks": [
+    "usenetexpress"
+   ]
+  },
+  {
+   "id": "thundernews",
+   "name": "ThunderNews",
+   "networks": [
+    "usenetexpress"
+   ]
+  },
+  {
+   "id": "turbousenet",
+   "name": "TurboUsenet",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "tweaknews",
+   "name": "TweakNews",
+   "networks": [
+    "baseip"
+   ]
+  },
+  {
+   "id": "unitednewsserver",
+   "name": "United Newsserver",
+   "networks": [
+    "elbracht"
+   ]
+  },
+  {
+   "id": "usenet-news",
+   "name": "Usenet-News",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "usenetfarm",
+   "name": "Usenet.Farm",
+   "networks": [
+    "itshosted"
+   ],
+   "host": "news.usenet.farm",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "usenetpro",
+   "name": "Usenet.pro",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "usenetse",
+   "name": "Usenet.se",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "usenet4u",
+   "name": "Usenet4u",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "usenetagency",
+   "name": "UsenetAgency",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "usenetbucket",
+   "name": "UsenetBucket",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "usenetdeal",
+   "name": "UsenetDeal",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "usenetdiscountercom",
+   "name": "Usenetdiscounter.com",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "usenetexpress",
+   "name": "UsenetExpress",
+   "networks": [
+    "usenetexpress"
+   ],
+   "host": "news.usenetexpress.com",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "usenetnews",
+   "name": "UsenetNews",
+   "networks": [
+    "usenetexpress",
+    "itshosted",
+    "uzoreto"
+   ]
+  },
+  {
+   "id": "usenetnow",
+   "name": "UsenetNow",
+   "networks": [
+    "netnews"
+   ]
+  },
+  {
+   "id": "usenetprime",
+   "name": "UsenetPrime",
+   "networks": [
+    "abavia",
+    "usenetexpress"
+   ]
+  },
+  {
+   "id": "usenetserver",
+   "name": "Usenetserver",
+   "networks": [
+    "omicron"
+   ],
+   "host": "news.usenetserver.com",
+   "port": 563,
+   "tls": true
+  },
+  {
+   "id": "usenetstorm",
+   "name": "UsenetStorm",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "usenext",
+   "name": "Usenext",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "usenight",
+   "name": "UseNight",
+   "networks": [
+    "abavia"
+   ]
+  },
+  {
+   "id": "vipernews",
+   "name": "ViperNews",
+   "networks": [
+    "uzoreto"
+   ]
+  },
+  {
+   "id": "voordeligusenet",
+   "name": "VoordeligUsenet",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "xlned",
+   "name": "XLned",
+   "networks": [
+    "omicron"
+   ]
+  },
+  {
+   "id": "xsnews",
+   "name": "XS News",
+   "networks": [
+    "abavia"
+   ],
+   "host": "reader.xsnews.nl",
+   "port": 563,
+   "tls": true
+  }
+ ]
+}

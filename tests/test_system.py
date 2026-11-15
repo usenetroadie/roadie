@@ -1,0 +1,65 @@
+import sys
+import time
+import tempfile
+import unittest
+from pathlib import Path
+
+from roadie import system
+from roadie.render import RenderedFile
+
+
+class SystemTest(unittest.TestCase):
+    def test_run_returns_output_and_raises(self):
+        self.assertIn("hi", system.run(["echo", "hi"]))
+        with self.assertRaises(system.CommandFailed) as cm:
+            system.run(["sh", "-c", "echo broken >&2; exit 3"])
+        self.assertEqual(cm.exception.code, 3)
+        self.assertIn("broken", str(cm.exception))
+
+    def test_run_input_via_stdin(self):
+        self.assertEqual(system.run(["cat"], input="secret").strip(), "secret")
+
+    def test_write_files_relative_and_absolute_with_backup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, base = Path(tmp) / "root", Path(tmp) / "root/opt/stack"
+            (root / "etc").mkdir(parents=True)
+            (root / "etc/x.conf").write_text("old")
+            files = [RenderedFile("env/a.env", "A=1\n", 0o600), RenderedFile("/etc/x.conf", "new\n", 0o644)]
+            system.write_files(files, base, root)
+            system.write_files([RenderedFile("/etc/x.conf", "newer\n", 0o644)], base, root)
+            self.assertEqual((base / "env/a.env").read_text(), "A=1\n")
+            self.assertEqual((base / "env/a.env").stat().st_mode & 0o777, 0o600)
+            self.assertEqual((root / "etc/x.conf").read_text(), "newer\n")
+            self.assertEqual((root / "etc/x.conf.roadie-bak").read_text(), "old")
+
+    def test_backup_keeps_mode_and_does_not_follow_links(self):
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            root, base = Path(tmp) / "root", Path(tmp) / "base"
+            (root / "etc").mkdir(parents=True)
+            (root / "etc/secret.conf").write_text("private")
+            (root / "etc/secret.conf").chmod(0o600)
+            (Path(tmp) / "elsewhere").write_text("other")
+            os.symlink(Path(tmp) / "elsewhere", root / "etc/link.conf")
+            system.write_files([RenderedFile("/etc/secret.conf", "new\n", 0o600),
+                                RenderedFile("/etc/link.conf", "new\n", 0o644)], base, root)
+            self.assertEqual((root / "etc/secret.conf.roadie-bak").stat().st_mode & 0o777, 0o600)
+            self.assertTrue((root / "etc/link.conf.roadie-bak").is_symlink())
+            self.assertEqual((Path(tmp) / "elsewhere").read_text(), "other")
+
+    def test_pty_secret_not_in_argv_and_masked(self):
+        script = "import getpass; p = getpass.getpass('Enter Password: '); print('Digest: $argon2id$' + str(len(p)))"
+        out = system.run_with_pty_secret([sys.executable, "-c", script], "hunter2hunter2", timeout=20)
+        self.assertIn("$argon2id$14", out)
+        self.assertNotIn("hunter2hunter2", out)
+
+    def test_pty_missing_program_ends_the_child(self):
+        # before the fix the forked child returned into the caller and ran on as a second copy
+        started = time.time()
+        out = system.run_with_pty_secret(["/nonexistent/roadie-no-such-program"], "x" * 8, timeout=10)
+        self.assertEqual(out, "")
+        self.assertLess(time.time() - started, 5)
+
+    def test_pty_times_out_instead_of_hanging(self):
+        out = system.run_with_pty_secret([sys.executable, "-c", "import time; time.sleep(30)"], "x" * 8, timeout=2)
+        self.assertEqual(out, "")

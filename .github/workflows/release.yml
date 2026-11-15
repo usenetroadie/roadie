@@ -1,0 +1,53 @@
+name: release
+
+# Tag vX.Y.Z → archive + SHA256 checksum + OpenSSH signature attached to a GitHub release.
+# The signature is what `roadie update` trusts (public key: ALLOWED_SIGNERS in
+# roadie/ops/selfupdate.py). Secret RELEASE_SIGNING_KEY = the matching OpenSSH private key,
+# stored as a secret of the environment "release" (required reviewer), never as a repository
+# secret: a pushed tag alone must not be enough to sign. Settings: .github/RELEASING.md
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: release  # waits for the required reviewer before anything runs
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Unit tests
+        run: sudo apt-get install -y -q age && python3 -m unittest discover -s tests
+      - name: Tag matches __version__
+        run: |
+          want="v$(python3 -c 'import roadie; print(roadie.__version__)')"
+          if [ "$GITHUB_REF_NAME" != "$want" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match roadie.__version__ ($want)"
+            exit 1
+          fi
+      - name: Build archive
+        run: |
+          name="roadie-${GITHUB_REF_NAME}"
+          git archive --format=tar.gz --prefix="$name/" -o "$name.tar.gz" "$GITHUB_REF_NAME"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+      - name: Sign archive
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            echo "::warning::RELEASE_SIGNING_KEY is not set - release is NOT signed, self-update will refuse it"
+            exit 0
+          fi
+          umask 077
+          key="$RUNNER_TEMP/release_key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$key"
+          ssh-keygen -q -Y sign -f "$key" -n roadie-release "roadie-${GITHUB_REF_NAME}.tar.gz"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" roadie-*.tar.gz roadie-*.tar.gz.sha256 $(ls roadie-*.tar.gz.sig 2>/dev/null) --generate-notes

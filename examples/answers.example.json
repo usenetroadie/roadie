@@ -1,0 +1,24 @@
+{
+  "language": "en",
+  "admin_user": "streamadmin",
+  "ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB user@example.com",
+  "duckdns": {"subdomain": "example", "token": "00000000-0000-0000-0000-000000000000"},
+  "usenet": {
+    "providers": [
+      {"host": "news.example.com", "port": 563, "tls": true, "username": "user", "password": "example-password",
+       "connections": 20, "role": "primary"}
+    ]
+  },
+  "indexers": [
+    {"name": "Indexer A", "url": "https://indexer.example.com", "api_key": "EXAMPLEINDEXERKEY",
+     "daily_api_limit": null, "daily_grab_limit": null}
+  ],
+  "tmdb_api_key": null,
+  "content": {"languages": ["German", "English"], "original_audio": true, "prefer_4k": true, "hdr": true,
+              "max_size_gb": null},
+  "catalogs": [],
+  "auth": {"username": "admin", "password": "change-me-to-something-long"},
+  "maintenance": {"reboot_time": "05:00"},
+  "notify": {"healthchecks_url": null},
+  "backup": {"age_recipient": "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p"}
+}

@@ -1,0 +1,35 @@
+Date: 2026-11-14 20:30:00.123456789 +0000 UTC m=+23008.099020470
+Recipient: {tim user@example.com}
+Subject: Reset your password
+A ONE-TIME LINK HAS BEEN GENERATED TO COMPLETE A REQUESTED ACTION
+
+Hi tim,
+
+We would like to confirm a requested action related to the security of your account at example.duckdns.org
+
+Do not share this notification or the content of this notification with anyone.
+
+----------------------------------------
+
+If you made this request, click the validation link below.
+
+https://auth.example.duckdns.org/reset-password/step2?token=TOKEN123
+
+----------------------------------------
+
+If you did NOT initiate this request, your credentials may have been compromised and you should:
+
+ 1. Revoke the validation link using the provided links below
+ 2. Reset your password or other login credentials
+ 3. Contact an Administrator
+
+To revoke the code, click the link below:
+
+https://auth.example.duckdns.org/revoke/reset-password?token=TOKEN123
+
+----------------------------------------
+
+This email was intended for tim. This event was generated due to an action from 203.0.113.10. If you do not believe that your actions could have triggered this event or if you are concerned about your account's safety, please follow the explicit directions in this notification.
+
+Powered by Authelia https://www.authelia.com
+

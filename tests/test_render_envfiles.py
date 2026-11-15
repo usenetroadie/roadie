@@ -1,0 +1,94 @@
+import json
+import unittest
+from pathlib import Path
+
+from roadie.answers import Answers
+from roadie.render import build_render_config, load_versions
+from roadie.render.envfiles import GIB, cache_sizes, render_env
+
+
+def parse_env(text: str) -> dict:
+    return dict(line.split("=", 1) for line in text.splitlines() if line and not line.startswith("#"))
+
+EXAMPLE = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
+SECRETS = {"aiostreams_secret_key": "a" * 64, "aiostreams_admin_password": "AdminPw123456789",
+           "aiostreams_playback_password": "PlayPw123456789", "prowlarr_api_key": "b" * 32}
+
+
+def cfg(**changes):
+    data = json.loads(json.dumps(EXAMPLE))
+    data.update(changes)
+    return build_render_config(Answers.from_dict(data), load_versions(), mem_mb=4000, disk_gb=60)
+
+
+def files(c=None, secrets=SECRETS):
+    return {f.path: f for f in render_env(c or cfg(), secrets)}
+
+
+class EnvFilesTest(unittest.TestCase):
+    def test_aiostreams_env(self):
+        env = parse_env(files()["env/aiostreams.env"].content)
+        self.assertEqual(env["BASE_URL"], "https://aiostreams.example.duckdns.org")
+        self.assertEqual(env["SECRET_KEY"], "a" * 64)
+        self.assertEqual(env["CATALOG_CACHE_TTL"], "86400")
+        self.assertEqual(env["META_CACHE_TTL"], "86400")
+        self.assertEqual(env["BUILTIN_PROWLARR_URL"], "http://prowlarr:9696")
+
+    def test_least_privilege_users(self):
+        env = parse_env(files()["env/aiostreams.env"].content)
+        self.assertEqual(env["AIOSTREAMS_AUTH"], "admin:AdminPw123456789,playback:PlayPw123456789")
+        self.assertEqual(env["AIOSTREAMS_AUTH_PERMISSIONS"], "admin=admin,playback=service|proxy")
+
+    def test_mode_0600(self):
+        for f in files().values():
+            self.assertEqual(f.mode, 0o600, f.path)
+
+    def test_prowlarr_wired_into_aiostreams(self):
+        fs = files()
+        self.assertIn("env/prowlarr.env", fs)
+        self.assertEqual(parse_env(fs["env/aiostreams.env"].content)["BUILTIN_PROWLARR_URL"], "http://prowlarr:9696")
+
+    def test_prowlarr_env(self):
+        env = parse_env(files()["env/prowlarr.env"].content)
+        self.assertEqual(env["PROWLARR__AUTH__APIKEY"], "b" * 32)
+        self.assertEqual(env["PROWLARR__AUTH__METHOD"], "External")
+
+    def test_unsafe_value_rejected(self):
+        bad = dict(SECRETS, aiostreams_admin_password="pa$word#1")
+        with self.assertRaises(ValueError):
+            render_env(cfg(), bad)
+
+    def test_regex_allowed_on_private_instance(self):
+        self.assertEqual(parse_env(files()["env/aiostreams.env"].content)["REGEX_FILTER_ACCESS"], "all")
+
+    def test_usenet_providers_json(self):
+        providers = [
+            {"host": "news.example.com", "port": 563, "tls": True, "username": "u", "password": "p$w'#\"1",
+             "connections": 20, "role": "primary"},
+            {"host": "news2.example.com", "port": 563, "tls": True, "username": "u2", "password": "x",
+             "connections": 5, "role": "backup"},
+        ]
+        text = {f.path: f for f in render_env(cfg(), SECRETS, providers)}["env/aiostreams.env"].content
+        line = [l for l in text.splitlines() if l.startswith("USENET_PROVIDERS=")][0]
+        raw = line.split("=", 1)[1]
+        self.assertTrue(raw.startswith("'") and raw.endswith("'"))
+        inner = raw[1:-1]
+        for ch in ("$", "'", "#"):
+            self.assertNotIn(ch, inner)
+        parsed = json.loads(inner)
+        self.assertEqual(parsed[0]["password"], "p$w'#\"1")
+        self.assertEqual((parsed[0]["priority"], parsed[0]["maxConnections"], parsed[0].get("isBackup")), (1, 20, None))
+        self.assertEqual((parsed[1]["priority"], parsed[1]["isBackup"]), (2, True))
+
+    def test_small_server_uses_conservative_profile(self):
+        c = cfg()
+        c.mem_mb = 1900
+        env = parse_env(render_env(c, SECRETS, [])[0].content)
+        self.assertEqual(env["USENET_PERFORMANCE_PROFILE"], "conservative")
+        self.assertNotIn("USENET_PERFORMANCE_PROFILE", parse_env(files()["env/aiostreams.env"].content))
+
+    def test_cache_sizes_scale_with_disk(self):
+        self.assertEqual(cache_sizes(20), (4 * GIB, 1 * GIB))
+        self.assertEqual(cache_sizes(8), (2 * GIB, 1 * GIB))
+        self.assertEqual(cache_sizes(60), (12 * GIB, 2 * GIB))
+        self.assertEqual(cache_sizes(500), (20 * GIB, 5 * GIB))
