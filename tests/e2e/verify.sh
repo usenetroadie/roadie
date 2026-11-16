@@ -38,6 +38,20 @@ if docker ps --format '{{.Names}}' | grep -q aiometadata; then  # own AIOMetadat
   mcode() { curl -sk -o /dev/null -w '%{http_code}' --max-time 60 --resolve "$meta:443:127.0.0.1" "$@"; }
   check "AIOMetadata settings need login"     302 "$(mcode "https://$meta/configure")"
   check "AIOMetadata API needs login"         303 "$(mcode -X POST "https://$meta/api/config/save")"
+  # its catalogs reach the player through AIOStreams, with real titles from TMDB
+  titles="$(python3 - "$aio" "$path" <<'PY'
+import http.client, json, ssl, sys
+host, path = sys.argv[1:]
+def get(p):
+    c = http.client.HTTPSConnection("127.0.0.1", 443, context=ssl._create_unverified_context(), timeout=90)
+    c.request("GET", p, headers={"Host": host})
+    return json.loads(c.getresponse().read())
+cats = [c for c in get(path)["catalogs"] if "roadiemetadata" in c["id"] and c["type"] == "movie"]
+metas = get(path.replace("manifest.json", f"catalog/movie/{cats[0]['id']}.json")).get("metas", []) if cats else []
+print(min(len(metas), 1))
+PY
+)"
+  check "AIOMetadata catalog has titles"      1 "${titles:-0}"
 fi
 check "POST on addon path is not bypassed"  401 "$(code -H 'Accept: application/json' -X POST "https://$aio$path")"
 check "http redirects to https"             301 "$(code "http://$aio/")"

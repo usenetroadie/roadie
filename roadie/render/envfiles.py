@@ -93,6 +93,8 @@ def render_env(cfg: RenderConfig, secrets: dict, providers: list[dict] | None = 
         raw["USENET_PROVIDERS"] = _json_value(usenet_providers(providers))
     if cfg.mem_mb < 3800:
         aio["USENET_PERFORMANCE_PROFILE"] = "conservative"
+    if cfg.metadata:  # catalogs changed in the own AIOMetadata show up within 15 minutes, not 6 hours
+        aio["MANIFEST_CACHE_TTL"] = 900
     aio["BUILTIN_PROWLARR_URL"] = "http://prowlarr:9696"
     aio["BUILTIN_PROWLARR_API_KEY"] = secrets["prowlarr_api_key"]
     files = [RenderedFile("env/aiostreams.env", _env(aio, raw), 0o600),

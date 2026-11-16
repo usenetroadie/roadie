@@ -4,6 +4,7 @@
 # Debian containers) and for manual tests. Run as root from anywhere:
 #   bash tests/e2e/run.sh            DuckDNS address (example.duckdns.org)
 #   bash tests/e2e/run.sh domain     own domain (example.com)
+# With a TMDB API key in /root/tmdb-key (mode 600) the own AIOMetadata is set up and checked too.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 mode="${1:-duckdns}"
@@ -18,11 +19,14 @@ key=/root/e2e-key
 [ -f "$key" ] || ssh-keygen -q -t ed25519 -N "" -f "$key"
 
 domain="$(python3 - "$ip" "$mode" "$key.pub" <<'PY'
-import json, sys
+import json, os, sys
 ip, mode, key = sys.argv[1:]
 d = json.load(open("examples/answers.example.json"))
 d.update(test_mode=True, admin_user="roadieadmin", ssh_public_key=open(key).read().strip())
 d["indexers"][0]["url"] = f"http://{ip}:8099"
+tmdb = open("/root/tmdb-key").read().strip() if os.path.exists("/root/tmdb-key") else ""
+if tmdb:  # the key is never printed or passed on a command line
+    d["tmdb_api_key"] = tmdb
 if mode == "domain":
     d.pop("duckdns")
     d["domain"] = "example.com"

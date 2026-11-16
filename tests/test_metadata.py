@@ -64,6 +64,7 @@ class RenderTest(unittest.TestCase):
         self.assertIn("ENABLE_CACHE_WARMING=false", env.content)
         self.assertIn("HOST_NAME=https://metadata.example.duckdns.org", env.content)
         self.assertNotIn("env/aiometadata.env", {f.path for f in render_env(cfg(tmdb=None), SECRETS, [], None)})
+        self.assertIn("MANIFEST_CACHE_TTL=900", files["env/aiostreams.env"].content)
 
     def test_settings_page_behind_login(self):
         routers = dynamic_dict(cfg())["http"]["routers"]

@@ -106,6 +106,10 @@ If the connection drops or something fails, run `sudo roadie` again – it picks
     <td><b>One tap to sign in.</b> Settings pages sit behind your own login – with a passkey it is Face ID or a fingerprint. <a href="assets/login.gif">Watch it</a></td>
     <td><b>Ready-made AIOStreams.</b> Prowlarr, catalogs, your languages and a stream limit. Change anything on the website; roadie keeps your changes. <a href="assets/aiostreams.gif">Watch it</a></td>
   </tr>
+  <tr>
+    <td width="50%"><a href="assets/aiometadata.gif"><img src="assets/screenshot-aiometadata.png" alt="AIOMetadata catalog settings"></a></td>
+    <td><b>Your catalogs, your rules.</b> With a TMDB key you get your own AIOMetadata: trending, popular, top rated and more, in your language. Add, hide or reorder rows on its settings page whenever you like. <a href="assets/aiometadata.gif">Watch it</a></td>
+  </tr>
 </table>
 
 ## How it works

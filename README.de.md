@@ -108,6 +108,10 @@ dort weiter, wo es aufgehört hat. Der Assistent spricht Deutsch, wenn du es am 
     <td><b>Anmelden mit einem Tipp.</b> Die Einstellungsseiten liegen hinter deinem eigenen Login – mit Passkey per Face ID oder Fingerabdruck. <a href="assets/login.gif">Ansehen</a></td>
     <td><b>AIOStreams fertig eingerichtet.</b> Prowlarr, Kataloge, deine Sprachen und eine Stream-Grenze. Ändere auf der Website, was du willst; roadie behält deine Änderungen. <a href="assets/aiostreams.gif">Ansehen</a></td>
   </tr>
+  <tr>
+    <td width="50%"><a href="assets/aiometadata.gif"><img src="assets/screenshot-aiometadata.png" alt="AIOMetadata-Katalogeinstellungen"></a></td>
+    <td><b>Deine Kataloge, deine Regeln.</b> Mit einem TMDB-Schlüssel bekommst du dein eigenes AIOMetadata: Trends, Beliebt, Top bewertet und mehr, in deiner Sprache. Reihen hinzufügen, ausblenden oder umsortieren geht jederzeit auf seiner Einstellungsseite. <a href="assets/aiometadata.gif">Ansehen</a></td>
+  </tr>
 </table>
 
 ## So funktioniert es
