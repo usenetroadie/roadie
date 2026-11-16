@@ -3,7 +3,7 @@
   "components": {
     "traefik": {"image": "traefik", "tag": "v3.7.18", "tested": true},
     "authelia": {"image": "ghcr.io/authelia/authelia", "tag": "4.39.28", "tested": true},
-    "aiostreams": {"image": "ghcr.io/viren070/aiostreams", "tag": "v2.37.0", "tested": true},
+    "aiostreams": {"image": "ghcr.io/viren070/aiostreams", "tag": "v2.38.1", "tested": true},
     "prowlarr": {"image": "ghcr.io/hotio/prowlarr", "tag": "release-2.7.0.5723", "tested": true}
   }
 }
