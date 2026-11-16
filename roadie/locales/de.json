@@ -418,6 +418,7 @@
   "cli.done_open": "Fertig – noch offen ({count}):",
   "open.ssh_hardening": "Der Passwort-Login ist noch an. Zum Wiederholen gib ein: sudo roadie setup, wähle „Weitermachen / alles erneut prüfen“ und melde dich bei der SSH-Prüfung in einem zweiten Fenster mit deinem Schlüssel an.",
   "proof.note_ok": "{count} Streams gefunden",
+  "proof.note_ok_one": "1 Stream gefunden",
   "proof.note_none": "keine Streams gefunden",
   "access.password_masked": "••• (dein gewähltes Passwort)",
   "ssh.check.instructions_after": "Ich erkenne die Anmeldung von selbst und mache weiter. Mit Enter überspringst du die Prüfung; dann bleibt der Passwort-Login vorerst an.",

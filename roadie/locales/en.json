@@ -418,6 +418,7 @@
   "cli.done_open": "Done – still to do ({count}):",
   "open.ssh_hardening": "Password login is still on. To repeat the check run: sudo roadie setup, choose 'Continue / check everything again' and, at the SSH check, log in with your key in a second window.",
   "proof.note_ok": "{count} streams found",
+  "proof.note_ok_one": "1 stream found",
   "proof.note_none": "no streams found",
   "access.password_masked": "••• (the password you chose)",
   "ssh.check.instructions_after": "I will notice the login and continue on my own. Press Enter to skip the check; password login then stays on for now.",

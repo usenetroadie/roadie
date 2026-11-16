@@ -300,7 +300,7 @@ def proof(ctx: Context) -> Outcome:
     except Exception:  # proof is a bonus: no problem here may stop the setup
         count = catalogs = 0
     if count > 0 and catalogs > 0:
-        return Outcome("ok", note=t("proof.note_ok", count=count))
+        return Outcome("ok", note=t("proof.note_ok_one" if count == 1 else "proof.note_ok", count=count))
     if count > 0:  # streams work, but the app's start page stays empty
         return Outcome("warn", note=t("proof.note_no_catalogs", count=count), open_key="open.catalogs")
     return Outcome("warn", note=t("proof.note_none"), open_key="open.proof", hints=(t("proof.causes"),))

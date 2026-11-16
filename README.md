@@ -12,6 +12,8 @@ You answer simple questions (language, Usenet provider and indexer, keys, what y
 wizard checks every answer right away, sets everything up, and ends with the addon address you
 paste into Stremio or Nuvio.
 
+![The questions, in demo mode (nothing is changed)](assets/questions.gif)
+
 > **Status: early test version.** Fully tested in automated runs on fresh Ubuntu 24.04 machines,
 > but not yet by many people on real servers. Please report problems (see *Getting help*).
 
@@ -82,11 +84,24 @@ services and a few system packages from the official sources itself, in fixed, t
 If the connection drops or something fails, simply start `sudo roadie` again – it picks up
 where it left off.
 
+![A real setup from start to finish (sped up)](assets/setup.gif)
+
 **How updates are verified:** `sudo roadie update` first looks for a newer roadie
 release. It installs it only if the checksum matches *and* the release carries a valid signature
 from the project's release key (OpenSSH `ssh-keygen -Y verify`; the public key is built into
 roadie). The new version must start before it replaces the old one; the old one stays in
 `/opt/roadie/app.prev`. If anything fails, nothing changes. To go back by hand: `sudo rm -rf /opt/roadie/app && sudo mv /opt/roadie/app.prev /opt/roadie/app`.
+
+## After the setup
+
+The settings pages sit behind your own login. With a passkey it is one tap (Face ID, fingerprint):
+
+![Signing in with a passkey](assets/login.gif)
+
+Your AIOStreams configuration is ready to use – Prowlarr, catalogs, your languages and a stream
+limit. Change anything you like on the website; roadie keeps your changes:
+
+![The AIOStreams configuration roadie created](assets/aiostreams.gif)
 
 ## Everyday commands
 

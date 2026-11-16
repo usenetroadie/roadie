@@ -13,6 +13,8 @@ Du beantwortest einfache Fragen (Sprache, Usenet-Provider und Indexer, Schlüsse
 schauen willst). Der Assistent prüft jede Antwort sofort, richtet alles ein und gibt dir am Ende die
 Addon-Adresse für Stremio oder Nuvio.
 
+![Die Fragen im Demo-Modus (es wird nichts verändert)](assets/questions.gif)
+
 > **Stand: frühe Testversion.** In automatischen Durchläufen auf frischen Ubuntu-24.04-Systemen
 > vollständig getestet, aber noch nicht von vielen Leuten auf echten Servern. Bitte Probleme melden
 > (siehe *Hilfe*).
@@ -86,11 +88,25 @@ Systempakete installiert es selbst aus den offiziellen Quellen, in festen, getes
 Bricht die Verbindung ab oder geht etwas schief, starte einfach erneut `sudo roadie` – es
 macht dort weiter, wo es aufgehört hat.
 
+![Eine echte Einrichtung von Anfang bis Ende (im Zeitraffer)](assets/setup.gif)
+
 **So werden Updates geprüft:** `sudo roadie update` sucht zuerst nach einer neueren
 roadie-Version. Sie wird nur installiert, wenn die Prüfsumme stimmt *und* das Release eine
 gültige Signatur des Projekt-Schlüssels trägt (OpenSSH `ssh-keygen -Y verify`; der öffentliche
 Schlüssel ist in roadie eingebaut). Die neue Version muss erst starten, bevor sie die alte
 ersetzt; die alte bleibt in `/opt/roadie/app.prev`. Geht etwas schief, ändert sich nichts. Von Hand zurück: `sudo rm -rf /opt/roadie/app && sudo mv /opt/roadie/app.prev /opt/roadie/app`.
+
+## Nach der Einrichtung
+
+Die Einstellungsseiten liegen hinter deinem eigenen Login. Mit Passkey ist das ein Tipp (Face ID,
+Fingerabdruck):
+
+![Anmelden mit Passkey](assets/login.gif)
+
+Deine AIOStreams-Konfiguration ist fertig – Prowlarr, Kataloge, deine Sprachen und eine
+Stream-Grenze. Ändere auf der Website, was du willst; roadie behält deine Änderungen:
+
+![Die AIOStreams-Konfiguration, die roadie angelegt hat](assets/aiostreams.gif)
 
 ## Befehle im Alltag
 

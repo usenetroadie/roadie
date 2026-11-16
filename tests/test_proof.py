@@ -64,6 +64,10 @@ class ProofTest(unittest.TestCase):
         self.assertEqual(self.run_proof(), "")  # the result goes into the step line
         self.assertEqual((self.outcome.status, self.outcome.note), ("ok", i18n.t("proof.note_ok", count=51)))
         self.assertEqual(self.outcome.note, "51 streams found")
+        FakeClient.count = 1
+        self.run_proof()
+        self.assertEqual(self.outcome.note, "1 stream found")
+        FakeClient.count = 51
         FakeClient.count = 0
         self.run_proof()
         self.assertEqual((self.outcome.status, self.outcome.note), ("warn", i18n.t("proof.note_none")))
