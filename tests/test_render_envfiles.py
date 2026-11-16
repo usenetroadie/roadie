@@ -92,3 +92,9 @@ class EnvFilesTest(unittest.TestCase):
         self.assertEqual(cache_sizes(8), (2 * GIB, 1 * GIB))
         self.assertEqual(cache_sizes(60), (12 * GIB, 2 * GIB))
         self.assertEqual(cache_sizes(500), (20 * GIB, 5 * GIB))
+
+
+class HeaderOverrideTest(unittest.TestCase):
+    def test_indexers_and_nzb_downloads_use_browser_headers(self):
+        text = files()["env/aiostreams.env"].content
+        self.assertIn("REQUEST_HEADER_OVERRIDES='[nzb_grabs]:{chrome},[newznab]:{chrome}'\n", text)

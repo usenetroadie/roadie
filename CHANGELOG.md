@@ -10,6 +10,7 @@ All notable changes. Versions follow [semantic versioning](https://semver.org).
   in your language, settings page behind your login.
 - **Your own domain** as an alternative to DuckDNS. roadie shows which DNS entries to create and
   checks them – also behind NAT (Oracle Cloud).
+- NZB downloads and indexer searches identify as a normal browser (`REQUEST_HEADER_OVERRIDES`).
 - End-to-end tests on every supported system and architecture, with DuckDNS and with an own domain.
 - Docs: firewall of the server provider, own domain, changelog.
 

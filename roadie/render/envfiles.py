@@ -7,6 +7,9 @@ import re
 from roadie.render import RenderConfig, RenderedFile
 
 GIB = 1024 ** 3
+# NZB downloads and indexer searches look like a normal browser, not like "AIOStreams/x.y"
+# (some indexers treat unknown clients worse). Single quotes: compose takes the value literally.
+REQUEST_HEADER_OVERRIDES = "'[nzb_grabs]:{chrome},[newznab]:{chrome}'"
 ADMIN, PLAYBACK = "admin", "playback"
 _SAFE = re.compile(r"^[A-Za-z0-9_.:/@=,|+-]*$")  # compose interpolates $ and treats # specially
 
@@ -88,7 +91,7 @@ def render_env(cfg: RenderConfig, secrets: dict, providers: list[dict] | None = 
         "BUILTIN_NZB_GRAB_DISK_CACHE_BYTES": nzb,
         "REGEX_FILTER_ACCESS": "all",  # private single-user instance behind the login
     }
-    raw = {}
+    raw = {"REQUEST_HEADER_OVERRIDES": REQUEST_HEADER_OVERRIDES}
     if providers:
         raw["USENET_PROVIDERS"] = _json_value(usenet_providers(providers))
     if cfg.mem_mb < 3800:
