@@ -43,6 +43,9 @@ class FakeChecks:
         self.calls.append(("domain", name))
         return OK
 
+    def optional_names(self, name):
+        return []
+
     def server_ip(self):
         return "203.0.113.10"
 

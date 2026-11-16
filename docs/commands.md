@@ -11,6 +11,7 @@
 | `sudo roadie access` | all addresses and logins you need again |
 | `sudo roadie code` | the login confirmation code (for passkey or code app setup) |
 | `sudo roadie people` | manage people (each gets their own addon address) |
+| `sudo roadie doctor` | test every Usenet provider and indexer on its own, plus the last 7 days in numbers |
 | `sudo roadie restart` | restart services (starts stopped ones; AIOStreams reads new indexers) |
 | `sudo roadie help` | help pages, including *Adjust it yourself* |
 | `sudo roadie backup` | encrypted backup now (also runs every Sunday night) |
@@ -30,6 +31,15 @@ code, status, *Restart services*, *Manage people*, *Change settings*, backup, up
 
 *Change settings* shows all your answers first and asks only the part you pick again, prefilled
 with the current values. The admin user stays; a new SSH key is added, old ones are kept.
+
+## Status page and weekly report
+
+`https://status.<your address>` shows in your browser – behind the same login – whether every
+service runs, known problems and what to do about them, the last backup, available updates and
+the last 7 days in numbers. The page is plain HTML, renewed every 5 minutes.
+
+Every Sunday morning roadie sends the week as a push message: how much was streamed, how many
+releases were not playable, whether your backup provider stepped in.
 
 ## Several people
 

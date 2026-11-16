@@ -1,0 +1,88 @@
+name: versions
+
+# Weekly: are there newer images than the pinned ones (roadie/data/versions.json)? If so, the
+# new tags go onto the branch "versions/update", the end-to-end tests run with them on every
+# supported system, and an issue reports the result. Nothing reaches main by itself: a
+# maintainer takes the versions over and releases them.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 4 * * 3"
+
+permissions:
+  contents: read
+
+concurrency: versions
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # pushes the branch versions/update
+    outputs:
+      changes: ${{ steps.check.outputs.changes }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Look for newer images
+        id: check
+        run: |
+          set -o pipefail
+          python3 .github/scripts/check_versions.py --write | tee changes.txt
+          { echo "changes<<EOF"; cat changes.txt; echo EOF; } >> "$GITHUB_OUTPUT"
+      - name: Unit tests with the new versions
+        if: steps.check.outputs.changes != ''
+        run: sudo apt-get install -y -q age && python3 -m unittest discover -s tests
+      - name: Push the branch versions/update
+        if: steps.check.outputs.changes != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -B versions/update
+          git commit -q -m "Newer component versions (untested proposal)" roadie/data/versions.json
+          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+              push -q --force origin versions/update
+
+  e2e:
+    needs: check
+    if: needs.check.outputs.changes != ''
+    uses: ./.github/workflows/e2e.yml
+    with:
+      ref: versions/update
+    secrets:
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+
+  report:
+    needs: [check, e2e]
+    if: always() && needs.check.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      CHANGES: ${{ needs.check.outputs.changes }}
+      E2E: ${{ needs.e2e.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: Newer component versions available
+    steps:
+      - name: Open, update or close the issue
+        run: |
+          number="$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty')"
+          if [ -z "$CHANGES" ]; then
+            [ -z "$number" ] || gh issue close "$number" --comment "Everything pinned is current again."
+            exit 0
+          fi
+          if [ "$E2E" = success ]; then result="passed on every supported system"; else result="**did not pass** ($E2E)"; fi
+          {
+            echo "Newer images than the pinned ones:"
+            echo; echo '```'; echo "$CHANGES"; echo '```'; echo
+            echo "End-to-end tests with these versions: $result — [run]($RUN_URL)."
+            echo
+            echo "The change is on the branch \`versions/update\`. Until a release ships it, roadie keeps installing the pinned, tested versions."
+          } > body.md
+          if [ -n "$number" ]; then gh issue edit "$number" --body-file body.md
+          else gh issue create --title "$TITLE" --body-file body.md; fi

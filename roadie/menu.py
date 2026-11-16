@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from roadie import access, authcode, help as helppages, questions, system
-from roadie.aiostreams import people
+from roadie.aiostreams import metadata, people
 from roadie.aiostreams.api import AioClient, AioError
 from roadie.aiostreams.builder import build_user_config
 from roadie.answers import MAX_PEOPLE, Answers
@@ -56,6 +56,11 @@ def restart(env: Env, ui: Prompter) -> int:
         _sleep(5)
 
 
+def _doctor(env: Env, ui: Prompter) -> int:
+    from roadie.ops import doctor
+    return doctor.run(env, ui)
+
+
 def _backup(env: Env, ui: Prompter) -> int:
     from roadie.ops import backup
     return backup.run(env)
@@ -83,6 +88,7 @@ ITEMS: list[MenuItem] = [
     MenuItem("code", "menu.code", authcode.show),
     MenuItem("status", "menu.status", _status),
     MenuItem("restart", "menu.restart", restart),
+    MenuItem("doctor", "menu.doctor", _doctor),
     MenuItem("people", "menu.people", _people),
     MenuItem("change", "menu.change", None),  # cli injects the setup run
     MenuItem("backup", "menu.backup", _backup),
@@ -181,7 +187,9 @@ def _sync(env: Env, ui: Prompter, api_factory) -> bool:
     try:
         api = api_factory(env)
         playback = f"{PLAYBACK}:{env.secrets.get('aiostreams_playback_password')}"
-        base = build_user_config(Answers.restore(env.state, env.secrets), api.starter_template(), playback)
+        uuid = env.metadata_uuid  # the same catalogs as the setup gives them
+        base = build_user_config(Answers.restore(env.state, env.secrets), api.starter_template(), playback,
+                                 metadata.preset(uuid) if uuid else None)
         people.sync(api, env.secrets, env.answers, base)
     except (AioError, OSError, system.CommandFailed):
         ui.fail(t("people.sync_failed"))

@@ -52,7 +52,7 @@ roadie asks for these during the setup and checks each one right away:
 
 ### Using your own domain
 
-At your domain provider, create three DNS entries of type **A**, each pointing to your server's
+At your domain provider, create these DNS entries of type **A**, each pointing to your server's
 public IPv4 address (roadie shows it during the setup):
 
 | Name | Type | Value |
@@ -60,6 +60,7 @@ public IPv4 address (roadie shows it during the setup):
 | `aiostreams.example.com` | A | your server's address |
 | `auth.example.com` | A | your server's address |
 | `prowlarr.example.com` | A | your server's address |
+| `status.example.com` | A | your server's address (status page; the setup works without it) |
 | `metadata.example.com` | A | your server's address (only used with a TMDB key) |
 
 Or a single wildcard entry `*.example.com`. You can also use a subdomain such as

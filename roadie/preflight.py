@@ -12,7 +12,10 @@ from roadie.paths import Paths
 
 SYSTEMS = (("ubuntu", "24.04"), ("debian", "12"), ("debian", "13"))  # each one tested end to end
 ARCHES = ("x86_64", "aarch64")  # every pinned image is built for amd64 and arm64
-REQUIRED_HOSTS = ("github.com", "ghcr.io", "registry-1.docker.io", "www.duckdns.org", "ntfy.sh")
+REQUIRED_HOSTS = ("github.com", "ghcr.io", "registry-1.docker.io")
+# only a warning: not everyone uses them (own domain, own ntfy server), and their own questions
+# check them again
+OPTIONAL_HOSTS = ("www.duckdns.org", "ntfy.sh")
 MIN_RAM_MB, RECOMMENDED_RAM_MB, MIN_DISK_GB = 1800, 3800, 20
 
 
@@ -96,7 +99,7 @@ def gather_facts(paths: Paths = Paths()) -> Facts:
         ports_in_use=parse_listen_ports(_cmd(["ss", "-Htln"])) & {80, 443},
         docker_present=shutil.which("docker") is not None,
         clock_synced={"yes": True, "no": False}.get(synced),
-        reachable={h: _reachable(h) for h in REQUIRED_HOSTS},
+        reachable={h: _reachable(h) for h in REQUIRED_HOSTS + OPTIONAL_HOSTS},
     )
 
 
@@ -122,7 +125,11 @@ def evaluate(f: Facts, own_install: bool = False, min_disk_gb: float = MIN_DISK_
         add(not f.docker_present, "preflight.docker")
     add(f.clock_synced is not False, "preflight.clock", "warn")
     down = sorted(h for h, ok in f.reachable.items() if not ok)
-    add(not down, "preflight.unreachable", hosts=", ".join(down))
+    needed = [h for h in down if h not in OPTIONAL_HOSTS]
+    optional = [h for h in down if h in OPTIONAL_HOSTS]
+    add(not needed, "preflight.unreachable", hosts=", ".join(needed))
+    if optional:
+        add(False, "preflight.unreachable_optional", "warn", hosts=", ".join(optional))
     return out
 
 

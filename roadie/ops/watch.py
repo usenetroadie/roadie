@@ -13,7 +13,7 @@ from pathlib import Path
 from roadie import notify, system
 from roadie.checks.http import HttpError, http_get
 from roadie.i18n import t
-from roadie.ops import selfupdate
+from roadie.ops import selfupdate, statuspage
 from roadie.ops.passkey import fix_discoverable
 from roadie.ops.common import APP_SERVICES, BACKUP_MARKER, Env, disk_used_percent, mem_available_mb
 from roadie.ops.watchlogic import Message, Problem, decide, new_login_ips, parse_accepted_logins
@@ -30,7 +30,7 @@ def container_problems(services: list[dict], expected: list[str]) -> list[Proble
         seen.add(name)
         if s.get("State") != "running":
             out.append(Problem(f"container:{name}", "watch.container_down", {"name": name}))
-        elif s.get("Health") not in ("healthy", "", None):
+        elif s.get("Health") not in ("healthy", "starting", "", None):  # starting: just (re)started
             out.append(Problem(f"container:{name}", "watch.container_unhealthy", {"name": name}))
     for name in expected:
         if name not in seen:
@@ -97,9 +97,8 @@ def backup_running(env: Env, now: float) -> bool:
 
 
 def collect_problems(env: Env, now: float | None = None) -> list[Problem]:
-    expected = ["traefik", "authelia", "aiostreams", "prowlarr"]
-    if env.secrets.get("aiometadata_uuid"):
-        expected += ["aiometadata", "aiometadata-redis"]
+    # what compose.yaml lists; a stack written by an older roadie simply has fewer services
+    expected = env.stack_services() or ["traefik", "authelia", "aiostreams", "prowlarr"]
     problems = container_problems(env.services(), expected)
     if backup_running(env, time.time() if now is None else now):  # the backup stopped them on purpose
         problems = [p for p in problems if p.id.split(":", 1)[1] not in APP_SERVICES]
@@ -185,6 +184,8 @@ def run(env: Env, dry: bool = False) -> int:
             print(f"problem: {t(p.key, **p.params)}")
         return 0
     env.save_json("watch.json", saved)
+    if "status" in env.stack_services():
+        statuspage.write(env, now)
     ping_url = env.secrets.get("answer.notify.healthchecks_url")  # the state never holds it
     if ping_url and not problems:
         notify.ping(ping_url)

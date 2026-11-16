@@ -32,6 +32,11 @@ class LiveChecks:
     def domain(self, name):
         return domain_check.check_domain(name)
 
+    def optional_names(self, name):
+        """Names of pages only the owner opens that do not point here yet."""
+        return [n for n in domain_check.names(name, domain_check.OPTIONAL_HOSTS)
+                if not domain_check.check_domain(name, hosts=(n.split(".")[0],)).ok]
+
     def server_ip(self):
         return domain_check.public_ipv4()
 
@@ -81,7 +86,7 @@ def _checked(ui: Prompter, ask, check):
         values = ask()
         result = check(*values)
         if result.ok:
-            ui.ok(t(result.key, **result.params))
+            (ui.warn if getattr(result, "warn", False) else ui.ok)(t(result.key, **result.params))
             return values
         ui.fail(t(result.key, **result.params))
 
@@ -166,12 +171,15 @@ def ask_domain(ui: Prompter, data: dict, checks) -> None:
 
 def ask_own_domain(ui: Prompter, data: dict, checks, old: str | None) -> None:
     ui.info(t("q.domain.own_help", ip=checks.server_ip() or "?"))
-    for name in domain_check.names(t("q.domain.own_placeholder"), domain_check.HOSTS + ("metadata",)):
+    for name in domain_check.names(t("q.domain.own_placeholder"), domain_check.HOSTS + domain_check.OPTIONAL_HOSTS):
         ui.hint(f"  {name}")
     ui.info(t("q.domain.own_wildcard"))
     (name,) = _checked(ui, lambda: (normalise_domain(ui.ask(t("q.domain.own_name"), default=old,
                                                              validate=_validator(normalise_domain))),),
                        checks.domain)
+    missing = checks.optional_names(name)
+    if missing:  # the setup works without them
+        ui.hint(t("q.domain.optional_missing", names=", ".join(missing)))
     if old != name and (old or data.get("duckdns")) and data.get(PREFILL):
         ui.warn(t("q.domain.change_warning"))
     data.pop("duckdns", None)

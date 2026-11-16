@@ -49,11 +49,13 @@ def dynamic_dict(cfg: RenderConfig) -> dict:
         "aiostreams": _router(cfg, "aiostreams", "aiostreams"),
         "authelia": _router(cfg, "auth", "authelia", auth=False),
         "prowlarr": _router(cfg, "prowlarr", "prowlarr"),
+        "status": _router(cfg, "status", "status"),
     }
     services = {
         "aiostreams": {"loadBalancer": {"servers": [{"url": "http://aiostreams:3000"}]}},
         "authelia": {"loadBalancer": {"servers": [{"url": "http://authelia:9091"}]}},
         "prowlarr": {"loadBalancer": {"servers": [{"url": "http://prowlarr:9696"}]}},
+        "status": {"loadBalancer": {"servers": [{"url": "http://status:8080"}]}},
     }
     if cfg.metadata:  # AIOMetadata's settings page; players never need it (posters come from TMDB)
         routers["metadata"] = _router(cfg, "metadata", "metadata")

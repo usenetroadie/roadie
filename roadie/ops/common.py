@@ -1,6 +1,7 @@
 """Shared helpers for the maintenance commands (watch, backup, status, diagnose, update)."""
 
 import json
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,27 @@ class Env:
     @property
     def var_dir(self) -> Path:
         return self.paths.root / "var/lib/roadie"
+
+    def stack_services(self) -> list[str]:
+        """The services of the stack as it was last written (compose.yaml)."""
+        try:
+            text = (self.paths.stack_dir / "compose.yaml").read_text()
+        except OSError:
+            return []
+        section = text.split("\nservices:", 1)[-1].split("\nnetworks:", 1)[0]
+        return re.findall(r"^  ([a-z0-9_-]+):\s*$", section, re.M)
+
+    @property
+    def metadata_active(self) -> bool:
+        """Own AIOMetadata is part of the stack right now. What was set up at some earlier
+        time does not count: it is taken down again when the TMDB key goes or a restore lands
+        on a smaller server."""
+        return "aiometadata" in self.stack_services()
+
+    @property
+    def metadata_uuid(self) -> str | None:
+        """The configuration id of the own AIOMetadata, None when it does not run here."""
+        return self.secrets.get("aiometadata_uuid") if self.metadata_active else None
 
     def load_json(self, name: str) -> dict:
         path = self.var_dir / name

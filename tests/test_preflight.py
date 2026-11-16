@@ -34,6 +34,14 @@ class PreflightTest(unittest.TestCase):
         findings = P.evaluate(FRESH)
         self.assertFalse(P.has_errors(findings), findings)
 
+    def test_duckdns_or_ntfy_down_only_warns(self):
+        """Their outage must not stop someone with an own domain or an own ntfy server."""
+        down = facts(reachable={"github.com": True, "www.duckdns.org": False, "ntfy.sh": False})
+        findings = P.evaluate(down)
+        self.assertFalse(P.has_errors(findings))
+        self.assertIn("preflight.unreachable_optional", keys(findings, "warn"))
+        self.assertIn("preflight.unreachable", keys(P.evaluate(facts(reachable={"ghcr.io": False})), "error"))
+
     def test_supported_systems(self):
         for os_id, version in (("ubuntu", "24.04"), ("debian", "12"), ("debian", "13")):
             self.assertNotIn("preflight.os", keys(P.evaluate(facts(os_id=os_id, os_version=version)), "error"))

@@ -57,6 +57,8 @@ class CliTest(unittest.TestCase):
             self.assertIn(busy, out)
             code, out = self.run_cli("--root", str(self.root), "status")  # read-only: never blocked
             self.assertNotIn(busy, out)
+            for command in ("restart", "people"):  # would start what a running backup stopped
+                self.assertIn(command, cli.LOCKED)
         code, out = self.run_cli("--root", str(self.root), "setup", "--answers", self.answers_file())
         self.assertNotIn(busy, out)
 

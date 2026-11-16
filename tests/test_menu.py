@@ -205,6 +205,24 @@ class PeopleMenuTest(MenuBase):
         self.assertEqual(api.users[uuid]["parentConfig"]["uuid"], "UUID-MAIN")
         self.assertIn(f"/stremio/{uuid}/ENC-{uuid}/manifest.json", self.out.getvalue())
 
+    def test_people_keep_the_own_aiometadata(self):
+        """The people menu builds the same config as the setup: with the own AIOMetadata
+        while it is part of the stack, and without it once it was taken down."""
+        SecretStore(self.paths.secrets_file).set("aiometadata_uuid", "META-UUID")
+        self.env = Env(self.paths, State(self.paths.state_file), SecretStore(self.paths.secrets_file))
+        seen, api = [], FakeApi()
+
+        def build(answers, template, playback, metadata_preset=None):
+            seen.append(metadata_preset)
+            return {"presets": []}
+        with mock.patch.object(menu, "build_user_config", side_effect=build):
+            menu.people_menu(self.env, self.ui("1\nAnna\n1\n"), lambda env: api)
+            self.paths.stack_dir.mkdir(parents=True)
+            (self.paths.stack_dir / "compose.yaml").write_text("services:\n  aiometadata:\n    image: x\n")
+            menu.people_menu(self.env, self.ui("1\nBen\n1\n"), lambda env: api)
+        self.assertIsNone(seen[0])
+        self.assertIn("/stremio/META-UUID/manifest.json", seen[1]["options"]["manifestUrl"])
+
     def test_people_add_own_asks_content(self):
         api = FakeApi()
         with mock.patch.object(menu.questions, "ask_content",

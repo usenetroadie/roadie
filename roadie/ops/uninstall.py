@@ -15,7 +15,7 @@ from roadie.ops.common import Env
 from roadie.phases.ops import QUIET_MOTD
 from roadie.ui import Prompter
 
-UNITS = ["roadie-watch.timer", "roadie-watch.service", "roadie-backup.timer",
+UNITS = ["roadie-watch.timer", "roadie-watch.service", "roadie-report.timer", "roadie-report.service", "roadie-backup.timer",
          "roadie-backup.service", "roadie-duckdns.timer", "roadie-duckdns.service"]
 FAIL2BAN_FILES = ["etc/fail2ban/jail.d/roadie.conf", "etc/fail2ban/filter.d/roadie-sshd-invalid.conf",
                   "etc/fail2ban/filter.d/roadie-traefik-scanner.conf"]

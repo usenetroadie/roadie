@@ -16,6 +16,8 @@ from roadie.aiostreams.builder import build_user_config
 from roadie.checks import domain as domain_check, duckdns as duckdns_check
 from roadie.engine import Context, Outcome, Step, StepFailed
 from roadie.i18n import t
+from roadie.ops import statuspage
+from roadie.ops.common import Env
 from roadie.paths import atomic_write
 from roadie.render import authelia, compose, envfiles, traefik
 from roadie.render.envfiles import PLAYBACK
@@ -50,7 +52,7 @@ def _remove_duckdns_timer() -> None:
     system.run(["systemctl", "daemon-reload"], check=False)
 
 
-def duckdns(ctx: Context) -> None:
+def duckdns(ctx: Context) -> Outcome | None:
     """The web address: DuckDNS is updated (and kept up to date by a timer); an own domain
     only has to point here already."""
     if _test_mode(ctx):
@@ -58,11 +60,19 @@ def duckdns(ctx: Context) -> None:
     own = ctx.answers.data.get("domain")
     if own:
         _remove_duckdns_timer()
-        hosts = domain_check.HOSTS + (("metadata",) if ctx.extra["render"].metadata else ())
-        result = domain_check.check_domain(own, hosts=hosts)
+        result = domain_check.check_domain(own)
         if not result.ok:
             raise StepFailed("duckdns", t(result.key, **result.params))
-        return
+        if result.warn:
+            return Outcome("warn", note=t(result.key, **result.params), open_key="open.domain_unverified")
+        # pages only the owner opens: the setup works without them (AIOStreams reaches
+        # AIOMetadata inside the server)
+        extra = ("status",) + (("metadata",) if ctx.extra["render"].metadata else ())
+        missing = [n for n in domain_check.names(own, extra) if not domain_check.check_domain(own, hosts=(n.split(".")[0],)).ok]
+        if missing:
+            return Outcome("warn", note=t("domain.optional_missing", names=", ".join(missing)),
+                           open_key="open.optional_dns")
+        return None
     d = ctx.answers.data["duckdns"]
     result = duckdns_check.check_duckdns(d["subdomain"], d["token"])
     if not result.ok:
@@ -173,9 +183,12 @@ def stack_files(ctx: Context) -> None:
     stack = ctx.paths.stack_dir
     for sub in ("data/traefik", "data/authelia", "data/aiostreams", "data/prowlarr"):
         (stack / sub).mkdir(parents=True, exist_ok=True)
+    statuspage.write(Env(ctx.paths, ctx.state, ctx.secrets))  # its web server wants a file to serve
     stack.chmod(0o700)  # containers write files 0644 (one-time codes, databases): root only
     system.run(["chown", "-R", "1000:1000", str(stack / "data/prowlarr")])
     system.write_files(files, stack)
+    if not cfg.metadata:  # taken down again: its env file holds the TMDB key. The data folder
+        (stack / "env/aiometadata.env").unlink(missing_ok=True)  # stays, in case it comes back
     ctx.extra["config_hashes"] = config_hashes(files)
 
 
@@ -361,9 +374,9 @@ def summary(ctx: Context) -> None:
     """Passwords only on screen when someone asked for them: in an interactive setup or
     "change settings", never in updates or answers-file runs (they may be logged)."""
     from roadie import access, help as helppages
-    from roadie.ops.common import Env
     env = Env(ctx.paths, ctx.state, ctx.secrets)
     access.write_url_files(env)
+    statuspage.write(env)
     if not ctx.extra.get("interactive") or ctx.extra.get("update"):
         ctx.ui.info(t("summary.access_later"))
         return

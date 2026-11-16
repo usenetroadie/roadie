@@ -45,7 +45,7 @@ class WhenTest(unittest.TestCase):
 class RenderTest(unittest.TestCase):
     def test_services_only_with_metadata(self):
         services = compose_dict(cfg())["services"]
-        self.assertEqual(services["aiometadata"]["image"], "ghcr.io/cedya77/aiometadata:3.9.0")
+        self.assertTrue(services["aiometadata"]["image"].startswith("ghcr.io/cedya77/aiometadata:"))
         self.assertEqual(services["aiometadata"]["depends_on"], {"aiometadata-redis": {"condition": "service_healthy"}})
         self.assertIn("redis:8", services["aiometadata-redis"]["image"])
         self.assertNotIn("ports", services["aiometadata"])  # only Traefik publishes ports

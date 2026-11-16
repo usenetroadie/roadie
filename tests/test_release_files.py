@@ -20,11 +20,24 @@ class ReleaseFilesTest(unittest.TestCase):
     def test_actions_pinned_and_without_stored_token(self):
         for wf in WORKFLOWS.glob("*.yml"):
             text = wf.read_text()
-            uses = re.findall(r"uses: (\S+)", text)
+            uses = [u for u in re.findall(r"uses: (\S+)", text) if not u.startswith("./")]  # own workflows
             self.assertTrue(uses, wf.name)
             for action in uses:
                 self.assertRegex(action, r"@[0-9a-f]{40}$", f"{wf.name}: {action}")
             self.assertEqual(text.count("persist-credentials: false"), len(uses), wf.name)
+
+    def test_one_line_installer_trusts_the_release_key_only(self):
+        from roadie.ops import selfupdate
+        text = (ROOT / "get.sh").read_text()
+        self.assertIn(f'RELEASE_KEY="{selfupdate.ALLOWED_SIGNERS}"', text)
+        self.assertIn(f'REPO="{selfupdate.REPO}"', text)
+        self.assertIn("ssh-keygen -Y verify", text)
+        self.assertIn("sha256sum -c", text)
+        self.assertLess(text.index("ssh-keygen -Y verify"), text.index("install.sh"))  # checked before use
+        self.assertEqual(text.rstrip().splitlines()[-1], 'main "$@"')  # a cut-off download runs nothing
+        for readme in ("README.md", "README.de.md"):
+            self.assertIn(f"raw.githubusercontent.com/{selfupdate.REPO}/main/get.sh | sudo bash",
+                          (ROOT / readme).read_text())
 
     def test_release_settings_documented(self):
         note = (ROOT / ".github/RELEASING.md").read_text()

@@ -8,6 +8,7 @@ class CheckResult:
     ok: bool
     key: str  # i18n message key
     params: dict = field(default_factory=dict)  # never contains URLs or secrets
+    warn: bool = False  # passed, but not for certain: shown as a warning
 
 
 def network_failure(err) -> CheckResult:

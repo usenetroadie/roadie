@@ -2,6 +2,34 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.3.0 – 2026-11-16
+
+New:
+- **One-line install:** `curl -fsSL https://raw.githubusercontent.com/usenetroadie/roadie/main/get.sh | sudo bash`
+  downloads the newest release, checks checksum and signature, installs it and starts the wizard.
+- **`sudo roadie doctor`** tests every Usenet provider and every indexer on its own and adds the
+  last 7 days in numbers: streamed data, unplayable releases, whether the backup provider helped.
+- **Weekly report** as a push message on Sunday morning.
+- **Status page** `status.<your address>` behind your login: services, problems and their fix,
+  last backup, updates. Own domain: add a DNS entry `status` (the setup works without it).
+- Newer versions of the installed programs are found every week, tested end to end and proposed
+  in an issue; an update from the latest release is part of the end-to-end tests.
+
+Fixed:
+- "Manage people" replaced the catalogs of your own AIOMetadata with the simple TMDB addon for
+  every additional person, until the next `sudo roadie update`.
+- The watcher kept reporting "aiometadata is not running" after AIOMetadata was taken down again
+  (TMDB key removed, or a restore on a smaller server). "My access" no longer lists it then, and
+  its file with the TMDB key is removed.
+- Own domain: roadie asks the name servers of your domain directly, so new DNS entries count at
+  once instead of up to an hour later. A second service tells the public address behind NAT; if
+  none answers, roadie warns instead of blocking. A missing `metadata` entry is an open point,
+  no longer a failed setup.
+- An outage of DuckDNS or ntfy.sh no longer stops the setup.
+- `restart` and `people` wait for a running backup or update.
+- "My access" shows the addon password of your own AIOMetadata; the warning before an address
+  change mentions passkeys.
+
 ## 0.2.0 – 2026-11-16
 
 - **ARM64 servers**, for example the Oracle Cloud *Always Free* tier.

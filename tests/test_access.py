@@ -206,5 +206,21 @@ class SummaryTest(AccessBase):
             shutil.rmtree(self.paths.etc_dir)  # self.env() builds a fresh one
 
 
+
+class MetadataAccessTest(AccessBase):
+    def test_shown_only_while_it_runs_and_with_the_addon_password(self):
+        env = self.env()
+        env.secrets.set("aiometadata_uuid", "META-UUID")
+        env.secrets.set("aiometadata_config_password", "META-PW")
+        env.secrets.set("aiometadata_addon_password", "ADDON-PW")
+        flat = "\n".join(l for _, ls in sections(env) for l in ls)
+        self.assertNotIn("metadata.example.duckdns.org", flat)  # taken down: the id alone is no proof
+        env.paths.stack_dir.mkdir(parents=True)
+        (env.paths.stack_dir / "compose.yaml").write_text("services:\n  aiometadata:\n    image: x\n")
+        flat = "\n".join(l for _, ls in sections(env) for l in ls)
+        for text in ("https://metadata.example.duckdns.org/configure", "META-UUID", "META-PW", "ADDON-PW"):
+            self.assertIn(text, flat)
+
+
 if __name__ == "__main__":
     unittest.main()

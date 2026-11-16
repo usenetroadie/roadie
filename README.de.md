@@ -13,6 +13,7 @@
 <p align="center">
   <a href="https://github.com/usenetroadie/roadie/releases"><img src="https://img.shields.io/github/v/release/usenetroadie/roadie?color=3fb950" alt="Release"></a>
   <a href="https://github.com/usenetroadie/roadie/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/tests.yml?branch=main&label=tests" alt="Tests"></a>
+  <a href="https://github.com/usenetroadie/roadie/actions/workflows/e2e.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/e2e.yml?branch=main&label=end-to-end" alt="End-to-end tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT-Lizenz"></a>
   <img src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white" alt="Ubuntu 24.04">
   <img src="https://img.shields.io/badge/Debian-12%20%7C%2013-A81D33?logo=debian&logoColor=white" alt="Debian 12 und 13">
@@ -62,7 +63,10 @@ und Prowlarr kannst du jederzeit selbst öffnen und anpassen.
 - Firewall, fail2ban (auch für Docker-Ports), automatische Sicherheitsupdates
 
 **Wartung**
-- Push-Meldungen aufs Handy (ntfy), wenn etwas nicht stimmt
+- Push-Meldungen aufs Handy (ntfy), wenn etwas nicht stimmt, dazu ein kurzer Wochenbericht
+- Eine Status-Seite im Browser hinter deinem Login: läuft alles, letztes Backup, Updates
+- `sudo roadie doctor` testet jeden Provider und jeden Indexer einzeln und sagt in einfachen Worten,
+  was los ist – und ob dein Backup-Provider wirklich etwas bringt
 - Verschlüsselte wöchentliche Backups (age), Wiederherstellung auf einem neuen Server mit einem Befehl
 - `sudo roadie update` installiert nur getestete Versionen aus signierten Releases
 - Ein Menü für den Alltag: Zugänge, Login-Code, Neustart, Personen, Hilfe
@@ -84,6 +88,15 @@ Noch nie einen Server gemietet? [Getting started](docs/getting-started.md) (engl
 **Installation** – melde dich auf deinem Server an und führe aus:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/usenetroadie/roadie/main/get.sh | sudo bash
+```
+
+Das lädt die neueste Version, prüft Prüfsumme und Signatur, installiert sie und startet den Assistenten.
+
+<details>
+<summary>Lieber Schritt für Schritt?</summary>
+
+```sh
 V=$(curl -fsSL https://api.github.com/repos/usenetroadie/roadie/releases/latest | grep -oP '"tag_name": "\K[^"]+')
 curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz
 curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz.sha256
@@ -91,6 +104,8 @@ sha256sum -c roadie-$V.tar.gz.sha256          # muss "OK" ausgeben
 tar xzf roadie-$V.tar.gz && cd roadie-$V
 sudo bash install.sh && sudo roadie
 ```
+
+</details>
 
 Bricht die Verbindung ab oder geht etwas schief, starte einfach erneut `sudo roadie` – es macht
 dort weiter, wo es aufgehört hat. Der Assistent spricht Deutsch, wenn du es am Anfang auswählst.

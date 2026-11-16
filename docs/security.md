@@ -17,7 +17,7 @@ socket in any container.
 
 ## Logins
 
-- **Settings pages** (AIOStreams, Prowlarr) sit behind Authelia: password plus a passkey or a code
+- **Settings pages** (AIOStreams, Prowlarr) and the status page sit behind Authelia: password plus a passkey or a code
   app. Only the few paths your player needs (addon, streams, playback) are open – and only for
   `GET`/`HEAD`/`OPTIONS`. Configuration pages and the API always need the login.
 - **SSH:** roadie creates an admin user with your SSH key. Password and root login are switched off

@@ -53,6 +53,10 @@ PY
 )"
   check "AIOMetadata catalog has titles"      1 "${titles:-0}"
 fi
+st="status.$domain"
+check "status page needs login"             302 "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 60 --resolve "$st:443:127.0.0.1" "https://$st/")"
+check "status page is written"              1 "$(grep -c '<title>roadie</title>' /opt/roadie/stack/data/status/index.html 2>/dev/null)"
+check "status page is served inside"        1 "$(docker exec roadie-status-1 wget -q -O - http://127.0.0.1:8080/ 2>/dev/null | grep -c '<title>roadie</title>')"
 check "POST on addon path is not bypassed"  401 "$(code -H 'Accept: application/json' -X POST "https://$aio$path")"
 check "http redirects to https"             301 "$(code "http://$aio/")"
 check "unknown host is not served"          404 "$(code --resolve "other.$domain:443:127.0.0.1" "https://other.$domain/")"

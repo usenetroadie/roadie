@@ -80,6 +80,26 @@ class BackupQuietTest(unittest.TestCase):
             env.save_json(BACKUP_MARKER, {"since": now - watch.BACKUP_MAX_SECONDS - 1})  # crash leftover
             self.assertIn("container:aiostreams", self.problems(env, now))
 
+    def test_aiometadata_expected_only_while_it_is_in_the_stack(self):
+        """Its id stays in the secrets after it was taken down (TMDB key removed, smaller server)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            env = make_env(tmp)
+            env.secrets.set("aiometadata_uuid", "META-UUID")
+            now = time.time()
+            self.assertNotIn("container:aiometadata", self.problems(env, now))
+            env.paths.stack_dir.mkdir(parents=True)
+            (env.paths.stack_dir / "compose.yaml").write_text("name: roadie\nservices:\n  aiostreams:\n    image: x\n  aiometadata:\n    image: y\n"
+                                                             "  aiometadata-redis:\n    image: z\nnetworks:\n  roadie:\n    name: roadie\n")
+            found = self.problems(env, now)
+            self.assertTrue({"container:aiometadata", "container:aiometadata-redis"} <= found)
+            self.assertNotIn("container:roadie", found)  # the network is no service
+
+    def test_a_service_that_is_just_starting_is_no_problem(self):
+        services = [{"Service": "aiostreams", "State": "running", "Health": "starting"},
+                    {"Service": "prowlarr", "State": "running", "Health": "unhealthy"}]
+        found = [p.id for p in watch.container_problems(services, [])]
+        self.assertEqual(found, ["container:prowlarr"])
+
     def test_backup_sets_marker_while_running_and_removes_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = make_env(tmp)

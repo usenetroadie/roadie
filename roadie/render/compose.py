@@ -51,6 +51,12 @@ def compose_dict(cfg: RenderConfig) -> dict:
             env_file=["env/prowlarr.env"], volumes=["./data/prowlarr:/config"],
         ),
     }
+    # the status page: one static file the watcher writes, served by busybox' tiny web server
+    services["status"] = _service(
+        cfg, "status", "32m", _health(["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]),
+        user="65534:65534", read_only=True, volumes=["./data/status:/www:ro"],
+        command=["httpd", "-f", "-p", "8080", "-h", "/www"],
+    )
     if cfg.metadata:  # own AIOMetadata: catalogs and details from TMDB, Redis (>= 8) as its cache
         services["aiometadata"] = _service(
             cfg, "aiometadata", "768m",

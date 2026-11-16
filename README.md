@@ -13,6 +13,7 @@
 <p align="center">
   <a href="https://github.com/usenetroadie/roadie/releases"><img src="https://img.shields.io/github/v/release/usenetroadie/roadie?color=3fb950" alt="Release"></a>
   <a href="https://github.com/usenetroadie/roadie/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/tests.yml?branch=main&label=tests" alt="Tests"></a>
+  <a href="https://github.com/usenetroadie/roadie/actions/workflows/e2e.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/e2e.yml?branch=main&label=end-to-end" alt="End-to-end tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white" alt="Ubuntu 24.04">
   <img src="https://img.shields.io/badge/Debian-12%20%7C%2013-A81D33?logo=debian&logoColor=white" alt="Debian 12 and 13">
@@ -61,7 +62,10 @@ AIOStreams and Prowlarr stay yours to open and change.
 - Firewall, fail2ban (also for Docker ports), automatic security updates
 
 **Maintenance**
-- Push messages to your phone (ntfy) when something breaks
+- Push messages to your phone (ntfy) when something breaks, and a short weekly report
+- A status page in your browser, behind your login: is everything running, last backup, updates
+- `sudo roadie doctor` tests every provider and indexer on its own and tells you in plain words what
+  is wrong – and whether your backup provider actually helps
 - Encrypted weekly backups (age) with a one-command restore on a new server
 - `sudo roadie update` installs only tested versions, from signed releases
 - A menu for everyday things: access details, login code, restart, people, help
@@ -83,6 +87,15 @@ Never rented a server? [Getting started](docs/getting-started.md) walks you thro
 **Install** – log in to your server and run:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/usenetroadie/roadie/main/get.sh | sudo bash
+```
+
+It downloads the newest release, checks its checksum and signature, installs it and starts the wizard.
+
+<details>
+<summary>Rather do it step by step?</summary>
+
+```sh
 V=$(curl -fsSL https://api.github.com/repos/usenetroadie/roadie/releases/latest | grep -oP '"tag_name": "\K[^"]+')
 curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz
 curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz.sha256
@@ -90,6 +103,8 @@ sha256sum -c roadie-$V.tar.gz.sha256          # must print "OK"
 tar xzf roadie-$V.tar.gz && cd roadie-$V
 sudo bash install.sh && sudo roadie
 ```
+
+</details>
 
 If the connection drops or something fails, run `sudo roadie` again – it picks up where it left off.
 

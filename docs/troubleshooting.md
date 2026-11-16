@@ -3,6 +3,8 @@
 [← back to the README](../README.md)
 
 First run `sudo roadie status` (or *Check status* in the menu). It shows which part has a problem.
+For streaming problems run `sudo roadie doctor`: it tests every Usenet provider and every indexer
+on its own and says which one fails and why.
 
 ## The setup stopped
 
@@ -12,7 +14,8 @@ message names the step; most problems are a wrong key or a service that was brie
 ## The address does not work
 
 - **Own domain:** roadie names the DNS entry that is missing or points elsewhere. Fix it at your
-  domain provider, wait a few minutes, run `sudo roadie` again.
+  domain provider and run `sudo roadie` again. roadie asks your domain's own name servers, so a new
+  entry counts as soon as your provider has published it.
 - **No HTTPS certificate:** ports 80 and 443 must be open in your provider's firewall – see
   [Getting started](getting-started.md#open-the-ports-in-your-providers-firewall).
 - **DuckDNS:** check name and token on duckdns.org. roadie keeps the address up to date every 5 minutes.

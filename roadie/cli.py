@@ -19,7 +19,7 @@ from roadie.ui import Prompter
 
 EXIT_OK, EXIT_FAILED, EXIT_INVALID, EXIT_INTERRUPTED = 0, 1, 2, 130
 # commands that change the server run one at a time; the weekly backup waits for a running one
-LOCKED = {None, "setup", "update", "backup", "restore", "uninstall"}
+LOCKED = {None, "setup", "update", "backup", "restore", "uninstall", "restart", "people"}
 BACKUP_LOCK_WAIT = 3600
 ALIASES = {"zugang": "access", "personen": "people", "hilfe": "help", "neustart": "restart",
            "deinstallieren": "uninstall"}
@@ -32,7 +32,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", default="/", help=argparse.SUPPRESS)
     p.add_argument("--skip-self-update", action="store_true", help=argparse.SUPPRESS)  # set after a self-update
     sub = p.add_subparsers(dest="command",
-                           metavar="{setup,access,code,people,help,demo,status,restart,backup,restore,update,diagnose,uninstall}")
+                           metavar="{setup,access,code,people,help,demo,status,doctor,restart,backup,restore,update,diagnose,uninstall}")
     s = sub.add_parser("setup", help=t("cli.cmd.setup"))
     s.add_argument("--answers", metavar="FILE", help=t("cli.opt.answers"))
     s.add_argument("--dry-run", action="store_true", help=t("cli.opt.dry_run"))
@@ -44,6 +44,7 @@ def _build_parser() -> argparse.ArgumentParser:
     st = sub.add_parser("status", help=t("cli.cmd.status"))
     st.add_argument("--motd", action="store_true", help=argparse.SUPPRESS)
     sub.add_parser("restart", aliases=["neustart"], help=t("cli.cmd.restart"))
+    sub.add_parser("doctor", help=t("cli.cmd.doctor"))
     sub.add_parser("diagnose", help=t("cli.cmd.diagnose"))
     sub.add_parser("update", help=t("cli.cmd.update"))
     b = sub.add_parser("backup", help=t("cli.cmd.backup"))
@@ -58,6 +59,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help=t("cli.opt.yes_delete"))
     w = sub.add_parser("watch")  # used by the systemd timer
     w.add_argument("--dry", action="store_true")
+    rp = sub.add_parser("report")  # used by the systemd timer
+    rp.add_argument("--dry", action="store_true")
     sub.add_parser("duckdns-update")  # used by the systemd timer
     return p
 
@@ -128,6 +131,8 @@ def _menu(args, paths: Paths, ui: Prompter, gather, lang_given: bool, make_steps
                                                                     make_steps, change=True)),
         "backup": lambda env, ui: _locked(paths, ui, lambda: backup.run(env)),
         "update": lambda env, ui: _locked(paths, ui, lambda: _update(env, paths, ui, gather, make_steps, args)),
+        "restart": lambda env, ui: _locked(paths, ui, lambda: menu.restart(env, ui)),
+        "people": lambda env, ui: _locked(paths, ui, lambda: menu.people_menu(env, ui, menu.default_api)),
     }
     return menu.run(env, ui, actions, reload=lambda: common.load_env(paths))
 
@@ -188,7 +193,7 @@ def _maintenance(args, paths: Paths, ui: Prompter, gather, make_steps) -> int:
 
 def _command(args, env, paths: Paths, ui: Prompter, gather, make_steps) -> int:
     from roadie import access, authcode, help as helppages, menu
-    from roadie.ops import backup, diagnose, status, watch
+    from roadie.ops import backup, diagnose, doctor, status, watch
     if args.command == "access":
         return access.show(env, ui)
     if args.command == "code":
@@ -203,6 +208,10 @@ def _command(args, env, paths: Paths, ui: Prompter, gather, make_steps) -> int:
         return status.run(env, motd=args.motd)
     if args.command == "diagnose":
         return diagnose.run(env)
+    if args.command == "doctor":
+        return doctor.run(env, ui)
+    if args.command == "report":
+        return doctor.report(env, dry=args.dry)
     if args.command == "watch":
         return watch.run(env, dry=args.dry)
     if args.command == "backup":
