@@ -1,182 +1,162 @@
-# roadie
+<p align="center">
+  <img src="assets/logo.svg" width="112" alt="roadie-Logo">
+</p>
 
-*Dein Streaming-Roadie: baut die Bühne auf und sorgt dafür, dass die Show läuft.*
+<h1 align="center">roadie</h1>
 
-[English](README.md) · **Deutsch**
+<p align="center">
+  <b>Tagelanges Basteln. Eine geführte Einrichtung.</b><br>
+  Ein Terminal-Assistent, der aus einem frischen Ubuntu-VPS deinen eigenen, abgesicherten
+  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a>- und Usenet-Streaming-Server macht.
+</p>
 
-Ein Einrichtungs-Assistent im Terminal, der aus einem **frischen Ubuntu-24.04-Server** einen
-sicheren, selbst betriebenen [AIOStreams](https://github.com/Viren070/AIOStreams)-Server für Stremio
-und Nuvio macht, der aus dem **Usenet** streamt – aus deinen Antworten, nicht aus einer Vorlage, die
-du von Hand anpassen musst.
+<p align="center">
+  <a href="https://github.com/usenetroadie/roadie/releases"><img src="https://img.shields.io/github/v/release/usenetroadie/roadie?color=3fb950" alt="Release"></a>
+  <a href="https://github.com/usenetroadie/roadie/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/tests.yml?branch=main&label=tests" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT-Lizenz"></a>
+  <img src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white" alt="Ubuntu 24.04">
+</p>
 
-Du beantwortest einfache Fragen (Sprache, Usenet-Provider und Indexer, Schlüssel, was du
-schauen willst). Der Assistent prüft jede Antwort sofort, richtet alles ein und gibt dir am Ende die
+<p align="center">
+  <a href="#schnellstart">Schnellstart</a> ·
+  <a href="#so-sieht-es-aus">Bilder</a> ·
+  <a href="#funktionen">Funktionen</a> ·
+  <a href="#anleitungen">Anleitungen</a> ·
+  <a href="https://github.com/usenetroadie/roadie/issues">Issues</a> ·
+  <a href="README.md">English</a>
+</p>
+
+Du beantwortest ein paar einfache Fragen – dein Usenet-Provider, dein Indexer, was du schauen
+willst. roadie prüft jede Antwort sofort, richtet alles ein und gibt dir am Ende die
 Addon-Adresse für Stremio oder Nuvio.
 
 ![Die Fragen im Demo-Modus (es wird nichts verändert)](assets/questions.gif)
 
-> **Stand: frühe Testversion.** In automatischen Durchläufen auf frischen Ubuntu-24.04-Systemen
-> vollständig getestet, aber noch nicht von vielen Leuten auf echten Servern. Bitte Probleme melden
-> (siehe *Hilfe*).
+<p align="center"><sub>Frühe Version · nur Usenet · braucht einen frischen VPS</sub></p>
 
-**Grenzen heute:** nur Ubuntu 24.04 auf x86_64 (noch kein ARM) · nur DuckDNS-Adresse (noch keine
-eigene Domain) · nur Usenet · ein Server pro Setup.
+## Warum es roadie gibt
 
-## Was du bekommst
+Ich betreibe genau dieses Setup auf meinem eigenen kleinen VPS. Bis es lief, hat es Tage gedauert:
+Reverse Proxy, ein echter Login vor jeder Einstellungsseite, Usenet-Provider auf verschiedenen
+Backbones, eine Firewall, die mich nicht aussperrt, Backups, die sich wirklich zurückspielen lassen.
+roadie ist alles, was ich dabei gelernt habe, in einer geführten Einrichtung – damit die Nächsten
+eine halbe Stunde brauchen statt eines Wochenendes. Und es macht dich nicht abhängig: AIOStreams
+und Prowlarr kannst du jederzeit selbst öffnen und anpassen.
 
-- **Abgesicherter Server:** Admin-Benutzer mit SSH-Schlüssel; Passwort- und Root-Login werden erst
-  abgeschaltet, wenn eine Anmeldung per Schlüssel bestätigt ist (du kannst dich nicht aussperren),
-  Firewall, Schutz gegen Login-Angriffe und Web-Scanner (fail2ban, auch für Docker-Ports),
-  automatische Sicherheitsupdates mit Neustart nachts und nur bei Bedarf.
-- **Eigene Adresse** über DuckDNS mit HTTPS-Zertifikat (Let's Encrypt).
-- **AIOStreams** mit Usenet (Prowlarr als Indexer-Verwaltung, eingebautes Usenet-Streaming
-  direkt von deinem Provider), bewährte Voreinstellungen (Cache, Ranking zugunsten neuer und vollständiger
-  Releases, Failover, nächste Folge vorladen), deine Sprachen in deiner Reihenfolge.
-- **Login-Schutz** (Authelia: Passwort + Passkey oder Code-App) vor allen Einstellungsseiten –
-  deine Player-Apps funktionieren trotzdem.
-- **Betrieb:** Push-Meldungen aufs Handy (ntfy), ein Wächter für Dienste, Erreichbarkeit,
-  Zertifikat, Festplatte, Speicher und SSH-Anmeldungen, **verschlüsselte wöchentliche Backups**
-  (age) mit Wiederherstellungs-Befehl, Kurzstatus beim Login, getestete Updates.
+## Funktionen
 
-Alles läuft auf deinem eigenen Server. roadie sendet nichts an seine Autoren – keine Telemetrie.
+**Streaming**
+- AIOStreams mit eingebautem Usenet-Streaming direkt von deinem Provider, Prowlarr für deine Indexer
+- Deine Sprachen zuerst, Ranking zugunsten neuer und vollständiger Releases, Failover, nächste Folge vorgeladen
+- Kataloge auf der Startseite ab Werk (Trends, Netflix / Prime / Disney+, Filmreihen)
+- Eine Addon-Adresse pro Person, auf Wunsch mit eigenen Sprachen und eigener Qualität
 
-## Bevor du startest
+**Sicherheit**
+- Eigene Adresse (DuckDNS) mit HTTPS von Let's Encrypt
+- Login mit Passkey oder Code-App (Authelia) vor jeder Einstellungsseite – deine Player-Apps funktionieren weiter
+- SSH-Login per Schlüssel; der Passwort-Login wird erst abgeschaltet, nachdem dein Schlüssel-Login gesehen wurde, damit du dich nicht versehentlich aussperrst
+- Firewall, fail2ban (auch für Docker-Ports), automatische Sicherheitsupdates
 
-Du brauchst einen kleinen Server, der nur dir gehört. Falls du noch nie einen gemietet hast:
+**Wartung**
+- Push-Meldungen aufs Handy (ntfy), wenn etwas nicht stimmt
+- Verschlüsselte wöchentliche Backups (age), Wiederherstellung auf einem neuen Server mit einem Befehl
+- `sudo roadie update` installiert nur getestete Versionen aus signierten Releases
+- Ein Menü für den Alltag: Zugänge, Login-Code, Neustart, Personen, Hilfe
 
-1. Miete bei einem beliebigen Server-Anbieter einen **VPS** (einen virtuellen Server). Wähle
-   **Ubuntu 24.04**, **x86_64**, mindestens **2 vCPU**, **4 GB RAM** (empfohlen) und **20 GB**
-   Speicher. Sonst sollte nichts darauf laufen.
-2. Der Anbieter zeigt dir eine **IP-Adresse** und einen **Benutzernamen** (oft `root` oder `ubuntu`)
-   und entweder ein Passwort oder lässt dich einen SSH-Schlüssel hinterlegen.
-3. **Erste Verbindung:** Am Handy nimmst du eine SSH-App wie Termius; am PC oder Mac öffnest du ein
-   Terminal und gibst `ssh BENUTZER@IP-ADRESSE` ein (zum Beispiel `ssh root@203.0.113.10`) mit dem
-   Benutzernamen deines Anbieters. Bestätige die Frage mit `yes` und gib das Passwort ein.
-4. Jetzt bist du auf dem Server. Mach unten bei *Installation* weiter und führe dort den
-   Installationsbefehl aus.
+Alles läuft auf deinem eigenen Server. roadie schickt nichts an seine Entwickler – keine Telemetrie.
 
-## Voraussetzungen
+## Schnellstart
 
-- Ein **frischer** VPS mit **Ubuntu 24.04 LTS (x86_64)**, mindestens 2 CPU-Kerne, 2 GB RAM
-  (4 GB empfohlen), 20 GB Speicher. Sonst sollte nichts darauf laufen.
-- Eine kostenlose [DuckDNS](https://www.duckdns.org)-Subdomain und ihr Token.
-- Zugangsdaten eines Usenet-Providers und mindestens ein Usenet-Indexer (API-Adresse + Schlüssel).
-- Optional: ein eigener SSH-Schlüssel – hast du keinen, erzeugt der Assistent einen und zeigt ihn einmal an.
-- Optional: die App „ntfy“ für Push-Meldungen, ein TMDB-API-Schlüssel.
+**Du brauchst:**
+- einen frischen VPS mit **Ubuntu 24.04 (x86_64)**, 2 vCPU, 4 GB RAM empfohlen (mindestens 2 GB), 20 GB Speicher, sonst nichts darauf
+- eine kostenlose [DuckDNS](https://www.duckdns.org)-Subdomain und ihr Token
+- Zugangsdaten eines Usenet-Providers und mindestens einen Usenet-Indexer (API-Adresse + Schlüssel)
+- optional: die App ntfy für Push-Meldungen, einen TMDB-API-Schlüssel
 
-## Installation
+Noch nie einen Server gemietet? [Getting started](docs/getting-started.md) (englisch) führt dich durch.
 
-Melde dich auf deinem neuen Server an und führe aus:
+**Installation** – melde dich auf deinem Server an und führe aus:
 
 ```sh
-# 1. Release herunterladen (VERSION ersetzen) samt Prüfsumme
-curl -fLO https://github.com/usenetroadie/roadie/releases/download/VERSION/roadie-VERSION.tar.gz
-curl -fLO https://github.com/usenetroadie/roadie/releases/download/VERSION/roadie-VERSION.tar.gz.sha256
-# 2. prüfen – muss "OK" ausgeben
-sha256sum -c roadie-VERSION.tar.gz.sha256
-# 3. entpacken, installieren, starten
-tar xzf roadie-VERSION.tar.gz && cd roadie-VERSION
-sudo bash install.sh
-sudo roadie
+V=$(curl -fsSL https://api.github.com/repos/usenetroadie/roadie/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz
+curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz.sha256
+sha256sum -c roadie-$V.tar.gz.sha256          # muss "OK" ausgeben
+tar xzf roadie-$V.tar.gz && cd roadie-$V
+sudo bash install.sh && sudo roadie
 ```
 
-Mit `git clone` geht es auch: `git clone https://github.com/usenetroadie/roadie && cd roadie && sudo bash install.sh`.
-
-roadie braucht nur, was Ubuntu schon mitbringt (Python 3). Docker, die Dienste und einige
-Systempakete installiert es selbst aus den offiziellen Quellen, in festen, getesteten Versionen.
-
-Bricht die Verbindung ab oder geht etwas schief, starte einfach erneut `sudo roadie` – es
-macht dort weiter, wo es aufgehört hat.
+Bricht die Verbindung ab oder geht etwas schief, starte einfach erneut `sudo roadie` – es macht
+dort weiter, wo es aufgehört hat. Der Assistent spricht Deutsch, wenn du es am Anfang auswählst.
 
 ![Eine echte Einrichtung von Anfang bis Ende (im Zeitraffer)](assets/setup.gif)
 
-**So werden Updates geprüft:** `sudo roadie update` sucht zuerst nach einer neueren
-roadie-Version. Sie wird nur installiert, wenn die Prüfsumme stimmt *und* das Release eine
-gültige Signatur des Projekt-Schlüssels trägt (OpenSSH `ssh-keygen -Y verify`; der öffentliche
-Schlüssel ist in roadie eingebaut). Die neue Version muss erst starten, bevor sie die alte
-ersetzt; die alte bleibt in `/opt/roadie/app.prev`. Geht etwas schief, ändert sich nichts. Von Hand zurück: `sudo rm -rf /opt/roadie/app && sudo mv /opt/roadie/app.prev /opt/roadie/app`.
+## So sieht es aus
 
-## Nach der Einrichtung
+<table>
+  <tr>
+    <td width="50%"><a href="assets/login.gif"><img src="assets/screenshot-login.png" alt="Login-Seite mit Passkey"></a></td>
+    <td width="50%"><a href="assets/aiostreams.gif"><img src="assets/screenshot-aiostreams.png" alt="AIOStreams-Konfiguration"></a></td>
+  </tr>
+  <tr>
+    <td><b>Anmelden mit einem Tipp.</b> Die Einstellungsseiten liegen hinter deinem eigenen Login – mit Passkey per Face ID oder Fingerabdruck. <a href="assets/login.gif">Ansehen</a></td>
+    <td><b>AIOStreams fertig eingerichtet.</b> Prowlarr, Kataloge, deine Sprachen und eine Stream-Grenze. Ändere auf der Website, was du willst; roadie behält deine Änderungen. <a href="assets/aiostreams.gif">Ansehen</a></td>
+  </tr>
+</table>
 
-Die Einstellungsseiten liegen hinter deinem eigenen Login. Mit Passkey ist das ein Tipp (Face ID,
-Fingerabdruck):
+## So funktioniert es
 
-![Anmelden mit Passkey](assets/login.gif)
+```mermaid
+flowchart LR
+    app["Stremio / Nuvio"] -->|HTTPS| traefik["Traefik<br/>Zertifikat"]
+    traefik --> aio["AIOStreams"]
+    traefik -. Einstellungsseiten .-> authelia["Authelia<br/>Passkey-Login"]
+    aio --> prowlarr["Prowlarr"] --> indexers["deine Indexer"]
+    aio -->|NNTP| provider["dein Usenet-Provider"]
+    roadie["roadie<br/>Wächter · Backups · Updates"] -. Push .-> phone["dein Handy (ntfy)"]
+```
 
-Deine AIOStreams-Konfiguration ist fertig – Prowlarr, Kataloge, deine Sprachen und eine
-Stream-Grenze. Ändere auf der Website, was du willst; roadie behält deine Änderungen:
+Alle Dienste laufen in Docker auf deinem Server. Von außen erreichbar ist nur Traefik (Ports 80/443).
+Dein Player fragt AIOStreams nach Streams; AIOStreams sucht über Prowlarr bei deinen Indexern und
+streamt die Datei direkt von deinem Usenet-Provider. Mehr dazu: [Security](docs/security.md).
 
-![Die AIOStreams-Konfiguration, die roadie angelegt hat](assets/aiostreams.gif)
+## Anleitungen
 
-## Befehle im Alltag
+Die ausführlichen Anleitungen gibt es auf Englisch:
 
-| Befehl | Was er tut |
+| Anleitung | Inhalt |
 |---|---|
-| `sudo roadie` | einrichten, weitermachen oder Einstellungen ändern |
-| `sudo roadie status` | Kurzstatus (erscheint auch bei jeder SSH-Anmeldung) |
-| `sudo roadie backup` | jetzt ein verschlüsseltes Backup (läuft auch jeden Sonntag nachts) |
-| `sudo roadie restore DATEI --identity SCHLÜSSELDATEI` | Backup auf einem frischen Server zurückspielen, danach `sudo roadie` |
-| `sudo roadie update` | roadie selbst aktualisieren, dann die getesteten Dienst-Versionen installieren (vorher Backup) |
-| `sudo roadie diagnose` | Fehlerbericht ohne Passwörter, IP-Adressen und deine Domain |
-| `sudo roadie deinstallieren` | alles entfernen, was der Assistent eingerichtet hat (fragt vorher, bietet ein letztes Backup an; Admin-Benutzer, SSH-Absicherung, Backups und Docker bleiben) |
+| [Getting started](docs/getting-started.md) | VPS mieten, verbinden, was du vorbereitest, erste Schritte nach der Einrichtung |
+| [Commands](docs/commands.md) | Befehle im Alltag, das Menü, mehrere Personen |
+| [Backups](docs/backups.md) | Backups, herunterladen, Umzug auf einen neuen Server |
+| [Security](docs/security.md) | was wie geschützt ist, signierte Updates |
+| [Troubleshooting](docs/troubleshooting.md) | keine Streams, Login-Probleme, Hilfe bekommen |
+| [Advanced](docs/advanced.md) | Antwortdateien, AIOStreams und Prowlarr selbst anpassen, mehr Kataloge, Deinstallieren |
 
-Nach der Einrichtung öffnet `sudo roadie` ein Menü: *Meine Zugänge anzeigen* (alle Adressen und
-Logins, die du später wieder brauchst), Login-Code, Status, Dienste neu starten, Personen,
-Einstellungen ändern, Backup, Updates und Hilfe (mit *Selbst anpassen*: wie du Dinge in AIOStreams
-änderst, ohne dass der Assistent sie überschreibt – er schreibt nur seine eigenen Abschnitte neu).
-Kurzbefehle:
+Die wichtigsten Befehle: `sudo roadie` (Menü), `sudo roadie status`, `sudo roadie backup`,
+`sudo roadie update`, `sudo roadie diagnose`, `sudo roadie uninstall`. Die deutschen Kurzformen
+`zugang`, `personen`, `neustart`, `hilfe` und `deinstallieren` funktionieren auch.
 
-| Kurzbefehl | Öffnet |
-|---|---|
-| `sudo roadie zugang` | Meine Zugänge anzeigen |
-| `sudo roadie code` | einen Login-Code |
-| `sudo roadie personen` | Personen hinzufügen oder ändern |
-| `sudo roadie neustart` | Dienste neu starten (startet gestoppte; AIOStreams liest neue Indexer ein) |
-| `sudo roadie hilfe` | Hilfe-Seiten |
+## Aktuelle Grenzen
 
-**Mehrere Personen:** Jede Person bekommt eine eigene Addon-Adresse. Sie erbt entweder die
-Haupt-Einstellungen oder hat eigene Sprachen und Qualität. *Einstellungen ändern* lässt die Personen,
-wie sie sind (ändern unter *Personen verwalten*). In einer Antwortdatei ist `people` freiwillig: Fehlt es, bleiben
-die gespeicherten Personen; wer in der Liste fehlt, wird entfernt und seine Addon-Adresse geht nicht
-mehr. Die Einrichtung endet mit einer
-Testsuche, die zeigt, dass dein Setup wirklich Streams findet; die Meldung bei jeder
-SSH-Anmeldung verweist auf `sudo roadie`.
+- nur Ubuntu 24.04 auf x86_64 (noch kein ARM)
+- nur DuckDNS-Adresse (noch keine eigene Domain)
+- nur Usenet
+- ein Server pro Setup
 
-## Backups
+## Hilfe, Mitmachen, Dank
 
-Backups werden mit [age](https://age-encryption.org) verschlüsselt. Auf dem Server liegt nur der
-**öffentliche** Schlüssel; der **private** bleibt bei dir (hast du keinen, erzeugt der Assistent
-einen und zeigt ihn genau einmal an). Die Dateien lädst du aus `~/backups` deines Admin-Benutzers
-herunter, z. B. mit einer SFTP-App.
+- **Probleme:** führe `sudo roadie diagnose` aus und häng die Ausgabe an ein [Issue](https://github.com/usenetroadie/roadie/issues/new/choose). Passwörter, Schlüssel, IP-Adressen und deine Domain werden entfernt; lies die Ausgabe trotzdem einmal, bevor du sie postest.
+- **Sicherheitsprobleme:** bitte kein öffentliches Issue – siehe [SECURITY.md](SECURITY.md).
+- **Mitmachen:** siehe [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Dank an:** [AIOStreams](https://github.com/Viren070/AIOStreams) von Viren070, [Traefik](https://traefik.io),
+  [Authelia](https://www.authelia.com), [Prowlarr](https://prowlarr.com), [age](https://age-encryption.org),
+  [ntfy](https://ntfy.sh). Usenet-Backbone-Daten: [usenetalmanac.com](https://usenetalmanac.com) /
+  usenet.rexum.space Community-Karte. roadie gehört zu keinem dieser Projekte, auch nicht zu Stremio oder Nuvio.
 
-Umzug auf einen neuen Server: roadie dort installieren, `sudo roadie restore` mit
-Backup und privatem Schlüssel, dann `sudo roadie` → *Weitermachen / alles erneut prüfen*. Deine Addon-Adresse
-bleibt gleich.
+**Verantwortung:** roadie installiert und konfiguriert nur Software. Es stellt keine Inhalte oder
+Quellen für Inhalte bereit, listet oder empfiehlt sie nicht. Du bist selbst dafür verantwortlich,
+wie du die Software nutzt, und für die Einhaltung der Gesetze deines Landes und der Bedingungen der
+Dienste, die du nutzt.
 
-## Einrichtung ohne Rückfragen
-
-Für Automatisierung können alle Antworten aus einer Datei kommen:
-`sudo roadie setup --answers answers.json` (siehe `examples/answers.example.json`).
-`--dry-run` prüft nur Antworten und Server.
-
-## Hilfe
-
-`sudo roadie diagnose` ausführen und die Ausgabe an ein GitHub-Issue anhängen. Passwörter,
-Schlüssel, IP-Adressen und deine Domain werden entfernt; trotzdem vor dem Posten einmal durchlesen.
-
-## Sicherheitsprobleme
-
-Sicherheitsproblem gefunden? Bitte kein öffentliches Issue – siehe [SECURITY.md](SECURITY.md).
-
-## Verantwortung
-
-roadie installiert und konfiguriert nur Software. Es stellt keine Inhalte oder Quellen für
-Inhalte bereit, listet oder empfiehlt sie nicht. Du bist selbst dafür verantwortlich, wie du die
-Software nutzt, und für die Einhaltung der Gesetze deines Landes und der Bedingungen der Dienste,
-die du verwendest.
-
-## Lizenz
-
-MIT – siehe [LICENSE](LICENSE). AIOStreams, Traefik, Authelia, Prowlarr und die anderen installierten
-Programme behalten ihre eigenen Lizenzen. Backbone-Daten: [usenetalmanac.com](https://usenetalmanac.com)
-/ Community-Karte usenet.rexum.space.
+**Lizenz:** MIT – siehe [LICENSE](LICENSE). Die installierten Programme behalten ihre eigenen Lizenzen.
