@@ -1,9 +1,9 @@
 {
-  "_note": "Only these versions are installed. A version is 'tested' once the end-to-end test (M6/M8) passed with it.",
+  "_note": "Only these versions are installed. A version is 'tested' once the end-to-end test passed with it.",
   "components": {
-    "traefik": {"image": "traefik", "tag": "v3.7.18", "tested": false},
-    "authelia": {"image": "ghcr.io/authelia/authelia", "tag": "4.39.28", "tested": false},
-    "aiostreams": {"image": "ghcr.io/viren070/aiostreams", "tag": "v2.37.0", "tested": false},
-    "prowlarr": {"image": "ghcr.io/hotio/prowlarr", "tag": "release-2.7.0.5723", "tested": false}
+    "traefik": {"image": "traefik", "tag": "v3.7.18", "tested": true},
+    "authelia": {"image": "ghcr.io/authelia/authelia", "tag": "4.39.28", "tested": true},
+    "aiostreams": {"image": "ghcr.io/viren070/aiostreams", "tag": "v2.37.0", "tested": true},
+    "prowlarr": {"image": "ghcr.io/hotio/prowlarr", "tag": "release-2.7.0.5723", "tested": true}
   }
 }
