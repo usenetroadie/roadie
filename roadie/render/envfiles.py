@@ -53,7 +53,27 @@ def _env(values: dict, raw: dict | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_env(cfg: RenderConfig, secrets: dict, providers: list[dict] | None = None) -> list[RenderedFile]:
+def metadata_env(cfg: RenderConfig, secrets: dict, tmdb_key: str) -> RenderedFile:
+    """AIOMetadata: one server-wide TMDB key, a password for creating configs, and no
+    background warm-up (it would keep a small server busy for hours)."""
+    return RenderedFile("env/aiometadata.env", _env({
+        "PORT": 3232,
+        "HOST_NAME": f"https://{cfg.host('metadata')}",
+        "NODE_ENV": "production",
+        "LOG_LEVEL": "info",
+        "DATABASE_URI": "sqlite://addon/data/db.sqlite",
+        "REDIS_URL": "redis://aiometadata-redis:6379",
+        "BUILT_IN_TMDB_API_KEY": tmdb_key,
+        "ADDON_PASSWORD": secrets["aiometadata_addon_password"],
+        "ENABLE_CACHE_WARMING": "false",
+        "CACHE_WARMUP_ON_STARTUP": "false",
+        "TMDB_POPULAR_WARMING_ENABLED": "false",
+        "MAL_WARMUP_ENABLED": "false",
+    }), 0o600)
+
+
+def render_env(cfg: RenderConfig, secrets: dict, providers: list[dict] | None = None,
+               tmdb_key: str | None = None) -> list[RenderedFile]:
     segment, nzb = cache_sizes(cfg.disk_gb)
     aio = {
         "BASE_URL": f"https://{cfg.host('aiostreams')}",
@@ -75,8 +95,11 @@ def render_env(cfg: RenderConfig, secrets: dict, providers: list[dict] | None = 
         aio["USENET_PERFORMANCE_PROFILE"] = "conservative"
     aio["BUILTIN_PROWLARR_URL"] = "http://prowlarr:9696"
     aio["BUILTIN_PROWLARR_API_KEY"] = secrets["prowlarr_api_key"]
-    return [RenderedFile("env/aiostreams.env", _env(aio, raw), 0o600),
-            RenderedFile("env/prowlarr.env", _env({
-                "PROWLARR__AUTH__APIKEY": secrets["prowlarr_api_key"],
-                "PROWLARR__AUTH__METHOD": "External",  # login is handled by Authelia
-            }), 0o600)]
+    files = [RenderedFile("env/aiostreams.env", _env(aio, raw), 0o600),
+             RenderedFile("env/prowlarr.env", _env({
+                 "PROWLARR__AUTH__APIKEY": secrets["prowlarr_api_key"],
+                 "PROWLARR__AUTH__METHOD": "External",  # login is handled by Authelia
+             }), 0o600)]
+    if cfg.metadata:
+        files.append(metadata_env(cfg, secrets, tmdb_key))
+    return files

@@ -55,6 +55,9 @@ def dynamic_dict(cfg: RenderConfig) -> dict:
         "authelia": {"loadBalancer": {"servers": [{"url": "http://authelia:9091"}]}},
         "prowlarr": {"loadBalancer": {"servers": [{"url": "http://prowlarr:9696"}]}},
     }
+    if cfg.metadata:  # AIOMetadata's settings page; players never need it (posters come from TMDB)
+        routers["metadata"] = _router(cfg, "metadata", "metadata")
+        services["metadata"] = {"loadBalancer": {"servers": [{"url": "http://aiometadata:3232"}]}}
     middlewares = {
         "authelia": {"forwardAuth": {
             "address": "http://authelia:9091/api/authz/forward-auth",

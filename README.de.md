@@ -50,7 +50,9 @@ und Prowlarr kannst du jederzeit selbst öffnen und anpassen.
 **Streaming**
 - AIOStreams mit eingebautem Usenet-Streaming direkt von deinem Provider, Prowlarr für deine Indexer
 - Deine Sprachen zuerst, Ranking zugunsten neuer und vollständiger Releases, Failover, nächste Folge vorgeladen
-- Kataloge auf der Startseite ab Werk (Trends, Netflix / Prime / Disney+, Filmreihen)
+- Kataloge auf der Startseite ab Werk (Trends, Netflix / Prime / Disney+, Filmreihen) – mit einem
+  TMDB-API-Schlüssel richtet roadie dazu dein **eigenes [AIOMetadata](https://github.com/cedya77/aiometadata)**
+  ein, für mehr Kataloge und bessere Details in deiner Sprache
 - Eine Addon-Adresse pro Person, auf Wunsch mit eigenen Sprachen und eigener Qualität
 
 **Sicherheit**

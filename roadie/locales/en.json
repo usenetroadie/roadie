@@ -433,7 +433,7 @@
   "review.original": "Original",
   "review.quality_first": "{value} first",
   "help.more_catalogs.title": "More catalogs",
-  "help.more_catalogs.body": "Catalogs are the rows on the start page of your app. The wizard sets up a few classics: trending, big streaming services, movie collections. Under Addons → Catalogs you show or hide rows. You get more with other catalog addons:\nAIOMetadata: lots of catalogs and better movie details. You need your own TMDB key. You set it up on the AIOMetadata website.\nWatchly, MyTrakt, Simkl: rows from your own history, e.g. suggestions. You need an account with that service.\nHow to add an addon: set it up on its website and copy its addon address (ends with manifest.json). On the AIOStreams settings page, load your configuration. Choose Addons, then 'Custom', paste the address and save. All this stays, the wizard does not change it.",
+  "help.more_catalogs.body": "Catalogs are the rows on the start page of your app. The wizard sets up a few classics: trending, big streaming services, movie collections. Under Addons → Catalogs you show or hide rows. You get more with other catalog addons:\nAIOMetadata: with a TMDB key the wizard already set up your own (address under 'Show my access details'). There you add or remove catalogs.\nWatchly, MyTrakt, Simkl: rows from your own history, e.g. suggestions. You need an account with that service.\nHow to add an addon: set it up on its website and copy its addon address (ends with manifest.json). On the AIOStreams settings page, load your configuration. Choose Addons, then 'Custom', paste the address and save. All this stays, the wizard does not change it.",
   "proof.note_no_catalogs": "{count} streams found, but no catalogs",
   "open.catalogs": "The start page of your app stays empty: the catalog addons did not answer. Usually it works later by itself. Otherwise run: sudo roadie setup and choose 'Continue / check everything again'.",
   "q.tmdb.step1": "1. Create a free account on themoviedb.org and sign in.",
@@ -501,5 +501,8 @@
   "check.domain.wrong": "These names point somewhere else ({found}): {names}. They must point to {ip}. Fix the A records, wait a few minutes, then try again.",
   "answers.err.domain": "a domain such as example.com (letters, digits, hyphens, at least one dot)",
   "answers.err.domain_or_duckdns": "use either duckdns or domain, not both",
-  "review.own_domain": "Own domain (DNS entries checked)"
+  "review.own_domain": "Own domain (DNS entries checked)",
+  "step.metadata_config": "Setting up your own AIOMetadata (catalogs)",
+  "access.t.metadata": "Catalogs and details (AIOMetadata)",
+  "access.metadata_text": "Your own AIOMetadata: change catalogs and details here (same login), load the configuration with these values:"
 }

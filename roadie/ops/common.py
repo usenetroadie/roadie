@@ -11,7 +11,8 @@ from roadie.paths import Paths, atomic_write
 from roadie.secretstore import SecretStore
 from roadie.state import State
 
-APP_SERVICES = ("aiostreams", "authelia", "prowlarr")  # stopped during a backup; Traefik keeps running
+# stopped during a backup (only those that run); Traefik keeps running
+APP_SERVICES = ("aiostreams", "authelia", "prowlarr", "aiometadata", "aiometadata-redis")
 BACKUP_MARKER = "backup-running.json"  # in var_dir while a backup has the apps stopped
 
 

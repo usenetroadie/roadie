@@ -15,6 +15,15 @@ roadie sets things up – you stay in charge.
 - **Prowlarr:** open the indexer management (same login), add and test indexers under *Indexers*,
   then run `sudo roadie restart` so AIOStreams knows them. roadie deletes nothing it did not add.
 
+## Your own AIOMetadata
+
+With a TMDB API key (and 4 GB RAM or more) roadie runs its own
+[AIOMetadata](https://github.com/cedya77/aiometadata): catalogs (trending, popular, top rated, by year
+and language) and details in your first language, instead of the simple TMDB addon. roadie creates
+its configuration once; after that it is yours. Open `https://metadata.<your address>/configure`
+(same login), load the configuration with the UUID and password from `sudo roadie access`, and add
+or remove catalogs. Posters load straight from TMDB, so your server is not slowed down by them.
+
 ## More catalogs
 
 Catalogs are the rows on the start page of your app. roadie sets up trending, the big streaming

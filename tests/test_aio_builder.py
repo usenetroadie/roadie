@@ -158,7 +158,8 @@ class BuilderTest(unittest.TestCase):
         new = build()["presets"]
         merged = merge_presets(old, new)
         self.assertEqual(merged, new)  # prowlarr and tmdb replaced by the new ones
-        self.assertEqual(WIZARD_PRESETS, ("roadieprowlarr", "roadietmdb", "roadiestreaming", "roadiecollections"))
+        self.assertEqual(WIZARD_PRESETS, ("roadieprowlarr", "roadietmdb", "roadiestreaming", "roadiecollections",
+                                          "roadiemetadata"))
         self.assertNotIn("presets", SECTIONS["streams"])
 
     def test_stream_limits_set(self):

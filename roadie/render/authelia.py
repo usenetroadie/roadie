@@ -21,7 +21,7 @@ SECRET_FILES = {
 
 def config_dict(cfg: RenderConfig) -> dict:
     aio = cfg.host("aiostreams")
-    protected = [aio, cfg.host("prowlarr")]
+    protected = [aio, cfg.host("prowlarr")] + ([cfg.host("metadata")] if cfg.metadata else [])
     return {
         "theme": "auto",
         "server": {

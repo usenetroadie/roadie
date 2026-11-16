@@ -166,7 +166,7 @@ def ask_domain(ui: Prompter, data: dict, checks) -> None:
 
 def ask_own_domain(ui: Prompter, data: dict, checks, old: str | None) -> None:
     ui.info(t("q.domain.own_help", ip=checks.server_ip() or "?"))
-    for name in domain_check.names(t("q.domain.own_placeholder")):
+    for name in domain_check.names(t("q.domain.own_placeholder"), domain_check.HOSTS + ("metadata",)):
         ui.hint(f"  {name}")
     ui.info(t("q.domain.own_wildcard"))
     (name,) = _checked(ui, lambda: (normalise_domain(ui.ask(t("q.domain.own_name"), default=old,

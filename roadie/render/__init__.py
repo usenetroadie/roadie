@@ -1,6 +1,7 @@
 """Pure renderers: answers + versions in, file contents out. Nothing here touches the system."""
 
 import json
+import re
 from dataclasses import dataclass
 from importlib import resources
 
@@ -28,6 +29,7 @@ class RenderConfig:
     reboot_time: str = "05:00"
     ipv6: bool = False
     test_mode: bool = False  # automated tests: self-signed certificate, no DuckDNS
+    metadata: bool = False  # own AIOMetadata (needs a TMDB key and RAM to spare)
 
     def host(self, name: str) -> str:
         return f"{name}.{self.domain}"
@@ -49,4 +51,15 @@ def build_render_config(answers, versions: dict, mem_mb: int, disk_gb: float, tz
         disk_gb=disk_gb,
         tz=tz,
         reboot_time=d["maintenance"]["reboot_time"],
+        metadata=wants_metadata(d, mem_mb),
     )
+
+
+METADATA_MIN_RAM_MB = 3800  # AIOMetadata + Redis need about 400 MB more
+
+
+def wants_metadata(data: dict, mem_mb: int) -> bool:
+    """Own AIOMetadata comes with a TMDB API key (the short v3 one: AIOMetadata takes no
+    read access token), on servers with RAM to spare."""
+    key = data.get("tmdb_api_key") or ""
+    return bool(re.fullmatch(r"[0-9a-fA-F]{32}", key)) and mem_mb >= METADATA_MIN_RAM_MB

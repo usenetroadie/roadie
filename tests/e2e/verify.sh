@@ -33,6 +33,12 @@ for p in "/stremio/x/y/%63onfigure" "/stremio%2Fconfigure" "/stremio/%2E%2E/conf
   check "encoded path $p needs login" 302 "$(code "https://$aio$p")"
 done
 check "API needs login"                     401 "$(code -H 'Accept: application/json' -X POST "https://$aio/api/v1/user")"
+if docker ps --format '{{.Names}}' | grep -q aiometadata; then  # own AIOMetadata (with a TMDB key)
+  meta="metadata.$domain"
+  mcode() { curl -sk -o /dev/null -w '%{http_code}' --max-time 60 --resolve "$meta:443:127.0.0.1" "$@"; }
+  check "AIOMetadata settings need login"     302 "$(mcode "https://$meta/configure")"
+  check "AIOMetadata API needs login"         303 "$(mcode -X POST "https://$meta/api/config/save")"
+fi
 check "POST on addon path is not bypassed"  401 "$(code -H 'Accept: application/json' -X POST "https://$aio$path")"
 check "http redirects to https"             301 "$(code "http://$aio/")"
 check "unknown host is not served"          404 "$(code --resolve "other.$domain:443:127.0.0.1" "https://other.$domain/")"

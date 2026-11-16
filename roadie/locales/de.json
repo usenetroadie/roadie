@@ -433,7 +433,7 @@
   "review.original": "Original",
   "review.quality_first": "{value} zuerst",
   "help.more_catalogs.title": "Mehr Kataloge",
-  "help.more_catalogs.body": "Kataloge sind die Zeilen auf der Startseite deiner App. Der Assistent richtet ein paar Klassiker ein: Trends, große Streamingdienste, Filmreihen. Unter Addons → Catalogs blendest du Zeilen ein oder aus. Mehr bekommst du mit weiteren Katalog-Addons:\nAIOMetadata: sehr viele Kataloge und bessere Film-Infos. Du brauchst einen eigenen TMDB-Schlüssel. Einrichten auf der Webseite von AIOMetadata.\nWatchly, MyTrakt, Simkl: Zeilen aus deinem eigenen Verlauf, z. B. Vorschläge. Du brauchst ein Konto beim jeweiligen Dienst.\nSo trägst du ein Addon ein: Richte es auf seiner Webseite ein und kopiere seine Addon-Adresse (endet auf manifest.json). Lade auf der AIOStreams-Einstellungsseite deine Konfiguration. Wähle Addons, dann „Custom“, füge die Adresse ein und speichere. Das alles bleibt, der Assistent ändert es nicht.",
+  "help.more_catalogs.body": "Kataloge sind die Zeilen auf der Startseite deiner App. Der Assistent richtet ein paar Klassiker ein: Trends, große Streamingdienste, Filmreihen. Unter Addons → Catalogs blendest du Zeilen ein oder aus. Mehr bekommst du mit weiteren Katalog-Addons:\nAIOMetadata: Mit einem TMDB-Schlüssel hat der Assistent dir schon dein eigenes eingerichtet (Adresse unter „Meine Zugänge anzeigen“). Dort fügst du Kataloge hinzu oder entfernst sie.\nWatchly, MyTrakt, Simkl: Zeilen aus deinem eigenen Verlauf, z. B. Vorschläge. Du brauchst ein Konto beim jeweiligen Dienst.\nSo trägst du ein Addon ein: Richte es auf seiner Webseite ein und kopiere seine Addon-Adresse (endet auf manifest.json). Lade auf der AIOStreams-Einstellungsseite deine Konfiguration. Wähle Addons, dann „Custom“, füge die Adresse ein und speichere. Das alles bleibt, der Assistent ändert es nicht.",
   "proof.note_no_catalogs": "{count} Streams gefunden, aber keine Kataloge",
   "open.catalogs": "Die Startseite deiner App bleibt leer: Die Katalog-Addons haben nicht geantwortet. Meist klappt es später von selbst. Sonst gib ein: sudo roadie setup und wähle „Weitermachen / alles erneut prüfen“.",
   "q.tmdb.step1": "1. Kostenloses Konto auf themoviedb.org anlegen und anmelden.",
@@ -501,5 +501,8 @@
   "check.domain.wrong": "Diese Namen zeigen woandershin ({found}): {names}. Sie müssen auf {ip} zeigen. Korrigiere die A-Einträge, warte ein paar Minuten und versuch es dann noch einmal.",
   "answers.err.domain": "eine Domain wie example.com (Buchstaben, Ziffern, Bindestriche, mindestens ein Punkt)",
   "answers.err.domain_or_duckdns": "entweder duckdns oder domain angeben, nicht beides",
-  "review.own_domain": "Eigene Domain (DNS-Einträge geprüft)"
+  "review.own_domain": "Eigene Domain (DNS-Einträge geprüft)",
+  "step.metadata_config": "Eigenes AIOMetadata einrichten (Kataloge)",
+  "access.t.metadata": "Kataloge und Details (AIOMetadata)",
+  "access.metadata_text": "Dein eigenes AIOMetadata: hier änderst du Kataloge und Details (gleicher Login), lade die Konfiguration mit diesen Werten:"
 }

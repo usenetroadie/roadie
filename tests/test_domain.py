@@ -81,8 +81,9 @@ class DomainCheckTest(unittest.TestCase):
 
 
 class DomainStepTest(unittest.TestCase):
-    def ctx(self, data):
-        return mock.Mock(answers=mock.Mock(data=data))
+    def ctx(self, data, metadata=False):
+        from types import SimpleNamespace
+        return mock.Mock(answers=mock.Mock(data=data), extra={"render": SimpleNamespace(metadata=metadata)})
 
     def test_own_domain_checked_and_duckdns_timer_removed(self):
         from roadie.checks import CheckResult
@@ -91,7 +92,7 @@ class DomainStepTest(unittest.TestCase):
                 mock.patch.object(stack, "_remove_duckdns_timer") as remove, \
                 mock.patch.object(stack.duckdns_check, "check_duckdns") as duck:
             stack.duckdns(self.ctx(own()))
-        check.assert_called_once_with("example.com")
+        check.assert_called_once_with("example.com", hosts=D.HOSTS)
         remove.assert_called_once()
         duck.assert_not_called()
 

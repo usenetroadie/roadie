@@ -21,7 +21,7 @@ KEEP = 2
 HAS_TAR_FILTER = hasattr(tarfile, "data_filter")  # Python 3.12, and 3.11 from 3.11.4
 # the program itself is not backed up: a restore must never replace a newer version
 EXCLUDES = ["opt/roadie/app", "opt/roadie/app.prev", "opt/roadie/app.new",
-            "opt/roadie/stack/data/aiostreams/cache",
+            "opt/roadie/stack/data/aiostreams/cache", "opt/roadie/stack/data/aiometadata-redis",
             "opt/roadie/stack/data/traefik/access.log"]
 INCLUDES = ["opt/roadie", "etc/roadie"]
 

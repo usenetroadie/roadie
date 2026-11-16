@@ -85,6 +85,11 @@ def sections(env: Env, mask_login_password: bool = False) -> list[tuple[str, lis
 
     if domain:
         out.append((t("access.t.prowlarr"), [t("access.prowlarr_text"), COPY + f"https://prowlarr.{env.domain}"]))
+    if domain and env.secrets.get("aiometadata_uuid"):
+        lines = [t("access.metadata_text"), COPY + f"https://metadata.{env.domain}/configure"]
+        lines += _pair(t("access.config_uuid"), env.secrets.get("aiometadata_uuid"))
+        lines += _pair(t("access.config_password"), env.secrets.get("aiometadata_config_password"))
+        out.append((t("access.t.metadata"), lines))
 
     server = (a.get("notify") or {}).get("ntfy_url")
     topic = env.secrets.get("ntfy_topic")

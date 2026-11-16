@@ -29,7 +29,7 @@ PERSON_FIELDS = ("preferredLanguages", "preferredResolutions", "preferredVisualT
 # config has no limits yet: users fine-tune them on the website.
 RESULT_LIMITS = {"resolution": 5, "global": 20}
 # Presets the wizard owns (by instanceId); every other preset belongs to the user and stays.
-WIZARD_PRESETS = ("roadieprowlarr", "roadietmdb", "roadiestreaming", "roadiecollections")
+WIZARD_PRESETS = ("roadieprowlarr", "roadietmdb", "roadiestreaming", "roadiecollections", "roadiemetadata")
 PRESET_TIMEOUT = 7000  # AIOStreams' default for the catalog presets (v2.37)
 STREAMING_SERVICES = ["nfx", "amp", "dnp"]  # Netflix, Prime Video, Disney+
 # Catalog language per content language (values from the presets of AIOStreams v2.37). The
@@ -99,10 +99,14 @@ def catalog_presets(content: dict, tmdb_key: str | None) -> list[dict]:
             preset("tmdb-collections", "roadiecollections", "TMDB Collections", language=collections)]
 
 
-def catalog_mods() -> list[dict]:
+def catalog_mods(with_tmdb_addon: bool = True) -> list[dict]:
+    """Rows of the wizard's catalog addons. With an own AIOMetadata the simple TMDB addon is
+    gone; AIOMetadata's own settings say which of its rows go on the start page."""
     def mod(iid, cid, kind, **extra):
         return {"id": f"{iid}{_ADDON_SUFFIX}.{cid}", "type": kind, "enabled": True, **extra}
-    return [mod(*c) for c in HOME_CATALOGS] + [mod(*c, onlyOnDiscover=True) for c in DISCOVER_CATALOGS]
+    keep = lambda c: with_tmdb_addon or c[0] != "roadietmdb"  # noqa: E731
+    return ([mod(*c) for c in HOME_CATALOGS if keep(c)]
+            + [mod(*c, onlyOnDiscover=True) for c in DISCOVER_CATALOGS if keep(c)])
 
 
 def _owned(preset: dict) -> bool:
@@ -121,7 +125,8 @@ def merge_catalog_mods(current: list[dict], new: list[dict]) -> list[dict]:
     return copy.deepcopy(list(current) + [m for m in new if (m["id"], m["type"]) not in have])
 
 
-def build_user_config(answers, template: dict, playback_auth: str) -> dict:
+def build_user_config(answers, template: dict, playback_auth: str, metadata_preset: dict | None = None) -> dict:
+    """metadata_preset: the own AIOMetadata (replaces the simple TMDB catalog addon)."""
     d = answers.data
     cfg = copy.deepcopy(template)
     content = d["content"]
@@ -135,8 +140,10 @@ def build_user_config(answers, template: dict, playback_auth: str) -> dict:
     presets = [{"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True,
                 "options": {"name": "Prowlarr", "timeout": 10000, "services": ["aiostreams"]}},
                *catalog_presets(content, d.get("tmdb_api_key"))]
+    if metadata_preset:
+        presets = [metadata_preset if p["instanceId"] == "roadietmdb" else p for p in presets]
     cfg["services"], cfg["presets"] = services, presets
-    cfg["catalogModifications"] = catalog_mods()
+    cfg["catalogModifications"] = catalog_mods(with_tmdb_addon=metadata_preset is None)
     cfg["resultLimits"] = dict(RESULT_LIMITS)
     cfg["failover"] = {"enabled": True, "contentTypes": ["usenet"]}
 

@@ -10,7 +10,7 @@ import urllib.request
 from pathlib import Path
 
 from roadie import system
-from roadie.aiostreams import people
+from roadie.aiostreams import metadata, people
 from roadie.aiostreams.api import AioClient
 from roadie.aiostreams.builder import build_user_config
 from roadie.checks import domain as domain_check, duckdns as duckdns_check
@@ -58,7 +58,8 @@ def duckdns(ctx: Context) -> None:
     own = ctx.answers.data.get("domain")
     if own:
         _remove_duckdns_timer()
-        result = domain_check.check_domain(own)
+        hosts = domain_check.HOSTS + (("metadata",) if ctx.extra["render"].metadata else ())
+        result = domain_check.check_domain(own, hosts=hosts)
         if not result.ok:
             raise StepFailed("duckdns", t(result.key, **result.params))
         return
@@ -131,6 +132,7 @@ def _secrets(ctx: Context) -> dict:
         "authelia_jwt_secret": s.generate("authelia_jwt_secret", 48),
         "authelia_session_secret": s.generate("authelia_session_secret", 48),
         "authelia_storage_key": s.generate("authelia_storage_key", 48),
+        "aiometadata_addon_password": s.generate("aiometadata_addon_password", 24),
     }
 
 
@@ -138,7 +140,8 @@ def _secrets(ctx: Context) -> dict:
 # mounted one changes. Traefik's routes.yml is left out: Traefik watches it live.
 RESTART_ON_CHANGE = (("config/authelia/", "authelia"), ("secrets/authelia/", "authelia"),
                      ("env/authelia.env", "authelia"), ("config/traefik/traefik.yml", "traefik"),
-                     ("env/aiostreams.env", "aiostreams"), ("env/prowlarr.env", "prowlarr"))
+                     ("env/aiostreams.env", "aiostreams"), ("env/prowlarr.env", "prowlarr"),
+                     ("env/aiometadata.env", "aiometadata"))
 
 
 def config_hashes(files) -> dict[str, str]:
@@ -166,7 +169,7 @@ def stack_files(ctx: Context) -> None:
         ctx.secrets.set("authelia_hash_for", _fingerprint(password))
     files = (compose.render_compose(cfg) + traefik.render_traefik(cfg)
              + authelia.render_authelia(cfg, secrets, ctx.secrets.get("authelia_hash"))
-             + envfiles.render_env(cfg, secrets, data["usenet"]["providers"]))
+             + envfiles.render_env(cfg, secrets, data["usenet"]["providers"], data.get("tmdb_api_key")))
     stack = ctx.paths.stack_dir
     for sub in ("data/traefik", "data/authelia", "data/aiostreams", "data/prowlarr"):
         (stack / sub).mkdir(parents=True, exist_ok=True)
@@ -288,10 +291,27 @@ def prowlarr_indexers(ctx: Context) -> None:
             raise StepFailed("prowlarr_indexers", t("stack.unhealthy", services="aiostreams"))
 
 
+def metadata_config(ctx: Context) -> None:
+    """Create the own AIOMetadata's configuration once; later runs leave it to the user."""
+    if not ctx.extra["render"].metadata or ctx.secrets.get("aiometadata_uuid"):
+        return
+    password = ctx.secrets.generate("aiometadata_config_password", 24)
+    ctx.redact.add(password)
+    uuid = metadata.create(_container_url(ctx, "aiometadata", 3232),
+                           metadata.metadata_config(ctx.answers.data["content"]), password,
+                           ctx.secrets.get("aiometadata_addon_password"))
+    ctx.secrets.set("aiometadata_uuid", uuid)
+
+
+def _metadata_preset(ctx: Context) -> dict | None:
+    uuid = ctx.secrets.get("aiometadata_uuid")
+    return metadata.preset(uuid) if uuid and ctx.extra["render"].metadata else None
+
+
 def aiostreams_config(ctx: Context) -> None:
     api = AioClient(_container_url(ctx, "aiostreams", 3000))
     playback = f"{PLAYBACK}:{ctx.secrets.get('aiostreams_playback_password')}"
-    config = build_user_config(ctx.answers, api.starter_template(), playback)
+    config = build_user_config(ctx.answers, api.starter_template(), playback, _metadata_preset(ctx))
     password = ctx.secrets.generate("aiostreams_config_password", 24)
     uuid = ctx.secrets.get("aiostreams_config_uuid")
     if uuid:  # keep what the user changed on the website outside the wizard's sections
@@ -360,6 +380,7 @@ def steps() -> list[Step]:
         Step("stack_files", "step.stack_files", stack_files, always=True),
         Step("stack_up", "step.stack_up", stack_up, verify=stack_healthy, always=True),
         Step("prowlarr_indexers", "step.prowlarr_indexers", prowlarr_indexers, always=True),
+        Step("metadata_config", "step.metadata_config", metadata_config, always=True),
         Step("aiostreams_config", "step.aiostreams_config", aiostreams_config, verify=aiostreams_ok, always=True),
         Step("proof", "step.proof", proof, always=True),
     ]

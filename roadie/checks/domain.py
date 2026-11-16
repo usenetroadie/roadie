@@ -14,8 +14,8 @@ HOSTS = ("aiostreams", "auth", "prowlarr")
 TRACE = "https://1.1.1.1/cdn-cgi/trace"
 
 
-def names(domain: str) -> list[str]:
-    return [f"{h}.{domain}" for h in HOSTS]
+def names(domain: str, hosts=HOSTS) -> list[str]:
+    return [f"{h}.{domain}" for h in hosts]
 
 
 def public_ipv4() -> str | None:
@@ -45,14 +45,15 @@ def resolve(name: str) -> set[str]:
         return set()
 
 
-def check_domain(domain: str, mine: set[str] | None = None, lookup=resolve, public: str | None = None) -> CheckResult:
+def check_domain(domain: str, mine: set[str] | None = None, lookup=resolve, public: str | None = None,
+                 hosts=HOSTS) -> CheckResult:
     """mine: the server's addresses (its own ones and the one it is seen from)."""
     if mine is None:
         public = public_ipv4()
         mine = local_ipv4() | ({public} if public else set())
     ip = public or ", ".join(sorted(mine)) or "?"  # what the user's A records should say
     missing, wrong = [], {}
-    for name in names(domain):
+    for name in names(domain, hosts):
         found = lookup(name)
         if not found:
             missing.append(name)

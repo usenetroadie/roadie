@@ -51,6 +51,20 @@ def compose_dict(cfg: RenderConfig) -> dict:
             env_file=["env/prowlarr.env"], volumes=["./data/prowlarr:/config"],
         ),
     }
+    if cfg.metadata:  # own AIOMetadata: catalogs and details from TMDB, Redis (>= 8) as its cache
+        services["aiometadata"] = _service(
+            cfg, "aiometadata", "768m",
+            _health(["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3232/health/ready"]),
+            environment=env, env_file=["env/aiometadata.env"], volumes=["./data/aiometadata:/app/addon/data"],
+            init=True, depends_on={"aiometadata-redis": {"condition": "service_healthy"}},
+        )
+        services["aiometadata-redis"] = _service(
+            cfg, "aiometadata-redis", "256m", _health(["CMD", "redis-cli", "ping"]),
+            environment=env, volumes=["./data/aiometadata-redis:/data"],
+            # only cached entries (with an expiry) may be dropped when memory runs short
+            command=["redis-server", "--appendonly", "yes", "--save", "3600", "1",
+                     "--maxmemory", "200mb", "--maxmemory-policy", "volatile-lru"],
+        )
     return {"name": "roadie", "services": services, "networks": {NETWORK: {"name": NETWORK}}}
 
 

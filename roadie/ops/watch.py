@@ -97,7 +97,10 @@ def backup_running(env: Env, now: float) -> bool:
 
 
 def collect_problems(env: Env, now: float | None = None) -> list[Problem]:
-    problems = container_problems(env.services(), ["traefik", "authelia", "aiostreams", "prowlarr"])
+    expected = ["traefik", "authelia", "aiostreams", "prowlarr"]
+    if env.secrets.get("aiometadata_uuid"):
+        expected += ["aiometadata", "aiometadata-redis"]
+    problems = container_problems(env.services(), expected)
     if backup_running(env, time.time() if now is None else now):  # the backup stopped them on purpose
         problems = [p for p in problems if p.id.split(":", 1)[1] not in APP_SERVICES]
     if not env.test_mode:

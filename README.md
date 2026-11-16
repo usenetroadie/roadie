@@ -49,7 +49,9 @@ AIOStreams and Prowlarr stay yours to open and change.
 **Streaming**
 - AIOStreams with built-in Usenet streaming straight from your provider, Prowlarr for your indexers
 - Your languages first, ranking that prefers recent and complete releases, failover, next episode preloaded
-- Catalogs on the start page out of the box (trending, Netflix / Prime / Disney+, collections)
+- Catalogs on the start page out of the box (trending, Netflix / Prime / Disney+, collections) – with a
+  TMDB API key, roadie also sets up your **own [AIOMetadata](https://github.com/cedya77/aiometadata)** for
+  richer catalogs and details in your language
 - One addon address per person, each with their own languages and quality if wanted
 
 **Security**

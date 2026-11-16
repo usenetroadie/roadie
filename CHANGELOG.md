@@ -6,6 +6,8 @@ All notable changes. Versions follow [semantic versioning](https://semver.org).
 
 - **ARM64 servers**, for example the Oracle Cloud *Always Free* tier.
 - **Debian 12 and Debian 13** besides Ubuntu 24.04.
+- **Your own AIOMetadata** with a TMDB API key (servers with 4 GB RAM or more): catalogs and details
+  in your language, settings page behind your login.
 - **Your own domain** as an alternative to DuckDNS. roadie shows which DNS entries to create and
   checks them – also behind NAT (Oracle Cloud).
 - End-to-end tests on every supported system and architecture, with DuckDNS and with an own domain.
