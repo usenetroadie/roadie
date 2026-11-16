@@ -69,7 +69,7 @@ jobs:
           persist-credentials: false
       - name: Fresh Debian server in an LXD container
         run: |
-          sudo snap install lxd
+          for try in 1 2 3 4; do sudo snap install lxd && break; sleep 30; done  # the snap store is flaky
           sudo lxd init --auto
           sudo iptables -P FORWARD ACCEPT  # the runner's Docker would drop the container's traffic
           sudo lxc launch "images:${{ matrix.image }}" srv -c security.nesting=true
