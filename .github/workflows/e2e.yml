@@ -67,25 +67,26 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - name: Fresh Debian server in an LXD container
+      - name: Fresh Debian server in an Incus container
         run: |
-          for try in 1 2 3 4; do sudo snap install lxd && break; sleep 30; done  # the snap store is flaky
-          sudo lxd init --auto
+          # Incus from Ubuntu's own packages: the snap store (LXD) was unreachable too often
+          sudo apt-get update -q && sudo apt-get install -y -q incus
+          sudo incus admin init --minimal
           sudo iptables -P FORWARD ACCEPT  # the runner's Docker would drop the container's traffic
-          sudo lxc launch "images:${{ matrix.image }}" srv -c security.nesting=true
-          for i in $(seq 1 60); do sudo lxc exec srv -- getent hosts deb.debian.org >/dev/null && break; sleep 2; done
+          sudo incus launch "images:${{ matrix.image }}" srv -c security.nesting=true
+          for i in $(seq 1 60); do sudo incus exec srv -- getent hosts deb.debian.org >/dev/null && break; sleep 2; done
           # what a Debian cloud image has and the minimal container image lacks
-          sudo lxc exec srv -- bash -c 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3 curl ca-certificates openssh-server'
-          tar -cf - --exclude=.git . | sudo lxc exec srv -- bash -c 'mkdir -p /root/roadie && tar -xf - -C /root/roadie'
+          sudo incus exec srv -- bash -c 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3 curl ca-certificates openssh-server'
+          tar -cf - --exclude=.git . | sudo incus exec srv -- bash -c 'mkdir -p /root/roadie && tar -xf - -C /root/roadie'
       - name: TMDB key for the own AIOMetadata (repository secret; forks run without it)
         env:
           TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           if [ -n "$TMDB_KEY" ]; then
-            printf %s "$TMDB_KEY" | sudo lxc exec srv -- sh -c 'umask 077; cat > /root/tmdb-key'
+            printf %s "$TMDB_KEY" | sudo incus exec srv -- sh -c 'umask 077; cat > /root/tmdb-key'
           fi
       - name: Setup, checks, second run, backup
-        run: sudo lxc exec srv -- bash /root/roadie/tests/e2e/run.sh ${{ matrix.mode }}
+        run: sudo incus exec srv -- bash /root/roadie/tests/e2e/run.sh ${{ matrix.mode }}
       - name: Problem report (redacted) on failure
         if: failure()
-        run: sudo lxc exec srv -- roadie diagnose || true
+        run: sudo incus exec srv -- roadie diagnose || true
