@@ -265,6 +265,15 @@ class RunWithServerTest(SignedBase):
         self.assertEqual(selfupdate.latest("o/r"), "v0.2.0")
         self.assertIsNone(selfupdate.latest("o/missing"))
 
+    def test_latest_without_the_api(self):
+        """GitHub's API refuses (rate limit on a shared address): the release page still tells."""
+        with mock.patch.object(selfupdate, "_get", side_effect=OSError("403")), \
+                mock.patch.object(selfupdate, "_final_url",
+                                  return_value="https://github.com/o/r/releases/tag/v0.2.0") as final:
+            self.assertEqual(selfupdate.latest("o/r"), "v0.2.0")
+            final.return_value = "https://github.com/o/r/releases"  # no release yet
+            self.assertIsNone(selfupdate.latest("o/r"))
+
     def test_incomplete_read_is_no_crash(self):
         import http.client
         with mock.patch.object(selfupdate, "_get", side_effect=http.client.IncompleteRead(b"x")):

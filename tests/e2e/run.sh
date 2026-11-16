@@ -14,8 +14,8 @@ mode="${1:-duckdns}"
 src="$PWD"  # the tree the first setup runs from
 if [ "$mode" = upgrade ]; then
     command -v curl >/dev/null || { apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q curl; }
-    tag="$(curl -fsSL https://api.github.com/repos/usenetroadie/roadie/releases/latest \
-           | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+    # not the API: it allows few anonymous requests per address, and runners share theirs
+    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/usenetroadie/roadie/releases/latest | sed 's|.*/||')"
     src=/root/roadie-release
     rm -rf "$src" && mkdir -p "$src"
     curl -fsSL "https://github.com/usenetroadie/roadie/archive/refs/tags/$tag.tar.gz" | tar -xz --strip-components=1 -C "$src"

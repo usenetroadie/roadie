@@ -19,8 +19,8 @@ main() {  # called on the last line: a download that broke off half way runs not
     fi
 
     local tag tmp name
-    tag="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-           | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+    # the "latest" page redirects to the newest tag (GitHub's API allows few requests per address)
+    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" | sed 's|.*/||')"
     if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
         echo "Could not find the newest roadie release. Try again in a few minutes." >&2; exit 1
     fi

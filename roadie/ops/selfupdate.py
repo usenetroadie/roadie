@@ -71,8 +71,21 @@ def latest(repo: str) -> str | None:
     try:
         tag = json.loads(_get(f"{API_URL}/repos/{repo}/releases/latest")).get("tag_name")
     except (*_NET_ERRORS, AttributeError):
-        return None
-    return tag if isinstance(tag, str) else None
+        tag = None
+    if not isinstance(tag, str):  # the API allows only few anonymous requests per address
+        try:  # .../releases/latest redirects to .../releases/tag/<tag>, without such a limit
+            m = re.search(r"/releases/tag/(v[0-9.]+)$", _final_url(f"{DOWNLOAD_URL}/{repo}/releases/latest"))
+        except _NET_ERRORS:
+            return None
+        tag = m.group(1) if m else None
+    return tag
+
+
+def _final_url(url: str) -> str:
+    """Where the address leads after its redirects."""
+    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "roadie"})
+    with _ipv4_only(), urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.geturl()
 
 
 def verify(archive: Path, sha256_text: str, sig: bytes, allowed_signers: str) -> bool:

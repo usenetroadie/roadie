@@ -96,7 +96,7 @@ It downloads the newest release, checks its checksum and signature, installs it 
 <summary>Rather do it step by step?</summary>
 
 ```sh
-V=$(curl -fsSL https://api.github.com/repos/usenetroadie/roadie/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+V=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/usenetroadie/roadie/releases/latest | sed 's|.*/||')
 curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz
 curl -fLO https://github.com/usenetroadie/roadie/releases/download/$V/roadie-$V.tar.gz.sha256
 sha256sum -c roadie-$V.tar.gz.sha256          # must print "OK"
