@@ -34,12 +34,16 @@ class PreflightTest(unittest.TestCase):
         findings = P.evaluate(FRESH)
         self.assertFalse(P.has_errors(findings), findings)
 
-    def test_wrong_os_is_error(self):
-        self.assertIn("preflight.os", keys(P.evaluate(facts(os_version="22.04")), "error"))
-        self.assertIn("preflight.os", keys(P.evaluate(facts(os_id="debian")), "error"))
+    def test_supported_systems(self):
+        for os_id, version in (("ubuntu", "24.04"), ("debian", "12"), ("debian", "13")):
+            self.assertNotIn("preflight.os", keys(P.evaluate(facts(os_id=os_id, os_version=version)), "error"))
+        for os_id, version in (("ubuntu", "22.04"), ("debian", "11"), ("fedora", "41"), ("debian", "24.04")):
+            self.assertIn("preflight.os", keys(P.evaluate(facts(os_id=os_id, os_version=version)), "error"))
 
-    def test_wrong_arch_is_error(self):
-        self.assertIn("preflight.arch", keys(P.evaluate(facts(arch="aarch64")), "error"))
+    def test_arm_and_x86_supported_others_not(self):
+        self.assertNotIn("preflight.arch", keys(P.evaluate(facts(arch="aarch64")), "error"))
+        self.assertNotIn("preflight.arch", keys(P.evaluate(facts(arch="x86_64")), "error"))
+        self.assertIn("preflight.arch", keys(P.evaluate(facts(arch="armv7l")), "error"))
 
     def test_not_root_is_error(self):
         self.assertIn("preflight.root", keys(P.evaluate(facts(is_root=False)), "error"))

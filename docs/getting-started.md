@@ -9,12 +9,25 @@ This guide is for you if you have never rented or used a server before.
 A VPS is a small virtual server in a data center that is yours alone. Any provider works.
 Choose:
 
-- **Ubuntu 24.04 LTS**, architecture **x86_64** (not ARM)
+- **Ubuntu 24.04 LTS**, **Debian 12** or **Debian 13**
+- architecture **x86_64** or **ARM64** – the Oracle Cloud *Always Free* ARM server works well
 - at least **2 vCPU**, **4 GB RAM** recommended (2 GB works, roadie then adds swap), **20 GB** storage
-- nothing else installed or running on it
+- a public IPv4 address, nothing else installed or running on it
 
 The provider then shows you an **IP address**, a **username** (often `root` or `ubuntu`) and
 either a password or a place to add an SSH key.
+
+### Open the ports in your provider's firewall
+
+Some providers have a firewall of their own in front of the server, separate from the one roadie
+sets up. Ports **80** and **443** must be open there (and **22** for SSH), or the HTTPS certificate
+cannot be issued.
+
+- **Oracle Cloud:** *Networking → Virtual cloud networks →* your network *→ Security Lists →
+  Default Security List → Add Ingress Rules*: source `0.0.0.0/0`, TCP, destination port `80`, then
+  again for `443`.
+- **Hetzner, AWS, Google Cloud and others:** look for *Firewall* or *Security group* in the
+  provider's panel. If the server has none attached, nothing needs to be done.
 
 ## 2. Connect for the first time
 
@@ -30,12 +43,27 @@ roadie asks for these during the setup and checks each one right away:
 
 | What | Where you get it |
 |---|---|
-| DuckDNS subdomain + token | free at [duckdns.org](https://www.duckdns.org): sign in, enter a name, *add domain*; the token is at the top of the page |
+| A web address | **either** a free DuckDNS subdomain + token from [duckdns.org](https://www.duckdns.org) (sign in, enter a name, *add domain*; the token is at the top of the page) **or** your own domain – see below |
 | Usenet provider login | your provider account (username, password). A second provider on a **different backbone** is a good backup – roadie warns if both are on the same network |
 | Usenet indexer | your indexer account: its API address and API key |
 | A password manager | for the passwords, keys and the backup key roadie creates for you |
 | ntfy app (optional) | free app for push messages; roadie shows you the topic to subscribe to |
 | TMDB API key (optional, recommended) | free at [themoviedb.org](https://www.themoviedb.org/settings/api); improves title matching |
+
+### Using your own domain
+
+At your domain provider, create three DNS entries of type **A**, each pointing to your server's
+public IPv4 address (roadie shows it during the setup):
+
+| Name | Type | Value |
+|---|---|---|
+| `aiostreams.example.com` | A | your server's address |
+| `auth.example.com` | A | your server's address |
+| `prowlarr.example.com` | A | your server's address |
+
+Or a single wildcard entry `*.example.com`. You can also use a subdomain such as
+`media.example.com` – then the names are `aiostreams.media.example.com` and so on. New entries can
+take a few minutes; roadie checks them and tells you exactly which one is missing or wrong.
 
 Plan about 20–30 minutes. You can stop at any time with Ctrl+C and continue later with `sudo roadie`.
 

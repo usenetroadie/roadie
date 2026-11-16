@@ -18,6 +18,7 @@ from roadie.paths import atomic_write
 from roadie.redact import Redactor
 
 KEEP = 2
+HAS_TAR_FILTER = hasattr(tarfile, "data_filter")  # Python 3.12, and 3.11 from 3.11.4
 # the program itself is not backed up: a restore must never replace a newer version
 EXCLUDES = ["opt/roadie/app", "opt/roadie/app.prev", "opt/roadie/app.new",
             "opt/roadie/stack/data/aiostreams/cache",
@@ -203,7 +204,11 @@ def _extract(identity: str, archive: str, root: Path) -> None:
                 raise UnsafeBackup(member.name)
             if kind == "ok":
                 _no_links_on_the_way(root, member.name)
-                tar.extract(member, path=str(root), filter="tar", numeric_owner=True)
+                if HAS_TAR_FILTER:
+                    tar.extract(member, path=str(root), filter="tar", numeric_owner=True)
+                else:  # Python < 3.11.4 (Debian 12): the checks above did the filter's work
+                    member.mode &= 0o777  # no setuid, setgid or sticky bits
+                    tar.extract(member, path=str(root), numeric_owner=True)
 
 
 def restore(paths, archive: str, identity: str, overwrite: bool = False) -> int:

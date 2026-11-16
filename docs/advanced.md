@@ -35,6 +35,8 @@ sudo roadie setup --answers answers.json      # see examples/answers.example.jso
 sudo roadie setup --answers answers.json --dry-run   # only check answers and server
 ```
 
+For your own domain, replace the `duckdns` block with `"domain": "example.com"`.
+
 `people` is optional in an answers file: without it the stored people stay; people left out of
 the list are removed and their addon address stops working.
 

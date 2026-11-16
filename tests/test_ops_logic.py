@@ -369,3 +369,29 @@ class UpdateLogicTest(unittest.TestCase):
         versions = {"traefik": {"image": "traefik", "tag": "v3.7.18"},
                     "aiostreams": {"image": "ghcr.io/viren070/aiostreams", "tag": "v2.37.0"}}
         self.assertEqual(pending(current, versions), [("traefik", "traefik:v3.7.17", "traefik:v3.7.18")])
+
+
+class OldPythonTarTest(unittest.TestCase):
+    """Debian 12 ships Python 3.11.2: tarfile has no extraction filters there."""
+
+    def test_selfupdate_install_without_tar_filter(self):
+        import io, tarfile, tempfile
+        from pathlib import Path
+        from unittest import mock
+        from roadie.ops import selfupdate
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            archive = tmp / "r.tar.gz"
+            with tarfile.open(archive, "w:gz") as tar:
+                for name, data in (("roadie-v9.9.9/roadie/__init__.py", b'__version__ = "9.9.9"\n'),
+                                   ("roadie-v9.9.9/roadie/__main__.py", b'print("roadie 9.9.9")\n')):
+                    info = tarfile.TarInfo(name); info.size = len(data); info.mode = 0o4755
+                    tar.addfile(info, io.BytesIO(data))
+            app = tmp / "app"; (app / "roadie").mkdir(parents=True)
+            with mock.patch.object(tarfile, "data_filter", create=True), \
+                    mock.patch.dict(tarfile.__dict__):
+                del tarfile.__dict__["data_filter"]
+                self.assertEqual(selfupdate.install(archive, app, "v9.9.9"), "ok")
+            installed = app / "roadie/__main__.py"
+            self.assertTrue(installed.exists())
+            self.assertEqual(installed.stat().st_mode & 0o7777, 0o755)  # setuid gone, as with filter="data"

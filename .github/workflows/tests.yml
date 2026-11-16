@@ -18,3 +18,22 @@ jobs:
         run: |
           sudo apt-get install -y -q age
           python3 -m unittest discover -s tests -v
+
+  # Debian 12 ships Python 3.11.2 (no tarfile filters); Debian 13 Python 3.13
+  unit-debian:
+    name: unit (${{ matrix.image }})
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["debian:12", "debian:13"]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Unit tests in ${{ matrix.image }} as a normal user
+        run: |
+          docker run --rm -v "$PWD:/src:ro" "${{ matrix.image }}" bash -c '
+            apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3 age openssh-client >/dev/null
+            useradd -m tester && cp -r /src /home/tester/roadie && chown -R tester /home/tester/roadie
+            su tester -c "cd ~/roadie && python3 --version && python3 -m unittest discover -s tests"'

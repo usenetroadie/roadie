@@ -9,6 +9,14 @@ First run `sudo roadie status` (or *Check status* in the menu). It shows which p
 Run `sudo roadie` again. It picks up where it left off and skips what is already done. The error
 message names the step; most problems are a wrong key or a service that was briefly unreachable.
 
+## The address does not work
+
+- **Own domain:** roadie names the DNS entry that is missing or points elsewhere. Fix it at your
+  domain provider, wait a few minutes, run `sudo roadie` again.
+- **No HTTPS certificate:** ports 80 and 443 must be open in your provider's firewall – see
+  [Getting started](getting-started.md#open-the-ports-in-your-providers-firewall).
+- **DuckDNS:** check name and token on duckdns.org. roadie keeps the address up to date every 5 minutes.
+
 ## No streams
 
 - An indexer's **daily limit** may be reached. It resets the next day.

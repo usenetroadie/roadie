@@ -218,6 +218,9 @@ class _DemoChecks:
     def newznab_limits(self, url, key):
         return None, None  # the demo asks for the limits like an indexer that does not report them
 
+    def server_ip(self):
+        return "203.0.113.10"
+
     def __getattr__(self, name):
         from roadie.checks import CheckResult
         return lambda *args: CheckResult(True, "demo.check_ok")
@@ -241,7 +244,8 @@ def _demo(ui: Prompter, lang_given: bool = False) -> int:
     ui.heading(t("cli.dry_run_plan"))
     for step in phases.steps(answers):
         ui.info(f"  - {t(step.title_key)}")
-    domain = f"aiostreams.{answers.data['duckdns']['subdomain']}.duckdns.org"
+    from roadie.answers import base_domain
+    domain = f"aiostreams.{base_domain(answers.data)}"
     ui.heading(t("summary.heading"))
     ui.info(t("summary.addon_url"))
     ui.info(f"  https://{domain}/stremio/00000000-demo/ENCRYPTED-DEMO/manifest.json")

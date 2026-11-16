@@ -52,6 +52,25 @@ def normalise_duckdns(name: str) -> str:
     return n
 
 
+def normalise_domain(name: str) -> str:
+    """Own domain: the name the services hang under (aiostreams.<name>, auth.<name>, ...)."""
+    n = (name or "").strip().lower()
+    n = re.sub(r"^https?://", "", n).split("/")[0].rstrip(".")
+    labels = n.split(".")
+    if (len(labels) < 2 or len(n) > 200
+            or not all(re.fullmatch(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)):
+        raise ValueError(t("answers.err.domain"))
+    return n
+
+
+def base_domain(data: dict) -> str | None:
+    """The address everything hangs under: the own domain, or <name>.duckdns.org."""
+    if data.get("domain"):
+        return data["domain"]
+    sub = (data.get("duckdns") or {}).get("subdomain")
+    return f"{sub}.duckdns.org" if sub else None
+
+
 def normalise_ssh_key(text: str) -> str:
     text = (text or "").replace("\r", "").strip()
     if "PRIVATE KEY" in text:
@@ -198,10 +217,16 @@ def _check(data: dict) -> _Checker:
         c.err("admin_user", problem)
 
     c.norm("ssh_public_key", normalise_ssh_key)
-    c.norm("duckdns.subdomain", normalise_duckdns)
-    token = c.get("duckdns.token")
-    if token is not None and not re.fullmatch(r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", token.strip().lower()):
-        c.err("duckdns.token", t("answers.err.duckdns_token"))
+    if data.get("domain") is not None:  # own domain instead of DuckDNS
+        c.norm("domain", normalise_domain)
+        if data.get("duckdns") is not None:
+            c.err("duckdns", t("answers.err.domain_or_duckdns"))
+    else:
+        c.norm("duckdns.subdomain", normalise_duckdns)
+        token = c.get("duckdns.token")
+        if token is not None and not re.fullmatch(r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}",
+                                                  token.strip().lower()):
+            c.err("duckdns.token", t("answers.err.duckdns_token"))
 
     providers = (data.get("usenet") or {}).get("providers") or []
     if not providers:

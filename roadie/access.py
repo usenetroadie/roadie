@@ -17,8 +17,8 @@ def _pair(label: str, value: str | None) -> list[str]:
 
 
 def _domain(env: Env) -> str | None:
-    sub = (env.answers.get("duckdns") or {}).get("subdomain")
-    return f"{sub}.duckdns.org" if sub else None
+    from roadie.answers import base_domain
+    return base_domain(env.answers)
 
 
 def ssh_command(user: str, host: str, key_created: bool = False) -> str:

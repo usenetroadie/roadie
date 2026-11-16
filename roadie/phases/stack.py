@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import tempfile
 import time
 import urllib.error
@@ -12,7 +13,7 @@ from roadie import system
 from roadie.aiostreams import people
 from roadie.aiostreams.api import AioClient
 from roadie.aiostreams.builder import build_user_config
-from roadie.checks import duckdns as duckdns_check
+from roadie.checks import domain as domain_check, duckdns as duckdns_check
 from roadie.engine import Context, Outcome, Step, StepFailed
 from roadie.i18n import t
 from roadie.paths import atomic_write
@@ -39,8 +40,27 @@ def _test_mode(ctx: Context) -> bool:
     return bool(ctx.answers.data.get("test_mode"))
 
 
+def _remove_duckdns_timer() -> None:
+    """After a switch to an own domain the DuckDNS updater must stop."""
+    if not any(Path(p).exists() for p in DUCKDNS_UNITS):
+        return
+    system.run(["systemctl", "disable", "--now", "roadie-duckdns.timer"], check=False)
+    for path in DUCKDNS_UNITS:
+        Path(path).unlink(missing_ok=True)
+    system.run(["systemctl", "daemon-reload"], check=False)
+
+
 def duckdns(ctx: Context) -> None:
+    """The web address: DuckDNS is updated (and kept up to date by a timer); an own domain
+    only has to point here already."""
     if _test_mode(ctx):
+        return
+    own = ctx.answers.data.get("domain")
+    if own:
+        _remove_duckdns_timer()
+        result = domain_check.check_domain(own)
+        if not result.ok:
+            raise StepFailed("duckdns", t(result.key, **result.params))
         return
     d = ctx.answers.data["duckdns"]
     result = duckdns_check.check_duckdns(d["subdomain"], d["token"])
@@ -71,20 +91,31 @@ def pinned_keyring(download: Path) -> str | None:
     return armored if "BEGIN PGP PUBLIC KEY BLOCK" in armored else None
 
 
+def docker_source(os_release: str, arch: str) -> tuple[str, str]:
+    """(key URL, apt line) for Docker's repository of this system: Ubuntu or Debian, any
+    architecture Docker builds for (amd64, arm64). Docker signs both with the same key."""
+    values = dict(re.findall(r'^(\w+)="?([^"\n]*)"?$', os_release, re.M))
+    distro, codename = values.get("ID", ""), values.get("VERSION_CODENAME", "")
+    if distro not in ("ubuntu", "debian") or not codename or not re.fullmatch(r"[a-z0-9]+", arch or ""):
+        raise ValueError(f"no Docker repository for {distro} {codename} {arch}")
+    base = f"https://download.docker.com/linux/{distro}"
+    return f"{base}/gpg", f"deb [arch={arch} signed-by={{keyring}}] {base} {codename} stable\n"
+
+
 def docker(ctx: Context) -> None:
     if not system.ok(["docker", "compose", "version"]):
+        key_url, apt_line = docker_source(Path("/etc/os-release").read_text(),
+                                          system.run(["dpkg", "--print-architecture"]).strip())
         with tempfile.TemporaryDirectory(prefix="roadie-docker-") as tmp:
             download = Path(tmp) / "docker.asc"
-            system.run(["curl", "-fsSL", "https://download.docker.com/linux/ubuntu/gpg", "-o", str(download)])
+            system.run(["curl", "-fsSL", key_url, "-o", str(download)])
             armored = pinned_keyring(download)
         if not armored:  # the downloaded file itself is never used
             raise StepFailed("docker", t("docker.key_mismatch"))
         keyring = Path("/etc/apt/keyrings/docker.asc")
         keyring.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         atomic_write(keyring, armored, 0o644)
-        atomic_write(Path("/etc/apt/sources.list.d/docker.list"),
-                     f"deb [arch=amd64 signed-by={keyring}] https://download.docker.com/linux/ubuntu noble stable\n",
-                     0o644)
+        atomic_write(Path("/etc/apt/sources.list.d/docker.list"), apt_line.format(keyring=keyring), 0o644)
         system.run(["apt-get", "update", "-q"])
         system.run(["apt-get", "install", "-y", "-q", *DOCKER_PACKAGES])
     system.run(["systemctl", "enable", "--now", "docker"])

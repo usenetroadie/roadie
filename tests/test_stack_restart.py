@@ -152,6 +152,8 @@ class DockerKeyTest(unittest.TestCase):
                 return ""
             if cmd[0] == "gpg":
                 return system_run(cmd, **kw)
+            if cmd[0] == "dpkg":
+                return "amd64\n"
             calls.append(cmd)
             return ""
         from roadie import system as real_system
@@ -168,3 +170,18 @@ class DockerKeyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DockerSourceTest(unittest.TestCase):
+    def test_ubuntu_and_debian_any_arch(self):
+        from roadie.phases.stack import docker_source
+        url, line = docker_source('ID=ubuntu\nVERSION_CODENAME=noble\n', "arm64")
+        self.assertEqual(url, "https://download.docker.com/linux/ubuntu/gpg")
+        self.assertEqual(line.format(keyring="/k"),
+                         "deb [arch=arm64 signed-by=/k] https://download.docker.com/linux/ubuntu noble stable\n")
+        url, line = docker_source('PRETTY_NAME="Debian GNU/Linux 13"\nID=debian\nVERSION_CODENAME=trixie\n', "amd64")
+        self.assertIn("/linux/debian trixie stable", line)
+        for bad in (('ID=fedora\nVERSION_CODENAME=x\n', "amd64"), ('ID=debian\n', "amd64"),
+                    ('ID=ubuntu\nVERSION_CODENAME=noble\n', "amd64 evil")):
+            with self.assertRaises(ValueError):
+                docker_source(*bad)

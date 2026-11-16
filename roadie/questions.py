@@ -10,9 +10,9 @@ from pathlib import Path
 
 from roadie import i18n
 from roadie.aiostreams.people import MAIN, slug
-from roadie.answers import (MAX_PEOPLE, _data, admin_user_problem, content_languages, normalise_duckdns,
+from roadie.answers import (MAX_PEOPLE, _data, admin_user_problem, content_languages, normalise_domain, normalise_duckdns,
                                   normalise_newznab_url, normalise_ssh_key, normalise_time)
-from roadie.checks import duckdns, newznab, nntp, tmdb
+from roadie.checks import domain as domain_check, duckdns, newznab, nntp, tmdb
 from roadie.i18n import t
 from roadie.ui import Prompter
 
@@ -28,6 +28,12 @@ class LiveChecks:
 
     def duckdns(self, sub, token):
         return duckdns.check_duckdns(sub, token)
+
+    def domain(self, name):
+        return domain_check.check_domain(name)
+
+    def server_ip(self):
+        return domain_check.public_ipv4()
 
     def nntp(self, host, port, tls, user, password):
         return nntp.check_nntp(host, port, tls, user, password)
@@ -148,6 +154,31 @@ def _create_ssh_key(ui: Prompter, user: str) -> str:
             return normalise_ssh_key(public)
 
 def ask_domain(ui: Prompter, data: dict, checks) -> None:
+    old_own = _current(data, "domain")
+    kinds = ("duckdns", "own")
+    kind = ui.choose(t("q.domain.kind"), [(k, t(f"q.domain.kind.{k}")) for k in kinds],
+                     default="own" if old_own else "duckdns", hints=[t(f"q.domain.kind.{k}.hint") for k in kinds])
+    if kind == "own":
+        ask_own_domain(ui, data, checks, old_own)
+    else:
+        ask_duckdns(ui, data, checks)
+
+
+def ask_own_domain(ui: Prompter, data: dict, checks, old: str | None) -> None:
+    ui.info(t("q.domain.own_help", ip=checks.server_ip() or "?"))
+    for name in domain_check.names(t("q.domain.own_placeholder")):
+        ui.hint(f"  {name}")
+    ui.info(t("q.domain.own_wildcard"))
+    (name,) = _checked(ui, lambda: (normalise_domain(ui.ask(t("q.domain.own_name"), default=old,
+                                                             validate=_validator(normalise_domain))),),
+                       checks.domain)
+    if old != name and (old or data.get("duckdns")) and data.get(PREFILL):
+        ui.warn(t("q.domain.change_warning"))
+    data.pop("duckdns", None)
+    data["domain"] = name
+
+
+def ask_duckdns(ui: Prompter, data: dict, checks) -> None:
     ui.info(t("q.domain.help"))
     old = _current(data, "duckdns") or {}
 
@@ -157,8 +188,9 @@ def ask_domain(ui: Prompter, data: dict, checks) -> None:
         return sub, _ask_secret(ui, t("q.domain.token"), old.get("token"))
 
     sub, token = _checked(ui, ask, checks.duckdns)
-    if old and sub != old.get("subdomain"):
+    if (old and sub != old.get("subdomain")) or (data.get("domain") and data.get(PREFILL)):
         ui.warn(t("q.domain.change_warning"))
+    data.pop("domain", None)
     data["duckdns"] = {"subdomain": sub, "token": token}
 
 
@@ -446,6 +478,8 @@ def _summary(key: str, data: dict) -> list[str]:
         return [t("review.admin_user", value=data["admin_user"]),
                 t("review.ssh_key", value=data["ssh_public_key"][:24] + "…")]
     if key == "domain":
+        if data.get("domain"):
+            return [t("review.address", value=data["domain"]), t("review.own_domain")]
         return [t("review.address", value=f"{data['duckdns']['subdomain']}.duckdns.org"),
                 t("review.token", value=_secret(data["duckdns"]["token"]))]
     if key == "usenet":

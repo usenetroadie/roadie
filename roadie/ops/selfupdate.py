@@ -126,7 +126,12 @@ def install(archive: Path, app_dir: Path, tag: str) -> str:
                 members = _package_members(tar, prefix)
                 if not members:
                     return "unsafe"
-                tar.extractall(tmp, members=members, filter="data")
+                if hasattr(tarfile, "data_filter"):
+                    tar.extractall(tmp, members=members, filter="data")
+                else:  # Python < 3.11.4 (Debian 12): _package_members already refused unsafe ones
+                    for m in members:
+                        m.mode &= 0o755  # like filter="data": no setuid/setgid/sticky, no group/other write
+                    tar.extractall(tmp, members=members)
             package = Path(tmp) / prefix / "roadie"
             if not package.is_dir():
                 return "unsafe"

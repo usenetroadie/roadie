@@ -12,7 +12,9 @@ from roadie.i18n import t
 from roadie.paths import atomic_write
 from roadie.render import system as render_system
 
-PACKAGES = ["ufw", "fail2ban", "unattended-upgrades", "age", "curl", "ca-certificates", "gnupg"]
+# sudo and python3-systemd: not always there on Debian (fail2ban's systemd backend needs the latter)
+PACKAGES = ["ufw", "fail2ban", "python3-systemd", "unattended-upgrades", "age", "curl", "ca-certificates", "gnupg",
+            "sudo"]
 SWAPFILE = "/swapfile"
 SSH_WAIT_SECONDS = 600
 MAX_TRUSTED_IPS = 5  # addresses the admin used for the wizard; fail2ban never bans them
@@ -175,8 +177,8 @@ def key_login_seen(user: str, since: str) -> str | None:
 def login_command(ctx: Context) -> str:
     """The exact command for the test login (with the key file the wizard told the user to save)."""
     user = ctx.answers.data["admin_user"]
-    sub = (ctx.answers.data.get("duckdns") or {}).get("subdomain")
-    host = f"{sub}.duckdns.org" if sub else t("ssh.check.server_address")
+    from roadie.answers import base_domain
+    host = base_domain(ctx.answers.data) or t("ssh.check.server_address")
     from roadie.access import ssh_command
     return ssh_command(user, host, bool(ctx.state.answers.get("_ssh_key_created")))
 

@@ -1,7 +1,8 @@
 name: end-to-end
 
-# Full unattended run of the wizard on a fresh Ubuntu 24.04 runner: real Docker, real
-# images from versions.json, self-signed certificate and a fake indexer (test mode).
+# Full unattended run of the wizard (tests/e2e/run.sh): real Docker, real images from
+# versions.json, self-signed certificate and a fake indexer (test mode). Every supported
+# system and architecture, with a DuckDNS address and with an own domain.
 on:
   workflow_dispatch:
   schedule:
@@ -13,8 +14,15 @@ permissions:
   contents: read
 
 jobs:
-  e2e:
-    runs-on: ubuntu-24.04
+  runner:
+    name: ubuntu 24.04 ${{ matrix.arch }} (${{ matrix.mode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, arch: x86_64, mode: duckdns}
+          - {runner: ubuntu-24.04-arm, arch: arm64, mode: domain}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
@@ -25,34 +33,38 @@ jobs:
           sudo systemctl stop docker.socket docker.service containerd || true
           sudo apt-get purge -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin moby-* || true
           sudo rm -rf /var/lib/docker /etc/docker /usr/bin/docker /usr/libexec/docker
-          sudo bash install.sh
-      - name: Fake indexer and answer file
-        run: |
-          ip=$(hostname -I | awk '{print $1}')
-          nohup python3 tests/e2e/mock_newznab.py 8099 >/dev/null 2>&1 &
-          ssh-keygen -q -t ed25519 -N "" -f "$HOME/testkey"
-          python3 - "$ip" <<'PY'
-          import json, os, sys
-          d = json.load(open("examples/answers.example.json"))
-          d["test_mode"] = True
-          d["admin_user"] = "roadieadmin"
-          d["indexers"][0]["url"] = f"http://{sys.argv[1]}:8099"
-          d["ssh_public_key"] = open(os.path.expanduser("~/testkey.pub")).read().strip()
-          json.dump(d, open("/tmp/answers.json", "w"))
-          PY
-      - name: Run the wizard
-        shell: bash  # with pipefail: a failed setup must not hide behind tee
-        run: |
-          sudo ufw allow 8099/tcp || true
-          sudo roadie setup --answers /tmp/answers.json | tee /tmp/run.log
-      - name: Check the result
-        run: sudo bash tests/e2e/verify.sh example.duckdns.org /tmp/run.log
-      - name: Re-run must be harmless (idempotent)
-        run: sudo roadie setup --answers /tmp/answers.json && sudo bash tests/e2e/verify.sh example.duckdns.org
-      - name: Backup and status
-        run: |
-          sudo roadie backup || true
-          sudo roadie status
+      - name: Setup, checks, second run, backup
+        run: sudo bash tests/e2e/run.sh ${{ matrix.mode }}
       - name: Problem report (redacted) on failure
         if: failure()
         run: sudo roadie diagnose || true
+
+  debian:
+    name: ${{ matrix.image }} (${{ matrix.mode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {image: debian/12, mode: duckdns}
+          - {image: debian/13, mode: domain}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Fresh Debian server in an LXD container
+        run: |
+          sudo snap install lxd
+          sudo lxd init --auto
+          sudo iptables -P FORWARD ACCEPT  # the runner's Docker would drop the container's traffic
+          sudo lxc launch "images:${{ matrix.image }}" srv -c security.nesting=true
+          for i in $(seq 1 60); do sudo lxc exec srv -- getent hosts deb.debian.org >/dev/null && break; sleep 2; done
+          # what a Debian cloud image has and the minimal container image lacks
+          sudo lxc exec srv -- bash -c 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3 curl ca-certificates openssh-server'
+          tar -cf - --exclude=.git . | sudo lxc exec srv -- bash -c 'mkdir -p /root/roadie && tar -xf - -C /root/roadie'
+      - name: Setup, checks, second run, backup
+        run: sudo lxc exec srv -- bash /root/roadie/tests/e2e/run.sh ${{ matrix.mode }}
+      - name: Problem report (redacted) on failure
+        if: failure()
+        run: sudo lxc exec srv -- roadie diagnose || true

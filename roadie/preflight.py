@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 
 from roadie.paths import Paths
 
+SYSTEMS = (("ubuntu", "24.04"), ("debian", "12"), ("debian", "13"))  # each one tested end to end
+ARCHES = ("x86_64", "aarch64")  # every pinned image is built for amd64 and arm64
 REQUIRED_HOSTS = ("github.com", "ghcr.io", "registry-1.docker.io", "www.duckdns.org", "ntfy.sh")
 MIN_RAM_MB, RECOMMENDED_RAM_MB, MIN_DISK_GB = 1800, 3800, 20
 
@@ -106,8 +108,8 @@ def evaluate(f: Facts, own_install: bool = False, min_disk_gb: float = MIN_DISK_
     def add(ok: bool, key: str, level: str = "error", **params):
         out.append(Finding("ok" if ok else level, key, params))
 
-    add(f.os_id == "ubuntu" and f.os_version == "24.04", "preflight.os", os=f"{f.os_id} {f.os_version}")
-    add(f.arch == "x86_64", "preflight.arch", arch=f.arch)
+    add((f.os_id, f.os_version) in SYSTEMS, "preflight.os", os=f"{f.os_id} {f.os_version}")
+    add(f.arch in ARCHES, "preflight.arch", arch=f.arch)
     add(f.is_root, "preflight.root")
     add(f.mem_mb >= MIN_RAM_MB, "preflight.ram", mb=f.mem_mb, min=MIN_RAM_MB)
     if f.mem_mb >= MIN_RAM_MB:

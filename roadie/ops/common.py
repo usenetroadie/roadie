@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from roadie import i18n, notify, system
+from roadie.answers import base_domain
 from roadie.paths import Paths, atomic_write
 from roadie.secretstore import SecretStore
 from roadie.state import State
@@ -30,7 +31,7 @@ class Env:
 
     @property
     def domain(self) -> str:
-        return f"{self.answers['duckdns']['subdomain']}.duckdns.org"
+        return base_domain(self.answers)
 
     @property
     def var_dir(self) -> Path:

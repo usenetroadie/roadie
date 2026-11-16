@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Installs roadie from this folder to /opt/roadie/app and adds the
-# `roadie` command. Needs only what a fresh Ubuntu 24.04 already has.
+# `roadie` command. Needs only Python 3 (Ubuntu 24.04 and Debian cloud images have it).
 set -euo pipefail
 if [ "$(id -u)" -ne 0 ]; then echo "Please run with sudo: sudo bash install.sh" >&2; exit 1; fi
+if ! command -v python3 >/dev/null; then  # minimal Debian images come without it
+    apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3
+fi
 src="$(cd "$(dirname "$0")" && pwd)"
 install -d -m 0755 /opt/roadie/app
 rm -rf /opt/roadie/app/roadie

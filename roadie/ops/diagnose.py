@@ -12,7 +12,7 @@ LOG_LINES = 25
 
 def build(env: Env) -> str:
     redact = Redactor(env.secrets.values(), hide_domain=env.domain)
-    redact.add(env.answers.get("duckdns", {}).get("subdomain"))
+    redact.add(env.answers.get("domain") or env.answers.get("duckdns", {}).get("subdomain"))
     parts = [
         "### roadie report",
         f"version: {__version__}",

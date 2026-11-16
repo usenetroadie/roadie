@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Tagelanges Basteln. Eine geführte Einrichtung.</b><br>
-  Ein Terminal-Assistent, der aus einem frischen Ubuntu-VPS deinen eigenen, abgesicherten
+  Ein Terminal-Assistent, der aus einem frischen VPS deinen eigenen, abgesicherten
   <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a>- und Usenet-Streaming-Server macht.
 </p>
 
@@ -15,6 +15,8 @@
   <a href="https://github.com/usenetroadie/roadie/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/tests.yml?branch=main&label=tests" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT-Lizenz"></a>
   <img src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white" alt="Ubuntu 24.04">
+  <img src="https://img.shields.io/badge/Debian-12%20%7C%2013-A81D33?logo=debian&logoColor=white" alt="Debian 12 und 13">
+  <img src="https://img.shields.io/badge/arch-x86__64%20%7C%20arm64-555" alt="x86_64 und arm64">
 </p>
 
 <p align="center">
@@ -52,7 +54,7 @@ und Prowlarr kannst du jederzeit selbst öffnen und anpassen.
 - Eine Addon-Adresse pro Person, auf Wunsch mit eigenen Sprachen und eigener Qualität
 
 **Sicherheit**
-- Eigene Adresse (DuckDNS) mit HTTPS von Let's Encrypt
+- Eigene Adresse – kostenlos über DuckDNS oder deine eigene Domain – mit HTTPS von Let's Encrypt
 - Login mit Passkey oder Code-App (Authelia) vor jeder Einstellungsseite – deine Player-Apps funktionieren weiter
 - SSH-Login per Schlüssel; der Passwort-Login wird erst abgeschaltet, nachdem dein Schlüssel-Login gesehen wurde, damit du dich nicht versehentlich aussperrst
 - Firewall, fail2ban (auch für Docker-Ports), automatische Sicherheitsupdates
@@ -68,8 +70,10 @@ Alles läuft auf deinem eigenen Server. roadie schickt nichts an seine Entwickle
 ## Schnellstart
 
 **Du brauchst:**
-- einen frischen VPS mit **Ubuntu 24.04 (x86_64)**, 2 vCPU, 4 GB RAM empfohlen (mindestens 2 GB), 20 GB Speicher, sonst nichts darauf
-- eine kostenlose [DuckDNS](https://www.duckdns.org)-Subdomain und ihr Token
+- einen frischen VPS mit **Ubuntu 24.04, Debian 12 oder Debian 13** – x86_64 oder **ARM64** (z. B. Oracle Cloud kostenlos) –
+  2 vCPU, 4 GB RAM empfohlen (mindestens 2 GB), 20 GB Speicher, sonst nichts darauf
+- eine Web-Adresse: eine kostenlose [DuckDNS](https://www.duckdns.org)-Subdomain mit Token **oder deine eigene Domain**
+  (roadie sagt dir, welche DNS-Einträge nötig sind)
 - Zugangsdaten eines Usenet-Providers und mindestens einen Usenet-Indexer (API-Adresse + Schlüssel)
 - optional: die App ntfy für Push-Meldungen, einen TMDB-API-Schlüssel
 
@@ -139,15 +143,15 @@ Die wichtigsten Befehle: `sudo roadie` (Menü), `sudo roadie status`, `sudo road
 
 ## Aktuelle Grenzen
 
-- nur Ubuntu 24.04 auf x86_64 (noch kein ARM)
-- nur DuckDNS-Adresse (noch keine eigene Domain)
 - nur Usenet
+- braucht einen Server mit öffentlicher IPv4-Adresse (einen VPS); Hosting zu Hause hinter dem Router geht nicht
 - ein Server pro Setup
 
 ## Hilfe, Mitmachen, Dank
 
 - **Probleme:** führe `sudo roadie diagnose` aus und häng die Ausgabe an ein [Issue](https://github.com/usenetroadie/roadie/issues/new/choose). Passwörter, Schlüssel, IP-Adressen und deine Domain werden entfernt; lies die Ausgabe trotzdem einmal, bevor du sie postest.
 - **Sicherheitsprobleme:** bitte kein öffentliches Issue – siehe [SECURITY.md](SECURITY.md).
+- **Was sich geändert hat:** siehe [CHANGELOG.md](CHANGELOG.md).
 - **Mitmachen:** siehe [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Dank an:** [AIOStreams](https://github.com/Viren070/AIOStreams) von Viren070, [Traefik](https://traefik.io),
   [Authelia](https://www.authelia.com), [Prowlarr](https://prowlarr.com), [age](https://age-encryption.org),

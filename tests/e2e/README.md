@@ -1,19 +1,22 @@
-# End-to-end test (fresh Ubuntu 24.04 machine or LXD container)
+# End-to-end test (fresh Ubuntu 24.04, Debian 12/13; x86_64 or arm64)
 
-Runs the whole wizard unattended in test mode (`"test_mode": true` in the answer file:
-self-signed certificate, no DuckDNS call, smaller disk allowed).
+`tests/e2e/run.sh` runs the whole wizard unattended in test mode (`"test_mode": true`:
+self-signed certificate, no DuckDNS call, no DNS check, smaller disk allowed) with a fake
+indexer, then checks the result with `verify.sh`, runs the setup a second time, makes a backup
+and shows the status.
 
-1. Copy the project to the test machine and run `sudo bash install.sh`.
-2. Start the fake indexer: `python3 tests/e2e/mock_newznab.py 8099 &` (allow the port: `ufw allow 8099/tcp`).
-3. Copy `examples/answers.example.json`, add `"test_mode": true`, set `indexers[0].url` to
-   `http://<machine-ip>:8099` and `ssh_public_key` to a real test key.
-4. `sudo roadie setup --answers answers.json` → exit code 0.
-5. `sudo bash tests/e2e/verify.sh example.duckdns.org` → every line starts with `ok`. With several people, `/etc/roadie/addon-urls.txt`
-   (`name<TAB>url` per line) is checked too: each person's addon must return streams.
-6. Log in once with the test key as the admin user, run step 4 again → password and root
-   login are switched off (`sshd -T | grep passwordauthentication`).
+```sh
+sudo bash tests/e2e/run.sh            # DuckDNS address (example.duckdns.org)
+sudo bash tests/e2e/run.sh domain     # own domain (example.com)
+```
 
-LXD: `lxc launch ubuntu:24.04 sw -c security.nesting=true -c limits.memory=3GiB -c limits.cpu=2`.
+The GitHub workflow `e2e.yml` runs it on Ubuntu runners (x86_64 and arm64) and in Debian 12 and
+13 LXD containers. Locally:
+`lxc launch ubuntu:24.04 t -c security.nesting=true -c limits.memory=3GiB -c limits.cpu=2`
+(or `images:debian/13`; minimal Debian images need `python3 curl ca-certificates openssh-server`).
+
+After one login with the test key as the admin user, a second run switches password and root
+login off (`sshd -T | grep passwordauthentication`).
 
 ## Backup and restore (tested 14.11.2026)
 

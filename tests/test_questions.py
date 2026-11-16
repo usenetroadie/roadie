@@ -39,6 +39,13 @@ class FakeChecks:
     def tmdb(self, key):
         return OK
 
+    def domain(self, name):
+        self.calls.append(("domain", name))
+        return OK
+
+    def server_ip(self):
+        return "203.0.113.10"
+
 
 def provider_no(pid):
     from roadie.checks.nntp import known_providers
@@ -71,6 +78,7 @@ USENET_LINES = [
     "streamadmin",  # admin user
     "1",            # ssh key: I have one
     KEY,            # ssh key
+    "1",            # web address: DuckDNS
     "Example.duckdns.org",  # duckdns
     provider_no("eweka"),  # provider from the list
     "user",         # usenet username
@@ -124,15 +132,15 @@ class QuestionsTest(unittest.TestCase):
 
     def test_failed_check_reasks(self):
         bad = CheckResult(False, "check.newznab.bad_key")
-        lines = USENET_LINES[:13] + ["https://indexer.example.com", "", ""] + USENET_LINES[14:]
-        lines[11] = "https://indexer.example.com"
+        lines = USENET_LINES[:14] + ["https://indexer.example.com", "", ""] + USENET_LINES[15:]
+        lines[12] = "https://indexer.example.com"
         secrets = USENET_SECRETS[:3] + ["GOODKEY"] + USENET_SECRETS[3:]
         data, out, checks = run(lines, secrets, FakeChecks(newznab=[bad, OK]))
         self.assertEqual(data["indexers"][0]["api_key"], "GOODKEY")
         self.assertIn(i18n.t("check.newznab.bad_key"), " ".join(out.split()))  # output is word-wrapped
 
     def test_limits_read_from_indexer_are_not_asked(self):
-        lines = USENET_LINES[:12] + USENET_LINES[14:]
+        lines = USENET_LINES[:13] + USENET_LINES[15:]
         data, out, _ = run(lines, USENET_SECRETS, FakeChecks(limits=(100, 25)))
         self.assertEqual(data["indexers"][0]["daily_api_limit"], 100)
         self.assertEqual(data["indexers"][0]["daily_grab_limit"], 25)
@@ -140,7 +148,7 @@ class QuestionsTest(unittest.TestCase):
 
     def test_limits_asked_when_indexer_does_not_tell(self):
         lines = list(USENET_LINES)
-        lines[12], lines[13] = "2000", "450"
+        lines[13], lines[14] = "2000", "450"
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["indexers"][0]["daily_api_limit"], 2000)
         self.assertEqual(data["indexers"][0]["daily_grab_limit"], 450)
@@ -151,8 +159,20 @@ class QuestionsTest(unittest.TestCase):
         self.assertEqual(data["auth"]["password"], "b-long-password-123")
         self.assertIn(i18n.t("q.auth.mismatch"), out)
 
+    def test_own_domain_flow(self):
+        lines = list(USENET_LINES)
+        lines[5:7] = ["2", "https://Example.com/"]  # own domain instead of DuckDNS name
+        data, out, checks = run(lines, USENET_SECRETS[1:])  # no DuckDNS token asked
+        a = Answers.from_dict(data)
+        self.assertEqual(a.data["domain"], "example.com")
+        self.assertNotIn("duckdns", a.data)
+        self.assertEqual([c[0] for c in checks.calls], ["domain", "nntp", "newznab"])
+        flat = " ".join(out.split())
+        self.assertIn("203.0.113.10", flat)  # the address the A records must point to
+        self.assertIn("auth.", flat)
+
     def test_backbone_warning_shown(self):
-        lines = USENET_LINES[:9] + ["y", provider_no("easynews"), "user2", "", "n"] + USENET_LINES[10:]
+        lines = USENET_LINES[:10] + ["y", provider_no("easynews"), "user2", "", "n"] + USENET_LINES[11:]
         data, out, _ = run(lines, USENET_SECRETS[:2] + ["pw2"] + USENET_SECRETS[2:])
         self.assertEqual([p["role"] for p in data["usenet"]["providers"]], ["primary", "backup"])
         self.assertIn("Omicron", out)
@@ -214,8 +234,8 @@ class BeginnerTest(unittest.TestCase):
 
     def test_review_people_reasked_from_scratch(self):
         lines = list(USENET_LINES)
-        lines[20] = "2"           # several people
-        lines[21:21] = ["", "Anna", "", ""]  # main name default, Anna inherits, done
+        lines[21] = "2"           # several people
+        lines[22:22] = ["", "Anna", "", ""]  # main name default, Anna inherits, done
         lines[-1:] = ["2", part_no("people"), "1", "1"]  # change people -> only me -> ok
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual([p["id"] for p in data["people"]], ["main"])
@@ -244,7 +264,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_people_several_with_own_settings(self):
         lines = list(USENET_LINES)
-        lines[20:21] = ["2", "Tim", "Anna", "2", german(), "", "2", "Ben", "", ""]
+        lines[21:22] = ["2", "Tim", "Anna", "2", german(), "", "2", "Ben", "", ""]
         data, out, _ = run(lines, USENET_SECRETS)
         Answers.from_dict(data)
         self.assertEqual([(p["id"], p["mode"]) for p in data["people"]],
@@ -260,7 +280,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_main_person_default_is_admin_name(self):
         lines = list(USENET_LINES)
-        lines[20:21] = ["2", "", ""]  # several people, main name default, nobody else
+        lines[21:22] = ["2", "", ""]  # several people, main name default, nobody else
         data, out, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["people"][0]["name"], "streamadmin")
         self.assertIn("(Enter = streamadmin)", out)
@@ -268,7 +288,7 @@ class BeginnerTest(unittest.TestCase):
     def test_provider_list_not_listed_option(self):
         from roadie.checks.nntp import known_providers
         lines = list(USENET_LINES)
-        lines[6:7] = [str(len(known_providers()) + 1), "news.example.com", "", ""]  # last option, host, port, TLS
+        lines[7:8] = [str(len(known_providers()) + 1), "news.example.com", "", ""]  # last option, host, port, TLS
         data, out, _ = run(lines, USENET_SECRETS)
         p = data["usenet"]["providers"][0]
         self.assertEqual((p["host"], p["port"], p["tls"]), ("news.example.com", 563, True))
@@ -292,7 +312,7 @@ class BeginnerTest(unittest.TestCase):
         _, out, _ = run(USENET_LINES, USENET_SECRETS)
         self.assertNotIn(i18n.t("q.usenet.few_connections"), out)
         lines = list(USENET_LINES)
-        lines[8] = "2"
+        lines[9] = "2"
         data, out, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["usenet"]["providers"][0]["connections"], 2)
         self.assertIn(i18n.t("q.usenet.few_connections"), " ".join(out.split()))
@@ -301,7 +321,7 @@ class BeginnerTest(unittest.TestCase):
         _, out, _ = run(USENET_LINES, USENET_SECRETS)
         self.assertNotIn(i18n.t("q.content.narrow"), " ".join(out.split()))
         lines = list(USENET_LINES)
-        lines[16:18] = [german(), "n"]  # only German, no original audio
+        lines[17:19] = [german(), "n"]  # only German, no original audio
         data, out, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["content"]["languages"], ["German"])
         self.assertIn(i18n.t("q.content.narrow"), " ".join(out.split()))
@@ -321,7 +341,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_review_shows_own_person_settings(self):
         lines = list(USENET_LINES)
-        lines[20:21] = ["2", "Tim", "Anna", "2", lang_no("English"), "", "2", ""]
+        lines[21:22] = ["2", "Tim", "Anna", "2", lang_no("English"), "", "2", ""]
         _, out, _ = run(lines, USENET_SECRETS)
         review = " ".join(out.split()).split(i18n.t("review.heading"))[-1]
         self.assertIn("Anna", review)
@@ -345,7 +365,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_advanced_asked_when_wanted(self):
         lines = list(USENET_LINES)
-        lines[22:23] = ["y", "06:30", "https://hc-ping.com/abc"]
+        lines[23:24] = ["y", "06:30", "https://hc-ping.com/abc"]
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["maintenance"]["reboot_time"], "06:30")
         self.assertEqual(data["notify"]["healthchecks_url"], "https://hc-ping.com/abc")
@@ -430,10 +450,20 @@ class ChangeSettingsTest(unittest.TestCase):
 
     def test_change_domain_warns(self):
         stored = stored_answers()
-        data, out, checks = change(["2", part_no("domain"), "other", "1"], copy.deepcopy(stored))
+        data, out, checks = change(["2", part_no("domain"), "", "other", "1"], copy.deepcopy(stored))
         self.assertEqual(data["duckdns"], {"subdomain": "other", "token": TOKEN})
         self.assertEqual(checks.calls, [("duckdns", "other")])
         self.assertIn(i18n.t("q.domain.change_warning"), " ".join(out.split()))
+
+    def test_change_to_own_domain_drops_duckdns(self):
+        stored = stored_answers()
+        data, out, checks = change(["2", part_no("domain"), "2", "Media.Example.COM", "1"], copy.deepcopy(stored))
+        self.assertEqual(data["domain"], "media.example.com")
+        self.assertNotIn("duckdns", data)
+        self.assertEqual(checks.calls, [("domain", "media.example.com")])
+        self.assertIn(i18n.t("q.domain.change_warning"), " ".join(out.split()))
+        self.assertIn("aiostreams.", out)
+        Answers.from_dict(data)
 
     def test_change_language_switches_ui_at_once(self):
         stored = stored_answers()
