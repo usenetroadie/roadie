@@ -2,7 +2,7 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
-## 0.2.0 – unreleased
+## 0.2.0 – 2026-11-16
 
 - **ARM64 servers**, for example the Oracle Cloud *Always Free* tier.
 - **Debian 12 and Debian 13** besides Ubuntu 24.04.
