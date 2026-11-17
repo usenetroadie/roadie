@@ -52,6 +52,24 @@ class ExplainTest(unittest.TestCase):
                 if name != "services":
                     self.assertIn(i18n.t(f"explain.{name}.title"), text)
 
+    def test_every_part_says_why(self):
+        for lang in ("en", "de"):
+            catalog = i18n.load(lang)
+            for name in explain.TOPICS:
+                if name not in ("services", "help"):
+                    self.assertIn(f"explain.{name}.why", catalog, (lang, name))
+            for name in explain.SERVICES:
+                self.assertIn(f"explain.svc.{name}.why", catalog, (lang, name))
+        self.assertIn(i18n.t("explain.why"), self.text("network"))
+        self.assertIn(i18n.t("explain.svc.why"), self.text("services"))
+
+    def test_help_points_to_roadie_and_asks_for_the_report(self):
+        text = self.text("help")
+        self.assertIn("github.com/usenetroadie/roadie/issues/new/choose", text)
+        self.assertIn("sudo roadie diagnose", text)
+        self.assertIn("security/advisories/new", text)
+        self.assertIn("AIOStreams", text)
+
     def test_services_are_the_ones_in_compose_yaml(self):
         text = self.text("services")
         self.assertIn(i18n.t("explain.svc.traefik.name"), text)
@@ -66,11 +84,13 @@ class ExplainTest(unittest.TestCase):
         for lang in ("en", "de"):
             catalog = i18n.load(lang)
             for name in explain.SERVICES:
-                for part in ("name", "what", "files"):
+                for part in ("name", "what", "why", "files"):
                     self.assertIn(f"explain.svc.{name}.{part}", catalog, (lang, name, part))
 
     def test_duckdns_job_only_with_duckdns(self):
-        self.assertIn("roadie-duckdns", self.text("jobs"))
+        text = self.text("jobs")
+        self.assertIn("roadie-duckdns", text)
+        self.assertLess(text.index("roadie-duckdns"), text.index("systemctl list-timers"))  # in the list
         self.env.answers.pop("duckdns")
         self.env.answers["domain"] = "example.com"
         self.assertNotIn("roadie-duckdns", self.text("jobs"))

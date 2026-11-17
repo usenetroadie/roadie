@@ -48,9 +48,22 @@ notifications for the app are allowed on your phone.
 
 ## Getting help
 
+Ask [here at roadie](https://github.com/usenetroadie/roadie/issues/new/choose) – choose *Question*
+for anything unclear, *Bug report* when something is broken. No question is too small.
+
+Please do not ask in the communities of AIOStreams, Prowlarr, Authelia or Traefik first. Your
+server is set up the roadie way – its own login in front, its own firewall rules, fixed versions,
+settings that roadie writes. The people there do not know this setup and run their projects in
+their free time. If the cause really lies in one of their programs, roadie reports it there with
+everything they need to fix it.
+
+Attach the problem report:
+
 ```sh
 sudo roadie diagnose
 ```
 
-This writes a report without passwords, keys, IP addresses and your domain. Read it once, then
-attach it to an [issue](https://github.com/usenetroadie/roadie/issues/new/choose).
+It leaves out passwords, keys, IP addresses and your domain. Read it once before posting anyway.
+Never post your addon address, passwords, API keys or your backup key.
+
+To understand what roadie set up and how to look after it yourself: `sudo roadie explain`.

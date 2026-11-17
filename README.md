@@ -163,7 +163,7 @@ streams the file directly from your Usenet provider. More: [Security](docs/secur
 
 ## Help, contributing, credits
 
-- **Problems:** run `sudo roadie diagnose` and attach the output to an [issue](https://github.com/usenetroadie/roadie/issues/new/choose). It removes passwords, keys, IP addresses and your domain; still read it once before posting.
+- **Questions and problems:** ask [here at roadie](https://github.com/usenetroadie/roadie/issues/new/choose) – no question is too small. Please not in the AIOStreams, Prowlarr, Authelia or Traefik communities: they do not know roadie's setup and run their projects in their free time. If the cause really lies in one of their programs, roadie reports it there with everything they need. Attach the output of `sudo roadie diagnose`; it removes passwords, keys, IP addresses and your domain – still read it once before posting.
 - **Security problems:** please do not open a public issue – see [SECURITY.md](SECURITY.md).
 - **What changed:** see [CHANGELOG.md](CHANGELOG.md).
 - **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -2,6 +2,15 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.1 – 2026-11-17
+
+- `sudo roadie explain` explains the *why* as well: every service and every topic says why it is
+  set up this way.
+- New topic *When you need help*: check with `status` and `doctor` first, then ask at roadie –
+  not in the communities of AIOStreams, Prowlarr, Authelia or Traefik, which do not know this
+  setup. With what to include and what never to post.
+- New issue template *Question* – no question is too small.
+
 ## 0.4.0 – 2026-11-17
 
 - **`sudo roadie explain`** (menu: *Understand your server*): what roadie installed and how to run

@@ -10,7 +10,7 @@ from roadie.i18n import t
 from roadie.ops.common import Env
 from roadie.ui import Prompter
 
-TOPICS = ["overview", "services", "network", "files", "jobs", "docker", "security"]
+TOPICS = ["overview", "services", "network", "files", "jobs", "docker", "security", "help"]
 # known services in the order of a request; the sub-domain of their web page (None: no page)
 SERVICES = {"traefik": None, "authelia": "auth", "aiostreams": "aiostreams", "prowlarr": "prowlarr",
             "aiometadata": "metadata", "aiometadata-redis": None, "status": "status"}
@@ -32,7 +32,7 @@ def _services(env: Env, p: dict) -> list[tuple[str, list[str]]]:
         if name not in SERVICES:  # added by the user to compose.yaml
             boxes.append((name, [t("explain.svc.unknown")]))
             continue
-        lines = [t(f"explain.svc.{name}.what", **p)]
+        lines = [t(f"explain.svc.{name}.what", **p), t("explain.svc.why") + " " + t(f"explain.svc.{name}.why", **p)]
         if SERVICES[name]:
             lines += [t("explain.svc.address"), "$ https://" + f"{SERVICES[name]}.{p['domain']}"]
         lines += [t(f"explain.svc.{name}.files", **p), t("explain.svc.logs"),
@@ -45,10 +45,14 @@ def sections(env: Env, topic: str) -> list[tuple[str, list[str]]]:
     p = params(env)
     if topic == "services":
         return _services(env, p)
+    if topic == "jobs":  # the DuckDNS updater only runs with a DuckDNS address
+        p["duckdns"] = "" if env.answers.get("domain") else "\n" + t("explain.jobs.duckdns")
     body = t(f"explain.{topic}.body", **p)
-    if topic == "jobs" and not env.answers.get("domain"):
-        body += "\n" + t("explain.jobs.duckdns")
-    return [(t(f"explain.{topic}.title"), helppages._lines(body))]
+    boxes = [(t(f"explain.{topic}.title"), helppages._lines(body))]
+    why = f"explain.{topic}.why"
+    if t(why) != why:  # the reasons, in their own box below the facts
+        boxes.append((t("explain.why"), helppages._lines(t(why, **p))))
+    return boxes
 
 
 def show(env: Env, ui: Prompter, topic: str) -> None:

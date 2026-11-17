@@ -5,6 +5,7 @@ path, every change tested.
 
 ## Bugs and ideas
 
+- **Question:** open an [issue](https://github.com/usenetroadie/roadie/issues/new/choose) with the *Question* template. No question is too small.
 - **Bug:** open an [issue](https://github.com/usenetroadie/roadie/issues/new/choose) and attach the
   output of `sudo roadie diagnose` (it removes secrets – read it once anyway).
 - **Security problem:** do not open a public issue, see [SECURITY.md](SECURITY.md).

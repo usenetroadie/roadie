@@ -171,7 +171,7 @@ Die wichtigsten Befehle: `sudo roadie` (Menü), `sudo roadie status`, `sudo road
 
 ## Hilfe, Mitmachen, Dank
 
-- **Probleme:** führe `sudo roadie diagnose` aus und häng die Ausgabe an ein [Issue](https://github.com/usenetroadie/roadie/issues/new/choose). Passwörter, Schlüssel, IP-Adressen und deine Domain werden entfernt; lies die Ausgabe trotzdem einmal, bevor du sie postest.
+- **Fragen und Probleme:** frag [hier bei roadie](https://github.com/usenetroadie/roadie/issues/new/choose) – keine Frage ist zu klein, gern auch auf Deutsch. Bitte nicht in den Communitys von AIOStreams, Prowlarr, Authelia oder Traefik: Sie kennen roadies Setup nicht und betreiben ihre Projekte in ihrer Freizeit. Liegt die Ursache wirklich in einem ihrer Programme, meldet roadie es dort mit allem, was sie brauchen. Häng die Ausgabe von `sudo roadie diagnose` an; Passwörter, Schlüssel, IP-Adressen und deine Domain werden entfernt – lies sie trotzdem einmal, bevor du sie postest.
 - **Sicherheitsprobleme:** bitte kein öffentliches Issue – siehe [SECURITY.md](SECURITY.md).
 - **Was sich geändert hat:** siehe [CHANGELOG.md](CHANGELOG.md).
 - **Mitmachen:** siehe [CONTRIBUTING.md](CONTRIBUTING.md).
