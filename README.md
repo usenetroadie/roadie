@@ -56,8 +56,9 @@ where its files are and how to look after it yourself.
 willing to get to know it afterwards. roadie gets you to a safe, working start; `sudo roadie explain`
 and the [docs](#documentation) take you from there.
 
-**Maybe not**, if building it yourself is the fun part for you. Then roadie's generated files
-(`compose.yaml`, the Traefik and Authelia settings) are at most a reference to compare with.
+**Maybe not**, if building it yourself is the fun part for you. Then follow
+[Build it yourself](docs/manual-setup.md): the same server by hand, step by step, with every file
+and the reason behind it.
 
 **If roadie disappears tomorrow**, your server keeps running: it is a plain Docker Compose setup
 with no roadie parts inside the services. Only the watcher, the backups and the updates are
@@ -174,6 +175,7 @@ streams the file directly from your Usenet provider. More: [Security](docs/secur
 | [Backups](docs/backups.md) | backups, downloading them, moving to a new server |
 | [Security](docs/security.md) | what is protected and how, signed updates |
 | [Troubleshooting](docs/troubleshooting.md) | no streams, login problems, getting help |
+| [Build it yourself](docs/manual-setup.md) | the same server by hand, step by step – every command, every file and why |
 | [Advanced](docs/advanced.md) | answers files, adjusting AIOStreams and Prowlarr yourself, more catalogs, uninstall |
 
 ## Current limitations

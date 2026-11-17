@@ -30,6 +30,7 @@ jobs:
         run: |
           set -o pipefail
           python3 .github/scripts/check_versions.py --write | tee changes.txt
+          ROADIE_UPDATE_GUIDE=1 python3 -m unittest tests.test_guide  # the guide shows the versions too
           { echo "changes<<EOF"; cat changes.txt; echo EOF; } >> "$GITHUB_OUTPUT"
       - name: Unit tests with the new versions
         if: steps.check.outputs.changes != ''
@@ -42,7 +43,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -q -B versions/update
-          git commit -q -m "Newer component versions (untested proposal)" roadie/data/versions.json
+          git commit -q -m "Newer component versions (untested proposal)" roadie/data/versions.json docs/manual-setup.md
           git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
               push -q --force origin versions/update
 

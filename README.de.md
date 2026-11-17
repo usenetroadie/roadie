@@ -57,8 +57,9 @@ wo seine Dateien liegen und wie du ihn selbst pflegst.
 und bereit bist, ihn danach kennenzulernen. roadie bringt dich zu einem sicheren, funktionierenden
 Start; `sudo roadie explain` und die [Anleitungen](#anleitungen) helfen dir von dort weiter.
 
-**Vielleicht nicht**, wenn dir gerade das Selberbauen Spaß macht. Dann sind roadies erzeugte Dateien
-(`compose.yaml`, die Einstellungen von Traefik und Authelia) höchstens eine Vorlage zum Vergleichen.
+**Vielleicht nicht**, wenn dir gerade das Selberbauen Spaß macht. Dann folge
+[Build it yourself](docs/manual-setup.md) (englisch): derselbe Server von Hand, Schritt für Schritt,
+mit jeder Datei und dem Grund dahinter.
 
 **Verschwindet roadie morgen**, läuft dein Server weiter: Es ist ein ganz normales
 Docker-Compose-Setup ohne roadie-eigene Teile in den Diensten. Nur der Wächter, die Backups und die
@@ -178,6 +179,7 @@ Die ausführlichen Anleitungen gibt es auf Englisch:
 | [Backups](docs/backups.md) | Backups, herunterladen, Umzug auf einen neuen Server |
 | [Security](docs/security.md) | was wie geschützt ist, signierte Updates |
 | [Troubleshooting](docs/troubleshooting.md) | keine Streams, Login-Probleme, Hilfe bekommen |
+| [Build it yourself](docs/manual-setup.md) (englisch) | derselbe Server von Hand, Schritt für Schritt – jeder Befehl, jede Datei und warum |
 | [Advanced](docs/advanced.md) | Antwortdateien, AIOStreams und Prowlarr selbst anpassen, mehr Kataloge, Deinstallieren |
 
 Die wichtigsten Befehle: `sudo roadie` (Menü), `sudo roadie status`, `sudo roadie backup`,

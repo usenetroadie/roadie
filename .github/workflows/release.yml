@@ -50,4 +50,11 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" roadie-*.tar.gz roadie-*.tar.gz.sha256 $(ls roadie-*.tar.gz.sig 2>/dev/null) --generate-notes
+        # GitHub makes the last *created* release "latest"; an older tag approved later must not
+        # take that place (get.sh and roadie update install what "latest" points to)
+        run: |
+          highest="$(gh release list --limit 100 --json tagName --jq '.[].tagName' | { cat; echo "$GITHUB_REF_NAME"; } \
+                     | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
+          latest=false; [ "$highest" = "$GITHUB_REF_NAME" ] && latest=true
+          gh release create "$GITHUB_REF_NAME" roadie-*.tar.gz roadie-*.tar.gz.sha256 $(ls roadie-*.tar.gz.sig 2>/dev/null) \
+            --generate-notes --latest="$latest"
