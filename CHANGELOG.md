@@ -2,6 +2,16 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.0 – 2026-11-17
+
+- **`sudo roadie explain`** (menu: *Understand your server*): what roadie installed and how to run
+  it yourself. Seven topics – how it fits together, the services (page, files, log of each one),
+  ports and firewall with the fail2ban rules, where every file lives and which ones roadie writes
+  again, the scheduled jobs, working with the containers, and how the server is protected. Uses
+  the real names, paths and ports of your server. `sudo roadie explain all > explained.txt`
+  saves everything.
+- `--lang` now also wins over the setup language for commands such as `status` or `explain`.
+
 ## 0.3.2 – 2026-11-17
 
 - The green of the start screen runs through the setup: headings, the bars between the parts,

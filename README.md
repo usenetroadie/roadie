@@ -69,6 +69,7 @@ AIOStreams and Prowlarr stay yours to open and change.
 - Encrypted weekly backups (age) with a one-command restore on a new server
 - `sudo roadie update` installs only tested versions, from signed releases
 - A menu for everyday things: access details, login code, restart, people, help
+- `sudo roadie explain` shows what was installed and how it fits together: every service with its page, files and log, the open ports, firewall and fail2ban rules, the scheduled jobs and the Docker commands to look after it yourself – in plain words, with this server's real paths
 
 Everything runs on your own server. roadie sends nothing to its authors – no telemetry.
 

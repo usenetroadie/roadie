@@ -61,6 +61,11 @@ def _doctor(env: Env, ui: Prompter) -> int:
     return doctor.run(env, ui)
 
 
+def _explain(env: Env, ui: Prompter) -> int:
+    from roadie import explain
+    return explain.run(env, ui)
+
+
 def _backup(env: Env, ui: Prompter) -> int:
     from roadie.ops import backup
     return backup.run(env)
@@ -94,6 +99,7 @@ ITEMS: list[MenuItem] = [
     MenuItem("backup", "menu.backup", _backup),
     MenuItem("update", "menu.update", None),  # cli injects the update run
     MenuItem("help", "menu.help", lambda env, ui: helppages.run(env, ui)),
+    MenuItem("explain", "menu.explain", lambda env, ui: _explain(env, ui)),
     MenuItem("uninstall", "menu.uninstall", _uninstall),  # last on purpose: not prominent
 ]
 

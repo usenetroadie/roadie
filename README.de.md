@@ -70,6 +70,7 @@ und Prowlarr kannst du jederzeit selbst öffnen und anpassen.
 - Verschlüsselte wöchentliche Backups (age), Wiederherstellung auf einem neuen Server mit einem Befehl
 - `sudo roadie update` installiert nur getestete Versionen aus signierten Releases
 - Ein Menü für den Alltag: Zugänge, Login-Code, Neustart, Personen, Hilfe
+- `sudo roadie explain` zeigt, was installiert wurde und wie es zusammenhängt: jeden Dienst mit Seite, Dateien und Log, die offenen Ports, Firewall- und fail2ban-Regeln, die geplanten Aufgaben und die Docker-Befehle, um alles selbst zu pflegen – in einfachen Worten, mit den echten Pfaden deines Servers
 
 Alles läuft auf deinem eigenen Server. roadie schickt nichts an seine Entwickler – keine Telemetrie.
 

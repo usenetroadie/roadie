@@ -21,7 +21,7 @@ EXIT_OK, EXIT_FAILED, EXIT_INVALID, EXIT_INTERRUPTED = 0, 1, 2, 130
 # commands that change the server run one at a time; the weekly backup waits for a running one
 LOCKED = {None, "setup", "update", "backup", "restore", "uninstall", "restart", "people"}
 BACKUP_LOCK_WAIT = 3600
-ALIASES = {"zugang": "access", "personen": "people", "hilfe": "help", "neustart": "restart",
+ALIASES = {"zugang": "access", "personen": "people", "hilfe": "help", "neustart": "restart", "erklaeren": "explain",
            "deinstallieren": "uninstall"}
 
 
@@ -32,7 +32,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", default="/", help=argparse.SUPPRESS)
     p.add_argument("--skip-self-update", action="store_true", help=argparse.SUPPRESS)  # set after a self-update
     sub = p.add_subparsers(dest="command",
-                           metavar="{setup,access,code,people,help,demo,status,doctor,restart,backup,restore,update,diagnose,uninstall}")
+                           metavar="{setup,access,code,people,help,explain,demo,status,doctor,restart,backup,restore,update,diagnose,uninstall}")
     s = sub.add_parser("setup", help=t("cli.cmd.setup"))
     s.add_argument("--answers", metavar="FILE", help=t("cli.opt.answers"))
     s.add_argument("--dry-run", action="store_true", help=t("cli.opt.dry_run"))
@@ -41,6 +41,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("code", help=t("cli.cmd.code"))
     sub.add_parser("people", aliases=["personen"], help=t("cli.cmd.people"))
     sub.add_parser("help", aliases=["hilfe"], help=t("cli.cmd.help"))
+    from roadie.explain import TOPICS as EXPLAIN_TOPICS
+    ex = sub.add_parser("explain", aliases=["erklaeren"], help=t("cli.cmd.explain"))
+    ex.add_argument("topic", nargs="?", choices=[*EXPLAIN_TOPICS, "all"])
     st = sub.add_parser("status", help=t("cli.cmd.status"))
     st.add_argument("--motd", action="store_true", help=argparse.SUPPRESS)
     sub.add_parser("restart", aliases=["neustart"], help=t("cli.cmd.restart"))
@@ -190,6 +193,8 @@ def _maintenance(args, paths: Paths, ui: Prompter, gather, make_steps) -> int:
     if env is None:
         ui.fail(t("cli.not_set_up"))
         return EXIT_INVALID
+    if args.lang:  # chosen for this run: wins over the language of the setup
+        i18n.set_language(args.lang)
     return _guarded(ui, Redactor(env.secrets.values()), lambda: _command(args, env, paths, ui, gather, make_steps))
 
 
@@ -204,6 +209,9 @@ def _command(args, env, paths: Paths, ui: Prompter, gather, make_steps) -> int:
         return menu.people_menu(env, ui, menu.default_api)
     if args.command == "help":
         return helppages.run(env, ui)
+    if args.command == "explain":
+        from roadie import explain
+        return explain.run(env, ui, args.topic)
     if args.command == "restart":
         return menu.restart(env, ui)
     if args.command == "status":

@@ -13,6 +13,7 @@
 | `sudo roadie people` | manage people (each gets their own addon address) |
 | `sudo roadie doctor` | test every Usenet provider and indexer on its own, plus the last 7 days in numbers |
 | `sudo roadie restart` | restart services (starts stopped ones; AIOStreams reads new indexers) |
+| `sudo roadie explain` | what is installed, how it fits together, ports, files, scheduled jobs and the commands to look after each part yourself (`sudo roadie explain all > explained.txt` saves everything) |
 | `sudo roadie help` | help pages, including *Adjust it yourself* |
 | `sudo roadie backup` | encrypted backup now (also runs every Sunday night) |
 | `sudo roadie restore FILE --identity KEYFILE` | restore a backup on a fresh server, then run `sudo roadie` |
@@ -22,7 +23,7 @@
 | `roadie demo` | try the questions without changing anything |
 
 German shortcuts work as well: `zugang` (access), `personen` (people), `neustart` (restart),
-`hilfe` (help), `deinstallieren` (uninstall).
+`hilfe` (help), `erklaeren` (explain), `deinstallieren` (uninstall).
 
 ## The menu
 
