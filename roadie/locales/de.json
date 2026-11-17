@@ -546,5 +546,6 @@
   "page.backup": "Letztes Backup: {time}",
   "page.update_available": "roadie {version} ist da. Installieren: sudo roadie update",
   "page.up_to_date": "roadie {version}",
-  "page.footer": "Stand {time} · wird alle 5 Minuten erneuert · mehr im Terminal: sudo roadie"
+  "page.footer": "Stand {time} · wird alle 5 Minuten erneuert · mehr im Terminal: sudo roadie",
+  "banner.slogan": "Tagelanges Basteln. Eine geführte Einrichtung."
 }

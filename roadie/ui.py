@@ -62,6 +62,10 @@ class Prompter:
             self._clear_live()
             print(text, file=self.out, flush=True)
 
+    def raw(self, text: str = "") -> None:
+        """A line exactly as given (pictures made of characters): no wrapping, no prefix."""
+        self._print(text)
+
     def status(self, text: str) -> None:
         """Rewrite one line in place (waiting times, progress); nothing when not on a terminal."""
         if not self.tty:

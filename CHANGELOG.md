@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.3.1 – 2026-11-17
+
+- A start screen: the roadie roadcase as pixel art and the name in green, shown when you start
+  `sudo roadie` or `roadie demo` in a terminal. Narrow windows (phones) show the name only;
+  logs and automatic jobs stay plain.
+
 ## 0.3.0 – 2026-11-16
 
 New:
