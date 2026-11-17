@@ -2,6 +2,13 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.3.2 – 2026-11-17
+
+- The green of the start screen runs through the setup: headings, the bars between the parts,
+  check marks and the marker in front of every question.
+- The start screen also shows when you run `sudo roadie setup --answers …` in a terminal.
+- New GIFs in the README.
+
 ## 0.3.1 – 2026-11-17
 
 - A start screen: the roadie roadcase as pixel art and the name in green, shown when you start

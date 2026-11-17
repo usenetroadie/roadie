@@ -87,8 +87,8 @@ def main(argv: list[str] | None = None, gather=preflight.gather_facts, ui: Promp
     if args.command != "demo" and paths.root == Path("/") and os.geteuid() != 0:
         ui.fail(t("cli.need_root"))  # everything else reads secrets or changes the system
         return EXIT_INVALID
-    if args.command in (None, "setup", "demo") and not getattr(args, "answers", None):
-        banner.show(ui)  # interactive start: the menu, the questions, the demo
+    if args.command in (None, "setup", "demo"):
+        banner.show(ui)  # only on a terminal: the menu, the setup, the demo
     if args.command is None and State(paths.state_file).is_done("summary"):
         return _menu(args, paths, ui, gather, lang is not None, steps or phases.steps)  # locks per action
     if args.command in LOCKED:

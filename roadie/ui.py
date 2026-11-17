@@ -19,6 +19,8 @@ YES = {"y", "yes", "j", "ja"}
 BULLET = re.compile(r"(?:- |\u2022 |\d+\. )")
 CLEAR_SCREEN = "\033[H\033[2J\033[3J"  # home, visible screen, then scrollback (order like ncurses clear)
 NO = {"n", "no", "nein"}
+ACCENT = "38;5;71"  # the green of the roadie name on the start screen
+MARK = "\u203a "  # in front of every question
 
 
 def terminal_columns(stream, fallback: int) -> int:
@@ -127,7 +129,7 @@ class Prompter:
 
     def heading(self, msg: str) -> None:
         self._print()
-        self._print(self._paint("1", msg))
+        self._print(self._paint("1;" + ACCENT, msg))
 
     def alert(self, msg: str) -> None:
         """A heading that must not be missed (show-once secrets): bold red on a terminal."""
@@ -155,13 +157,15 @@ class Prompter:
             ) or [(first or indent).rstrip()]
             first = ""
             for line in lines:
+                if line.startswith(MARK):  # a question: its marker in the accent colour
+                    line = self._paint(ACCENT, MARK.strip()) + line[len(MARK) - 1:]
                 self._print(self._paint(paint, line) if paint else line)
 
     def _symbol(self, fancy: str, plain: str) -> str:
         return fancy + " " if self.unicode and self.color else plain
 
     def ok(self, msg: str) -> None:
-        self._wrapped(msg, self._symbol("\u2713", "[ok] "), paint="32")
+        self._wrapped(msg, self._symbol("\u2713", "[ok] "), paint=ACCENT)
 
     def warn(self, msg: str) -> None:
         self._wrapped(msg, self._symbol("!", "[!]  "), paint="33")
@@ -191,12 +195,12 @@ class Prompter:
         prefix = f"{bar * 2} {t('ui.section', index=index, total=total)} {sep} "
         head = prefix + self._fit(title, width - len(prefix) - 3) + " "
         self._print()
-        self._print(self._paint("1", (head + bar * max(2, width - len(head)))[:width]))
+        self._print(self._paint("1;" + ACCENT, (head + bar * max(2, width - len(head)))[:width]))
 
     def box(self, title: str, lines: list[str]) -> None:
         """A bar on the left only (nothing to break on narrow screens); lines starting with
         "\\0" are copyable values on their own line."""
-        bar = "\u2503 " if self.unicode else "| "
+        bar = self._paint(ACCENT, "\u2503") + " " if self.unicode else "| "
         inner = self._width() - 3  # bar + space, last column stays free
         for part in self._box_wrap(title, inner):
             self._print(bar + self._paint("1", part))
@@ -235,7 +239,7 @@ class Prompter:
         self._stop_ticker()
         with self._lock:
             self._clear_live()
-        self.out.write(prompt)
+        self.out.write(self._prompt(prompt))
         self.out.flush()
         line = self.inp.readline()
         if not line:
@@ -261,7 +265,14 @@ class Prompter:
             self._print("  " + "".join(cell.ljust(cell_width) for cell in row).rstrip())
 
     def _q(self, label: str) -> str:
-        return "\u203a " + label if self.unicode else label
+        return MARK + label if self.unicode else label
+
+    def _prompt(self, text: str) -> str:
+        """A readline prompt with its question marker or ">" in the accent colour."""
+        for mark in (MARK.strip(), ">"):
+            if text.startswith(mark):
+                return self._paint(ACCENT, mark) + text[len(mark):]
+        return text
 
     def choose(self, label: str, options: list, default: str | None = None,
                hints: list[str] | None = None) -> str:

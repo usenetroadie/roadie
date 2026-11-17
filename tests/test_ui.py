@@ -1,4 +1,5 @@
 import io
+import re
 import termios
 import unittest
 
@@ -100,7 +101,7 @@ class ColourTest(unittest.TestCase):
         p.warn("careful")
         p.fail("broken")
         text = out.getvalue()
-        self.assertIn("\033[32m[ok] fine\033[0m", text)
+        self.assertIn("\033[38;5;71m[ok] fine\033[0m", text)
         self.assertIn("\033[33m[!]  careful\033[0m", text)
         self.assertIn("\033[31m[x]  broken\033[0m", text)
 
@@ -112,7 +113,7 @@ class ColourTest(unittest.TestCase):
         p.warn("careful")
         p.fail("broken")
         text = out.getvalue()
-        self.assertIn("\033[32m\u2713 fine\033[0m", text)
+        self.assertIn("\033[38;5;71m\u2713 fine\033[0m", text)
         self.assertIn("\033[33m! careful\033[0m", text)
         self.assertIn("\033[31m\u2717 broken\033[0m", text)
 
@@ -308,12 +309,24 @@ class LookTest(unittest.TestCase):
         i18n.set_language("de")
         self.addCleanup(i18n.set_language, "en")
 
+    def test_questions_and_headings_use_the_green_of_the_name(self):
+        p, out = make("2\nok\n")
+        p.width, p.unicode, p.color = 60, True, True
+        p.heading("Indexers")
+        p.choose("Which one?", [("a", "A"), ("b", "B")])
+        p.ask("Name")
+        text = out.getvalue()
+        self.assertIn("\033[1;38;5;71mIndexers\033[0m", text)
+        self.assertIn("\033[38;5;71m›\033[0m Which one?", text)
+        self.assertIn("\033[38;5;71m>\033[0m ", text)
+        self.assertIn("\033[38;5;71m›\033[0m Name", text)
+
     def test_box_left_bar_no_right_border(self):
         p, out = make("")
         p.width, p.unicode, p.color = 40, True, True
         p.box("Titel", ["kurz", " ".join(["wort"] * 20)])
-        lines = out.getvalue().split("\n")
-        self.assertEqual(lines[0], "┃ \033[1mTitel\033[0m")
+        self.assertEqual(out.getvalue().split("\n")[0], "\033[38;5;71m┃\033[0m \033[1mTitel\033[0m")
+        lines = re.sub(r"\033\[[0-9;]*m", "", out.getvalue()).split("\n")  # the bar is green
         body = [l for l in lines[1:] if l]
         self.assertTrue(all(l.startswith("┃ ") for l in body), body)
         self.assertTrue(all(len(l) <= 39 and not l.endswith("┃") for l in body), body)
