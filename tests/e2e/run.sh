@@ -52,7 +52,9 @@ if [ "$mode" = upgrade ]; then
     bash "$src/tests/e2e/verify.sh" "$domain" /tmp/run.log   # the release works before the update
     old="$(roadie --version)"
     ROADIE_NO_START=1 bash get.sh   # the one-line installer: real download, checksum, signature
-    [ "$(roadie --version)" = "$old" ] || { echo "FAIL  get.sh did not install the latest release"; exit 1; }
+    # compared with the newest release right now: one may have been published during this run
+    latest="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/usenetroadie/roadie/releases/latest | sed 's|.*/v||')"
+    [ "$(roadie --version)" = "roadie $latest" ] || { echo "FAIL  get.sh did not install the latest release"; exit 1; }
     bash install.sh
     echo "upgrade test: $old -> $(roadie --version)"
     roadie --skip-self-update update | tee /tmp/run.log
