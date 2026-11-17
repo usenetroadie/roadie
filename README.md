@@ -7,7 +7,8 @@
 <p align="center">
   <b>Days of tinkering. One guided setup.</b><br>
   A terminal wizard that turns a fresh VPS into your own secure
-  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a> + Usenet streaming server.
+  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a> + Usenet streaming server.<br>
+  roadie does the tedious first setup. You keep full control – and it shows you how everything works.
 </p>
 
 <p align="center">
@@ -42,8 +43,28 @@ paste into Stremio or Nuvio.
 I run this setup on my own small VPS. Getting there took days: a reverse proxy, a real login in
 front of every settings page, Usenet providers on different backbones, a firewall that does not
 lock me out, backups that actually restore. roadie is everything I learned, packed into one guided
-setup – so the next person spends half an hour instead of a weekend. And it does not lock you in:
-AIOStreams and Prowlarr stay yours to open and change.
+setup – so the next person spends half an hour on the first setup instead of a weekend.
+
+It is not meant to hide how a server works. Everything roadie builds stays standard and open:
+AIOStreams, Prowlarr and the other services are yours to open and change, and
+`sudo roadie explain` walks you through every part – what it does, why it is set up that way,
+where its files are and how to look after it yourself.
+
+## Is roadie for you?
+
+**Yes**, if you want your own streaming server, but not to build it from scratch – and you are
+willing to get to know it afterwards. roadie gets you to a safe, working start; `sudo roadie explain`
+and the [docs](#documentation) take you from there.
+
+**Maybe not**, if building it yourself is the fun part for you. Then roadie's generated files
+(`compose.yaml`, the Traefik and Authelia settings) are at most a reference to compare with.
+
+**If roadie disappears tomorrow**, your server keeps running: it is a plain Docker Compose setup
+with no roadie parts inside the services. Only the watcher, the backups and the updates are
+roadie's – and `sudo roadie explain` shows how to do those by hand.
+
+**About support:** roadie is a hobby project. Questions are welcome and get an answer, but it may
+take a few days.
 
 ## Features
 

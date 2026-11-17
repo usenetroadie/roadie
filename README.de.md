@@ -7,7 +7,8 @@
 <p align="center">
   <b>Tagelanges Basteln. Eine geführte Einrichtung.</b><br>
   Ein Terminal-Assistent, der aus einem frischen VPS deinen eigenen, abgesicherten
-  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a>- und Usenet-Streaming-Server macht.
+  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a>- und Usenet-Streaming-Server macht.<br>
+  roadie nimmt dir die mühsame Ersteinrichtung ab. Du behältst die volle Kontrolle – und siehst, wie alles funktioniert.
 </p>
 
 <p align="center">
@@ -43,8 +44,28 @@ Ich betreibe genau dieses Setup auf meinem eigenen kleinen VPS. Bis es lief, hat
 Reverse Proxy, ein echter Login vor jeder Einstellungsseite, Usenet-Provider auf verschiedenen
 Backbones, eine Firewall, die mich nicht aussperrt, Backups, die sich wirklich zurückspielen lassen.
 roadie ist alles, was ich dabei gelernt habe, in einer geführten Einrichtung – damit die Nächsten
-eine halbe Stunde brauchen statt eines Wochenendes. Und es macht dich nicht abhängig: AIOStreams
-und Prowlarr kannst du jederzeit selbst öffnen und anpassen.
+für die Ersteinrichtung eine halbe Stunde brauchen statt eines Wochenendes.
+
+roadie soll nicht verstecken, wie ein Server funktioniert. Alles, was es baut, bleibt Standard und
+offen: AIOStreams, Prowlarr und die anderen Dienste kannst du jederzeit selbst öffnen und anpassen,
+und `sudo roadie explain` führt dich durch jeden Teil – was er macht, warum er so eingerichtet ist,
+wo seine Dateien liegen und wie du ihn selbst pflegst.
+
+## Ist roadie etwas für dich?
+
+**Ja**, wenn du deinen eigenen Streaming-Server willst, ihn aber nicht von Null aufbauen möchtest –
+und bereit bist, ihn danach kennenzulernen. roadie bringt dich zu einem sicheren, funktionierenden
+Start; `sudo roadie explain` und die [Anleitungen](#anleitungen) helfen dir von dort weiter.
+
+**Vielleicht nicht**, wenn dir gerade das Selberbauen Spaß macht. Dann sind roadies erzeugte Dateien
+(`compose.yaml`, die Einstellungen von Traefik und Authelia) höchstens eine Vorlage zum Vergleichen.
+
+**Verschwindet roadie morgen**, läuft dein Server weiter: Es ist ein ganz normales
+Docker-Compose-Setup ohne roadie-eigene Teile in den Diensten. Nur der Wächter, die Backups und die
+Updates gehören zu roadie – und `sudo roadie explain` zeigt, wie du sie von Hand erledigst.
+
+**Zum Support:** roadie ist ein Hobbyprojekt. Fragen sind willkommen und werden beantwortet, das kann
+aber ein paar Tage dauern.
 
 ## Funktionen
 
