@@ -43,19 +43,22 @@ ohne roadie pflegst.
 
 - AIOStreams mit eingebautem Usenet-Streaming und Prowlarr für deine Indexer, deine Sprachen
   zuerst, neue und vollständige Releases weiter oben
-- Kataloge auf der Startseite und mit TMDB-Schlüssel dein eigenes [AIOMetadata](https://github.com/cedya77/aiometadata)
+- mit mehreren Indexern werden die Haupt-Indexer zuerst durchsucht, die anderen nur, wenn zu wenig gefunden wird
+- Kataloge auf der Startseite und mit kostenlosem TMDB-Schlüssel dein eigenes [AIOMetadata](https://github.com/cedya77/aiometadata)
 - eine Addon-Adresse pro Person, auf Wunsch mit eigenen Sprachen und eigener Qualität
 - HTTPS auf einem kostenlosen DuckDNS-Namen oder deiner eigenen Domain, und ein Passkey-Login vor jeder Einstellungsseite
 - SSH nur mit Schlüssel, eine Firewall, fail2ban und automatische Sicherheitsupdates
-- Push-Meldungen, wenn etwas kaputtgeht, verschlüsselte wöchentliche Backups, Updates nur auf getestete Versionen
-- `sudo roadie explain`: jeder Dienst, Port, jede Datei und jede geplante Aufgabe auf deinem Server, und warum
+- Push-Meldungen, wenn etwas kaputtgeht, verschlüsselte wöchentliche Backups mit Erinnerung zum
+  Herunterladen, Updates nur auf getestete Versionen
+- `sudo roadie hilfe`: was als Nächstes zu tun ist, was hilft, wenn etwas nicht geht, und jeder
+  Dienst, Port, jede Datei und jede geplante Aufgabe auf deinem Server, und warum
 
 Nichts wird an irgendwen geschickt: keine Telemetrie.
 
 ## Schnellstart
 
-Du brauchst einen frischen VPS mit Ubuntu 24.04, Debian 12 oder Debian 13 (x86_64 oder ARM64, 4 GB
-RAM empfohlen), einen DuckDNS-Namen oder eine eigene Domain, einen Usenet-Provider und mindestens
+Du brauchst einen frischen VPS mit Ubuntu 24.04, Debian 12 oder Debian 13 (x86_64 oder ARM64, ab 2 GB
+RAM, 4 GB empfohlen), einen DuckDNS-Namen oder eine eigene Domain, einen Usenet-Provider und mindestens
 einen Indexer. Noch nie einen Server gemietet? Siehe [Getting started](docs/getting-started.md) (englisch).
 
 Melde dich auf dem Server an und führe aus:

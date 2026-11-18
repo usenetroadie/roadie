@@ -42,19 +42,22 @@ without roadie.
 
 - AIOStreams with its built-in Usenet streaming and Prowlarr for your indexers, with your
   languages first and recent, complete releases ranked higher
-- catalogs on the start page, and with a TMDB key your own [AIOMetadata](https://github.com/cedya77/aiometadata)
+- with several indexers, the main ones are searched first and the others only when too little is found
+- catalogs on the start page, and with a free TMDB key your own [AIOMetadata](https://github.com/cedya77/aiometadata)
 - one addon address per person, each with their own languages and quality if wanted
 - HTTPS on a free DuckDNS name or your own domain, and a passkey login in front of every settings page
 - SSH with keys only, a firewall, fail2ban and automatic security updates
-- push messages when something breaks, encrypted weekly backups, updates only to tested versions
-- `sudo roadie explain`: every service, port, file and scheduled job on your server, and why
+- push messages when something breaks, encrypted weekly backups with a reminder to download them,
+  updates only to tested versions
+- `sudo roadie help`: what to do next, what to do when something does not work, and every service,
+  port, file and scheduled job on your server, and why
 
 Nothing is sent to anyone: no telemetry.
 
 ## Quick start
 
-You need a fresh VPS with Ubuntu 24.04, Debian 12 or Debian 13 (x86_64 or ARM64, 4 GB RAM
-recommended), a DuckDNS name or your own domain, a Usenet provider and at least one indexer.
+You need a fresh VPS with Ubuntu 24.04, Debian 12 or Debian 13 (x86_64 or ARM64, 2 GB RAM or
+more, 4 GB recommended), a DuckDNS name or your own domain, a Usenet provider and at least one indexer.
 Never rented a server? See [Getting started](docs/getting-started.md).
 
 Log in to the server and run:
