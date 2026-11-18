@@ -2,7 +2,7 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 0.5.1 – 2026-11-18
 
 - A server with a 20 GB disk, the size the guides recommend, was refused: the check wanted 20 GB
   free, and after the system about 16 GB are left. 15 GB free are enough now.
