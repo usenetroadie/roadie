@@ -1,5 +1,5 @@
 {
- "_source": "usenetalmanac.com/providers (saved 14.11.2026), which takes backbones and reseller relations from the community map usenet.rexum.space. Re-check before each release.",
+ "_source": "Public information on providers, backbones and resellers, collected 14.11.2026. Re-check before each release.",
  "_note": "networks = which server networks a brand sells; a backup only helps if it adds a network the main provider lacks. 'owner' groups networks of one company: same owner does not prove the same posts, but is worth a hint. host/port/tls only where known; the wizard tests every login live.",
  "as_of": "2026-11-14",
  "networks": {

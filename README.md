@@ -6,117 +6,68 @@
 
 <p align="center">
   <b>Days of tinkering. One guided setup.</b><br>
-  A terminal wizard that turns a fresh VPS into your own secure
-  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a> + Usenet streaming server.<br>
-  roadie does the tedious first setup. You keep full control – and it shows you how everything works.
+  A terminal wizard that turns a fresh VPS into your own
+  <a href="https://github.com/Viren070/AIOStreams">AIOStreams</a> + Usenet streaming server.
 </p>
 
 <p align="center">
   <a href="https://github.com/usenetroadie/roadie/releases"><img src="https://img.shields.io/github/v/release/usenetroadie/roadie?color=3fb950" alt="Release"></a>
-  <a href="https://github.com/usenetroadie/roadie/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/tests.yml?branch=main&label=tests" alt="Tests"></a>
   <a href="https://github.com/usenetroadie/roadie/actions/workflows/e2e.yml"><img src="https://img.shields.io/github/actions/workflow/status/usenetroadie/roadie/e2e.yml?branch=main&label=end-to-end" alt="End-to-end tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
-  <img src="https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white" alt="Ubuntu 24.04">
-  <img src="https://img.shields.io/badge/Debian-12%20%7C%2013-A81D33?logo=debian&logoColor=white" alt="Debian 12 and 13">
-  <img src="https://img.shields.io/badge/arch-x86__64%20%7C%20arm64-555" alt="x86_64 and arm64">
 </p>
 
-<p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#what-it-looks-like">Screenshots</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#documentation">Docs</a> ·
-  <a href="https://github.com/usenetroadie/roadie/issues">Issues</a> ·
-  <a href="README.de.md">Deutsch</a>
-</p>
-
-You answer a few plain questions – your Usenet provider, your indexer, what you like to watch.
-roadie checks every answer right away, sets everything up, and ends with the addon address you
-paste into Stremio or Nuvio.
+You answer a few questions: your Usenet provider, your indexer, what you like to watch. roadie
+checks each answer, sets up the server and gives you the addon address for Stremio or Nuvio.
+Afterwards it keeps the server running and shows you how it works, so you can take over yourself.
 
 ![The questions, in demo mode (nothing is changed)](assets/questions.gif)
 
-<p align="center"><sub>Early release · Usenet only · needs a fresh VPS</sub></p>
+## Why it exists
 
-## Why I built roadie
+I have run AIOStreams on my own small VPS since September, for a few people. Getting there took
+days: a reverse proxy, a real login in front of the settings pages, providers on different
+backbones, a firewall that does not lock me out, backups that restore. roadie is that setup as a
+guided install.
 
-I run this setup on my own small VPS. Getting there took days: a reverse proxy, a real login in
-front of every settings page, Usenet providers on different backbones, a firewall that does not
-lock me out, backups that actually restore. roadie is everything I learned, packed into one guided
-setup – so the next person spends half an hour on the first setup instead of a weekend.
+roadie is written with a lot of help from Claude, an AI. What it sets up comes from running this
+server myself, and every release is installed and checked automatically on all supported systems
+before it is published.
 
-It is not meant to hide how a server works. Everything roadie builds stays standard and open:
-AIOStreams, Prowlarr and the other services are yours to open and change, and
-`sudo roadie explain` walks you through every part – what it does, why it is set up that way,
-where its files are and how to look after it yourself.
+If you would rather build it all by hand, [Build it yourself](docs/manual-setup.md) walks you
+through the same server step by step. If roadie disappeared tomorrow, your server would keep
+running: it is a plain Docker Compose setup, and `sudo roadie explain` shows how to look after it
+without roadie.
 
-## Is roadie for you?
+## What you get
 
-**Yes**, if you want your own streaming server, but not to build it from scratch – and you are
-willing to get to know it afterwards. roadie gets you to a safe, working start; `sudo roadie explain`
-and the [docs](#documentation) take you from there.
+- AIOStreams with its built-in Usenet streaming and Prowlarr for your indexers, with your
+  languages first and recent, complete releases ranked higher
+- catalogs on the start page, and with a TMDB key your own [AIOMetadata](https://github.com/cedya77/aiometadata)
+- one addon address per person, each with their own languages and quality if wanted
+- HTTPS on a free DuckDNS name or your own domain, and a passkey login in front of every settings page
+- SSH with keys only, a firewall, fail2ban and automatic security updates
+- push messages when something breaks, encrypted weekly backups, updates only to tested versions
+- `sudo roadie explain`: every service, port, file and scheduled job on your server, and why
 
-**Maybe not**, if building it yourself is the fun part for you. Then follow
-[Build it yourself](docs/manual-setup.md): the same server by hand, step by step, with every file
-and the reason behind it.
-
-**If roadie disappears tomorrow**, your server keeps running: it is a plain Docker Compose setup
-with no roadie parts inside the services. Only the watcher, the backups and the updates are
-roadie's – and `sudo roadie explain` shows how to do those by hand.
-
-**About support:** roadie is a hobby project. Questions are welcome and get an answer, but it may
-take a few days.
-
-## Features
-
-**Streaming**
-- AIOStreams with built-in Usenet streaming straight from your provider, Prowlarr for your indexers
-- Your languages first, ranking that prefers recent and complete releases, failover, next episode preloaded
-- Catalogs on the start page out of the box (trending, Netflix / Prime / Disney+, collections) – with a
-  TMDB API key, roadie also sets up your **own [AIOMetadata](https://github.com/cedya77/aiometadata)** for
-  richer catalogs and details in your language
-- One addon address per person, each with their own languages and quality if wanted
-
-**Security**
-- Your own address – a free DuckDNS name or your own domain – with HTTPS from Let's Encrypt
-- Passkey or code app login (Authelia) in front of every settings page – your player apps keep working
-- SSH key login; password login is only switched off after your key login was seen, so you do not lock yourself out by accident
-- Firewall, fail2ban (also for Docker ports), automatic security updates
-
-**Maintenance**
-- Push messages to your phone (ntfy) when something breaks, and a short weekly report
-- A status page in your browser, behind your login: is everything running, last backup, updates
-- `sudo roadie doctor` tests every provider and indexer on its own and tells you in plain words what
-  is wrong – and whether your backup provider actually helps
-- Encrypted weekly backups (age) with a one-command restore on a new server
-- `sudo roadie update` installs only tested versions, from signed releases
-- A menu for everyday things: access details, login code, restart, people, help
-- `sudo roadie explain` shows what was installed and how it fits together: every service with its page, files and log, the open ports, firewall and fail2ban rules, the scheduled jobs and the Docker commands to look after it yourself – in plain words, with this server's real paths
-
-Everything runs on your own server. roadie sends nothing to its authors – no telemetry.
+Nothing is sent to anyone: no telemetry.
 
 ## Quick start
 
-**You need:**
-- a fresh VPS with **Ubuntu 24.04, Debian 12 or Debian 13** – x86_64 or **ARM64** (e.g. the Oracle Cloud free tier) –
-  2 vCPU, 4 GB RAM recommended (2 GB minimum), 20 GB disk, nothing else on it
-- a web address: a free [DuckDNS](https://www.duckdns.org) subdomain and its token, **or your own domain**
-  (roadie tells you which DNS entries to create)
-- a Usenet provider login and at least one Usenet indexer (API address + key)
-- optional: the ntfy app for push messages, a TMDB API key
+You need a fresh VPS with Ubuntu 24.04, Debian 12 or Debian 13 (x86_64 or ARM64, 4 GB RAM
+recommended), a DuckDNS name or your own domain, a Usenet provider and at least one indexer.
+Never rented a server? See [Getting started](docs/getting-started.md).
 
-Never rented a server? [Getting started](docs/getting-started.md) walks you through it.
-
-**Install** – log in to your server and run:
+Log in to the server and run:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/usenetroadie/roadie/main/get.sh | sudo bash
 ```
 
-It downloads the newest release, checks its checksum and signature, installs it and starts the wizard.
+This downloads the newest release, checks its checksum and signature, installs it and starts the
+wizard. If the connection drops, run `sudo roadie` again: it continues where it stopped.
 
 <details>
-<summary>Rather do it step by step?</summary>
+<summary>Install by hand instead</summary>
 
 ```sh
 V=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/usenetroadie/roadie/releases/latest | sed 's|.*/||')
@@ -129,73 +80,45 @@ sudo bash install.sh && sudo roadie
 
 </details>
 
-If the connection drops or something fails, run `sudo roadie` again – it picks up where it left off.
-
 ![A real setup from start to finish (sped up)](assets/setup.gif)
 
-## What it looks like
-
-<table>
-  <tr>
-    <td width="50%"><a href="assets/login.gif"><img src="assets/screenshot-login.png" alt="Login page with passkey"></a></td>
-    <td width="50%"><a href="assets/aiostreams.gif"><img src="assets/screenshot-aiostreams.png" alt="AIOStreams configuration"></a></td>
-  </tr>
-  <tr>
-    <td><b>One tap to sign in.</b> Settings pages sit behind your own login – with a passkey it is Face ID or a fingerprint. <a href="assets/login.gif">Watch it</a></td>
-    <td><b>Ready-made AIOStreams.</b> Prowlarr, catalogs, your languages and a stream limit. Change anything on the website; roadie keeps your changes. <a href="assets/aiostreams.gif">Watch it</a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="assets/aiometadata.gif"><img src="assets/screenshot-aiometadata.png" alt="AIOMetadata catalog settings"></a></td>
-    <td><b>Your catalogs, your rules.</b> With a TMDB key you get your own AIOMetadata: trending, popular, top rated and more, in your language. Add, hide or reorder rows on its settings page whenever you like. <a href="assets/aiometadata.gif">Watch it</a></td>
-  </tr>
-</table>
-
-## How it works
-
-```mermaid
-flowchart LR
-    app["Stremio / Nuvio"] -->|HTTPS| traefik["Traefik<br/>certificate"]
-    traefik --> aio["AIOStreams"]
-    traefik -. settings pages .-> authelia["Authelia<br/>passkey login"]
-    aio --> prowlarr["Prowlarr"] --> indexers["your indexers"]
-    aio -->|NNTP| provider["your Usenet provider"]
-    roadie["roadie<br/>watcher · backups · updates"] -. push .-> phone["your phone (ntfy)"]
-```
-
-All services run in Docker on your server. Only Traefik is reachable from outside (ports 80/443).
-Your player asks AIOStreams for streams; AIOStreams searches your indexers through Prowlarr and
-streams the file directly from your Usenet provider. More: [Security](docs/security.md).
+More to look at: the [passkey login](assets/login.gif), the [AIOStreams configuration](assets/aiostreams.gif)
+and the [AIOMetadata catalogs](assets/aiometadata.gif).
 
 ## Documentation
 
 | Guide | For |
 |---|---|
-| [Getting started](docs/getting-started.md) | renting a VPS, connecting, what to prepare, first steps after the setup |
+| [Getting started](docs/getting-started.md) | renting a VPS, connecting, what to prepare |
 | [Commands](docs/commands.md) | everyday commands, the menu, several people |
 | [Backups](docs/backups.md) | backups, downloading them, moving to a new server |
-| [Security](docs/security.md) | what is protected and how, signed updates |
+| [Security](docs/security.md) | what is protected and how |
 | [Troubleshooting](docs/troubleshooting.md) | no streams, login problems, getting help |
-| [Build it yourself](docs/manual-setup.md) | the same server by hand, step by step – every command, every file and why |
-| [Advanced](docs/advanced.md) | answers files, adjusting AIOStreams and Prowlarr yourself, more catalogs, uninstall |
+| [Build it yourself](docs/manual-setup.md) | the same server by hand, step by step |
+| [Advanced](docs/advanced.md) | answers files, changing AIOStreams and Prowlarr yourself, uninstall |
 
-## Current limitations
+## Limits
 
-- Usenet only
-- Needs a server with a public IPv4 address (a VPS); hosting at home behind a router is not supported
-- One server per setup
+Usenet only. It needs a VPS with a public IPv4 address; hosting at home behind a router is not
+supported yet. It is an early release used by few people so far.
 
-## Help, contributing, credits
+## Help
 
-- **Questions and problems:** ask [here at roadie](https://github.com/usenetroadie/roadie/issues/new/choose) – no question is too small. Please not in the AIOStreams, Prowlarr, Authelia or Traefik communities: they do not know roadie's setup and run their projects in their free time. If the cause really lies in one of their programs, roadie reports it there with everything they need. Attach the output of `sudo roadie diagnose`; it removes passwords, keys, IP addresses and your domain – still read it once before posting.
-- **Security problems:** please do not open a public issue – see [SECURITY.md](SECURITY.md).
-- **What changed:** see [CHANGELOG.md](CHANGELOG.md).
-- **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md).
-- **Credits:** [AIOStreams](https://github.com/Viren070/AIOStreams) by Viren070, [Traefik](https://traefik.io),
-  [Authelia](https://www.authelia.com), [Prowlarr](https://prowlarr.com), [age](https://age-encryption.org),
-  [ntfy](https://ntfy.sh). roadie is not affiliated with any of them, nor with Stremio or Nuvio.
+Questions are welcome, also small ones: [open an issue](https://github.com/usenetroadie/roadie/issues/new/choose)
+and attach the output of `sudo roadie diagnose` (it leaves out passwords, keys, IP addresses and
+your domain). Please ask here and not in the AIOStreams, Prowlarr, Authelia or Traefik
+communities: they do not know this setup. roadie is a hobby project, so an answer may take a few
+days. Security problems: see [SECURITY.md](SECURITY.md).
 
-**Responsibility:** roadie only installs and configures software. It does not provide, list or
-recommend any content or sources of content. You are responsible for how you use the software and
-for complying with the laws of your country and the terms of the services you use.
+Changes are listed in the [changelog](CHANGELOG.md); contributing is described in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-**License:** MIT – see [LICENSE](LICENSE). The installed programs keep their own licenses.
+Built on [AIOStreams](https://github.com/Viren070/AIOStreams) by Viren070, [Traefik](https://traefik.io),
+[Authelia](https://www.authelia.com), [Prowlarr](https://prowlarr.com), [age](https://age-encryption.org)
+and [ntfy](https://ntfy.sh). roadie is not affiliated with any of them, nor with Stremio or Nuvio.
+
+roadie only installs and configures software. It does not provide, list or recommend any content
+or sources of content. You are responsible for how you use it and for following the laws of your
+country and the terms of the services you use.
+
+MIT license, see [LICENSE](LICENSE). The installed programs keep their own licenses.

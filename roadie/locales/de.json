@@ -171,7 +171,7 @@
   "q.usenet.connections": "Wie viele Verbindungen soll dieser Server nutzen?",
   "q.usenet.host": "Serveradresse (z. B. news.example.com)",
   "q.usenet.host_help": "Die Serveradresse von {name} kenne ich nicht. Du findest sie im Kundenkonto oder auf den Hilfeseiten des Providers (oft news.<provider>.com).",
-  "q.usenet.list_source": "Die Liste kennt das Servernetz jedes Providers (Quelle: usenetalmanac.com, Stand 14.11.2026).",
+  "q.usenet.list_source": "Die Liste kennt das Servernetz jedes Providers (Stand November 2026).",
   "q.usenet.password": "Passwort bei deinem Usenet-Provider",
   "q.usenet.port": "Port",
   "q.usenet.provider": "Provider",
