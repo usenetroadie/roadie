@@ -2,8 +2,13 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 0.4.2 – 2026-11-18
 
+- The setup asked for the long TMDB "API Read Access Token". Your own AIOMetadata only works with
+  the short "API Key" (32 characters), so it was never set up for anyone who followed the steps.
+  The setup now asks for the short key, explains how to get it, and says so when the long token
+  is pasted. Already set up with the token? Run `sudo roadie`, choose *Change settings* and enter
+  the short key.
 - Help and explain are one menu entry now: *Help and how your server works*. `sudo roadie help`
   and `sudo roadie explain` open the same pages. The two pages about getting help are merged into
   *When something does not work*.
