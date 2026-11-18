@@ -143,3 +143,60 @@ class SftpProbeTest(unittest.TestCase):
         self.assertIn(S.SFTP_LOG_LINE, seen[0])
         with mock.patch.object(system, "run", mock.Mock(side_effect=system.CommandFailed(["sshd"], 255, "already defined"))):
             self.assertFalse(host.sftp_override_works())
+
+
+class SshdDropinRewriteTest(unittest.TestCase):
+    """Hardened servers get roadie's sshd file rewritten when a newer roadie writes more."""
+
+    def setUp(self):
+        import tempfile
+        from types import SimpleNamespace
+        from unittest import mock
+        from roadie import system
+        from roadie.phases import host
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.file = Path(tmp.name) / "01-roadie.conf"
+        self.calls, self.sshd_ok, self.probe_ok = [], True, True
+
+        def run(cmd, **kw):
+            if cmd[:2] == ["sshd", "-t"] and "-f" in cmd:
+                if not self.probe_ok:
+                    raise system.CommandFailed(cmd, 255, "already defined")
+                return ""
+            self.calls.append(cmd[:2])
+            if cmd[:2] == ["sshd", "-t"] and not self.sshd_ok:
+                raise system.CommandFailed(cmd, 255, "bad")
+            return ""
+        patches = [mock.patch.object(system, "run", run), mock.patch.object(S, "SSHD_DROPIN", str(self.file)),
+                   mock.patch.object(host, "_RUN_SSHD", Path(tmp.name) / "run-sshd")]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.host = host
+        self.ctx = SimpleNamespace(extra={"render": cfg()}, paths=SimpleNamespace(stack_dir=Path(tmp.name)))
+
+    def test_new_line_is_written_and_sshd_reloaded_once(self):
+        self.file.write_text(S.sshd_dropin(cfg()).content)  # written by an older roadie
+        self.host._write_sshd_dropin(self.ctx)
+        self.assertIn(S.SFTP_LOG_LINE, self.file.read_text())
+        self.assertEqual(self.calls, [["sshd", "-t"], ["systemctl", "try-reload-or-restart"]])
+        self.calls.clear()
+        self.host._write_sshd_dropin(self.ctx)  # unchanged: nothing to do
+        self.assertEqual(self.calls, [])
+
+    def test_no_line_where_sshd_refuses_it(self):
+        self.probe_ok = False
+        old = S.sshd_dropin(cfg()).content
+        self.file.write_text(old)
+        self.host._write_sshd_dropin(self.ctx)
+        self.assertEqual((self.file.read_text(), self.calls), (old, []))
+
+    def test_rejected_file_is_put_back(self):
+        from roadie import system
+        old = S.sshd_dropin(cfg()).content
+        self.file.write_text(old)
+        self.sshd_ok = False
+        with self.assertRaises(system.CommandFailed):
+            self.host._write_sshd_dropin(self.ctx)
+        self.assertEqual(self.file.read_text(), old)

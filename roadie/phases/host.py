@@ -187,7 +187,8 @@ def login_command(ctx: Context) -> str:
 def ssh_hardening(ctx: Context) -> Outcome | None:
     """Password and root login are switched off only after a key login of the admin user
     has really been seen in the SSH log - nobody gets locked out."""
-    if ctx.state.answers.get("_ssh_hardened"):
+    if ctx.state.answers.get("_ssh_hardened"):  # keep the file current: a newer roadie may write more
+        _write_sshd_dropin(ctx)
         return None
     user = ctx.answers.data["admin_user"]
     if ctx.extra.get("interactive"):
@@ -213,18 +214,34 @@ def ssh_hardening(ctx: Context) -> Outcome | None:
     if isinstance(seen, str) and trust_ip(ctx, seen):  # the address the admin logs in from
         system.write_files(_fail2ban_files(ctx), ctx.paths.stack_dir)
         system.run(["fail2ban-client", "reload"], check=False)
+    _write_sshd_dropin(ctx)
+    ctx.state.answers["_ssh_hardened"] = True
+    ctx.ui.ok(t("ssh.check.done"))
+
+
+def _write_sshd_dropin(ctx: Context) -> None:
+    """Write roadie's sshd file and reload sshd, only when its content changed. A file sshd
+    does not accept is put back as it was (or removed), so logins keep working."""
     _RUN_SSHD.mkdir(mode=0o755, exist_ok=True)
     dropin = render_system.sshd_dropin(ctx.extra["render"], sftp_log=sftp_override_works())
+    target = Path(dropin.path)
+    try:
+        old = target.read_text()
+    except OSError:
+        old = None
+    if old == dropin.content:
+        return
     system.write_files([dropin], ctx.paths.stack_dir)
     try:
         system.run(["sshd", "-t"])
     except system.CommandFailed:
-        Path(dropin.path).unlink()
+        if old is None:
+            target.unlink()
+        else:
+            atomic_write(target, old, 0o644)
         raise
     # Ubuntu 24.04 starts sshd on demand (ssh.socket): when it is not running, the next login reads the new file
     system.run(["systemctl", "try-reload-or-restart", "ssh"])
-    ctx.state.answers["_ssh_hardened"] = True
-    ctx.ui.ok(t("ssh.check.done"))
 
 
 def sftp_override_works() -> bool:

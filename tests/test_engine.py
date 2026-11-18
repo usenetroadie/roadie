@@ -189,7 +189,10 @@ class SshCheckTest(unittest.TestCase):
         ctx = Context(paths=paths, state=state, secrets=SecretStore(paths.secrets_file),
                       ui=Prompter(inp=io.StringIO(""), out=io.StringIO()), redact=Redactor(),
                       answers=Answers({"admin_user": "streamadmin"}))
-        self.assertIsNone(host.ssh_hardening(ctx))
+        from unittest import mock
+        with mock.patch.object(host, "_write_sshd_dropin") as write:
+            self.assertIsNone(host.ssh_hardening(ctx))
+        write.assert_called_once_with(ctx)  # no new login check, but the file is kept current
 
 
 class HostStepsTest(unittest.TestCase):
