@@ -274,6 +274,21 @@ class FinalLineTest(unittest.TestCase):
         self.assertIn(i18n.t("cli.done"), out)
         self.assertNotIn(i18n.t("cli.done_open", count=1), out)
 
+    def test_failed_step_is_remembered_for_diagnose_and_cleared_after_a_good_run(self):
+        from roadie.engine import Step, StepFailed
+        from roadie.state import State
+
+        def fail(ctx):
+            raise StepFailed("stack_up", "aiostreams did not start")
+        code, out = self.run_setup(None, Step("stack_up", "step.stack_up", fail))
+        self.assertEqual(code, 1)
+        self.assertIn("sudo roadie diagnose", out)
+        state_file = Path(self.tmp.name) / "etc/roadie/state.json"
+        failure = State(state_file).answers["_last_failure"]
+        self.assertEqual((failure["step"], failure["message"]), ("stack_up", "aiostreams did not start"))
+        self.run_setup(None)
+        self.assertNotIn("_last_failure", State(state_file).answers)
+
     def test_skipped_step_listed_as_open(self):
         from roadie.engine import Outcome
         code, out = self.run_setup(Outcome("skipped", open_key="open.ssh_hardening"))

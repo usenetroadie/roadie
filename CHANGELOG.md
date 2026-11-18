@@ -16,6 +16,10 @@ All notable changes. Versions follow [semantic versioning](https://semver.org).
 - A push message when the newest backup was not downloaded within 36 hours (not on Debian 12).
   On servers set up earlier it starts after the next `sudo roadie update`.
 - Your own AIOMetadata now also on servers with 2 GB RAM.
+- When a setup step fails, roadie points to `sudo roadie diagnose`. The report now names the
+  failed step and is also saved as `~/roadie-report.txt`. Nothing is sent automatically.
+- After the first setup, one line asks for feedback, a short "worked for me" included. The help
+  page *Feedback and problems* has the link, and there is a new issue template *Setup worked!*.
 
 ## 0.4.2 – 2026-11-18
 

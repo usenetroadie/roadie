@@ -13,11 +13,11 @@
 | `sudo roadie people` | manage people (each gets their own addon address) |
 | `sudo roadie doctor` | test every Usenet provider and indexer on its own, plus the last 7 days in numbers |
 | `sudo roadie restart` | restart services (starts stopped ones; AIOStreams reads new indexers) |
-| `sudo roadie help` | help pages (next steps, when something does not work, *Adjust it yourself*) and how your server works: services, ports, files, scheduled jobs, and why. Same as `sudo roadie explain`. `sudo roadie help all > help.txt` saves it all |
+| `sudo roadie help` | help pages (next steps, feedback and problems, *Adjust it yourself*) and how your server works: services, ports, files, scheduled jobs, and why. Same as `sudo roadie explain`. `sudo roadie help all > help.txt` saves it all |
 | `sudo roadie backup` | encrypted backup now (also runs every Sunday night) |
 | `sudo roadie restore FILE --identity KEYFILE` | restore a backup on a fresh server, then run `sudo roadie` |
 | `sudo roadie update` | update roadie itself, then install the tested service versions (backup first) |
-| `sudo roadie diagnose` | problem report without secrets, IP addresses or your domain |
+| `sudo roadie diagnose` | problem report without secrets, IP addresses or your domain, also saved as `~/roadie-report.txt` |
 | `sudo roadie uninstall` | remove everything roadie set up (asks first, offers a last backup) |
 | `roadie demo` | try the questions without changing anything |
 

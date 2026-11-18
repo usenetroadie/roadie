@@ -171,6 +171,22 @@ class SummaryTest(AccessBase):
         self.assertIn("PW-MAIN", out)
         self.assertIn(i18n.t("summary.heading"), out)
 
+    def test_feedback_hint_once(self):
+        from roadie.engine import Context
+        from roadie.phases import stack
+        from roadie.redact import Redactor
+        env = self.env()
+        outs = []
+        for _ in range(2):
+            out = io.StringIO()
+            ctx = Context(paths=self.paths, state=env.state, secrets=env.secrets,
+                          ui=Prompter(inp=io.StringIO(""), out=out), redact=Redactor([]))
+            ctx.extra["interactive"] = True
+            stack.summary(ctx)
+            outs.append(out.getvalue())
+        self.assertIn("issues/new/choose", outs[0])
+        self.assertNotIn("issues/new/choose", outs[1])  # only after the first complete setup
+
     def test_summary_masks_login_password(self):
         out = self.run_summary(interactive=True)
         self.assertNotIn("LOGINPW", out)

@@ -394,6 +394,11 @@ def summary(ctx: Context) -> None:
     access.show(env, ctx.ui, mask_login_password=True)
     helppages.next_steps(ctx.ui, env)
     ctx.ui.info(t("summary.again"))
+    if not ctx.state.answers.get("_feedback_hint_shown"):  # once, not after every change
+        from roadie.ops.diagnose import ISSUES_URL
+        ctx.ui.info(t("summary.feedback"))
+        ctx.ui.copyable(ISSUES_URL)
+        ctx.state.answers["_feedback_hint_shown"] = True
 
 
 def steps() -> list[Step]:

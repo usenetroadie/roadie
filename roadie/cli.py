@@ -5,6 +5,7 @@ import os
 import subprocess
 import json
 import sys
+import time
 from pathlib import Path
 
 from roadie import __version__, banner, i18n, phases, preflight, questions
@@ -388,8 +389,15 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
     try:
         run_steps(steps, ctx)
     except StepFailed as e:
+        # for `sudo roadie diagnose`: which step failed and why (secrets already removed)
+        state.answers["_last_failure"] = {"step": e.step_id, "message": redact(e.message)[:600],
+                                          "at": time.strftime("%Y-%m-%d %H:%M")}
+        state.save()
         ui.fail(t("cli.step_failed", step=e.step_id, message=e.message))
+        ui.hint(t("cli.report_hint"))
         return EXIT_FAILED
+    if state.answers.pop("_last_failure", None) is not None:
+        state.save()
     open_points = ctx.extra.get("open_points") or []
     if not open_points:
         ui.ok(t("cli.done"))

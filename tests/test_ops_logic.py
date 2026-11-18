@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from roadie import notify
 from roadie.ops.watchlogic import Problem, decide, new_login_ips, parse_accepted_logins
@@ -92,6 +93,39 @@ class WatchCollectTest(unittest.TestCase):
         keys = {k for k in keys if not k.endswith(".json")}  # file names, not text keys
         missing = sorted(k for k in keys if k not in i18n.load("en"))
         self.assertEqual(missing, [])
+
+
+class DiagnoseTest(unittest.TestCase):
+    def test_report_names_the_failed_step_and_is_saved_for_the_admin(self):
+        import contextlib
+        import io
+        import tempfile
+        from unittest import mock
+        from roadie.ops import diagnose
+        from roadie.ops.common import Env
+        from roadie.paths import Paths
+        from roadie.secretstore import SecretStore
+        from roadie.state import State
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        paths = Paths(Path(tmp.name))
+        state = State(paths.state_file)
+        state.answers.update({"admin_user": "alice", "duckdns": {"subdomain": "example"},
+                              "_last_failure": {"step": "stack_up", "message": "it broke", "at": "2026-11-18 12:00"}})
+        env = Env(paths, state, SecretStore(paths.secrets_file))
+        home = Path(tmp.name) / "home"
+        home.mkdir()
+        with mock.patch.object(Env, "services", lambda self: []), \
+                mock.patch("roadie.ops.backup.backup_dir", lambda env: home / "backups"), \
+                mock.patch("roadie.ops.diagnose.system.run", lambda *a, **k: ""), \
+                contextlib.redirect_stdout(io.StringIO()) as out, contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(diagnose.run(env), 0)
+        self.assertIn("step stack_up: it broke", out.getvalue())
+        saved = home / "roadie-report.txt"
+        self.assertEqual(saved.read_text().strip(), out.getvalue().strip())
+        self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+        self.assertIn(str(saved), err.getvalue())  # hints on stderr: `diagnose > file` stays clean
+        self.assertNotIn(str(saved), out.getvalue())
 
 
 class BackupLogicTest(unittest.TestCase):
