@@ -51,10 +51,13 @@ roadie setup --answers /tmp/answers.json | tee /tmp/run.log
 if [ "$mode" = upgrade ]; then
     bash "$src/tests/e2e/verify.sh" "$domain" /tmp/run.log   # the release works before the update
     old="$(roadie --version)"
+    latest_url() { curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/usenetroadie/roadie/releases/latest | sed 's|.*/v||'; }
+    before="$(latest_url)"
     ROADIE_NO_START=1 bash get.sh   # the one-line installer: real download, checksum, signature
-    # compared with the newest release right now: one may have been published during this run
-    latest="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/usenetroadie/roadie/releases/latest | sed 's|.*/v||')"
-    [ "$(roadie --version)" = "roadie $latest" ] || { echo "FAIL  get.sh did not install the latest release"; exit 1; }
+    # a release may be published during this run: the newest one before or after get.sh counts
+    after="$(latest_url)"
+    case "$(roadie --version)" in "roadie $before"|"roadie $after") ;;
+        *) echo "FAIL  get.sh did not install the latest release"; exit 1 ;; esac
     bash install.sh
     echo "upgrade test: $old -> $(roadie --version)"
     roadie --skip-self-update update | tee /tmp/run.log
