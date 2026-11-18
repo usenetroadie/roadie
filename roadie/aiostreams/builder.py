@@ -70,6 +70,13 @@ def _sort_language_first(criteria: list[dict]) -> list[dict]:
     return lead + [{"key": "language", "direction": "desc"}] + tail
 
 
+def forced_subtitles(content: dict) -> dict:
+    """Releases with forced subtitles in a chosen language rank higher: the player shows them
+    when a scene is in another language. Works where AIOStreams knows the release's tracks."""
+    langs = "|".join(content["languages"])
+    return {"expression": f"subtitleTrack(streams, 'forced', 'lang={langs}')", "score": 5, "enabled": True}
+
+
 def content_fields(content: dict) -> dict:
     """The PERSON_FIELDS for one 'content' answer; depends on nothing else."""
     resolutions = ["2160p", "1080p", "720p"]
@@ -156,7 +163,7 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
         for feature in TMDB_FEATURES:
             cfg[feature] = {**cfg.get(feature, {}), "enabled": False}
 
-    cfg["rankedStreamExpressions"] = copy.deepcopy(RANKED_EXPRESSIONS)
+    cfg["rankedStreamExpressions"] = copy.deepcopy(RANKED_EXPRESSIONS) + [forced_subtitles(content)]
     cfg["rankedRegexPatterns"] = copy.deepcopy(RANKED_REGEX)
     cfg["precacheNextEpisode"] = True
     return cfg

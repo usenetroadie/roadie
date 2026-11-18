@@ -104,6 +104,11 @@ class BuilderTest(unittest.TestCase):
         self.assertTrue(any(e["score"] < 0 for e in cfg["rankedStreamExpressions"]))
         self.assertEqual(cfg["rankedRegexPatterns"][0]["name"], "Fix release")
 
+    def test_forced_subtitles_in_the_chosen_languages_rank_higher(self):
+        cfg = build(**{"content.languages": ["German", "English"]})
+        expressions = [e["expression"] for e in cfg["rankedStreamExpressions"]]
+        self.assertIn("subtitleTrack(streams, 'forced', 'lang=German|English')", expressions)
+
     def test_catalog_presets_language_de(self):
         content = {"languages": ["German", "English"]}
         presets = {p["instanceId"]: p for p in catalog_presets(content, None)}
