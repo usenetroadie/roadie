@@ -74,6 +74,23 @@ class BackboneTest(unittest.TestCase):
                      {"provider": "newsgroupdirect", "role": "backup", "host": "x"}]
         self.assertEqual(nntp.same_backbone_warnings(providers), [])
 
+    def test_backbone_overview_names_backbones_not_one_provider(self):
+        have, other, same = nntp.backbone_overview([{"provider": "eweka", "role": "primary"}])
+        self.assertEqual(have, ["Eweka IS"])
+        names = [name for name, _ in other]
+        self.assertEqual(names, sorted(names, key=str.lower))
+        self.assertIn("Abavia", names)
+        self.assertNotIn("Eweka IS", names + [name for name, _ in same])
+        self.assertIn("Omicron", [name for name, _ in same])  # same company as Eweka IS
+        brands = dict(other)["UsenetExpress"]
+        self.assertEqual(brands, sorted(brands, key=str.lower))
+        self.assertIn("UsenetExpress", brands)
+
+    def test_backbone_overview_unknown_provider_lists_all(self):
+        have, other, same = nntp.backbone_overview([{"host": "news.unknown.example", "role": "primary"}])
+        self.assertEqual((have, same), ([], []))
+        self.assertIn("Omicron", [name for name, _ in other])
+
     def test_unknown_backbone_no_warning(self):
         providers = [{"host": "news.eweka.nl", "role": "primary"},
                      {"host": "news.unknown.example", "role": "backup"}]

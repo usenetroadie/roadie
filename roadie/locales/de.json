@@ -604,5 +604,12 @@
   "explain.docker.why": "roadie legt feste Versionen absichtlich fest. Eine neue Version von AIOStreams oder Authelia kann Einstellungen oder Verhalten ändern; roadie wechselt erst, nachdem das ganze Setup damit getestet wurde. Deshalb wird nie „latest“ verwendet.\nNachsehen und Logs lesen kannst du jederzeit – davon geht nichts kaputt. Dateien von Hand ändern geht auch, aber merk dir, welche roadie neu schreibt (Thema „Wo alles liegt“).",
   "explain.security.why": "Kein einzelner Schutz ist perfekt, deshalb gibt es mehrere Schichten: Fällt eine, hält die nächste. Ein geleaktes Authelia-Passwort braucht noch deinen zweiten Faktor; ein SSH-Passwort kann gar nicht erst probiert werden; ein Port, der nicht offen sein soll, bleibt durch die Firewall zu; eine bekannte Lücke schließen die täglichen Updates. Und geht alles schief, bringt das verschlüsselte Backup den Server zurück.",
   "q.tmdb.token_given": "Das ist der lange Read Access Token. Er funktioniert für AIOStreams, aber deine eigenen Kataloge (AIOMetadata) brauchen den kurzen „API Key“ (32 Zeichen) von derselben Seite.",
-  "q.tmdb.use_short": "Stattdessen den kurzen API-Schlüssel eingeben?"
+  "q.tmdb.use_short": "Stattdessen den kurzen API-Schlüssel eingeben?",
+  "q.usenet.backbones.title": "Backbones für einen Ersatz-Provider",
+  "q.usenet.backbones.intro": "Ein Ersatz-Provider springt ein, wenn bei deinem Haupt-Provider ein Beitrag fehlt. Das hilft nur, wenn er ein anderes Backbone nutzt: das Servernetz hinter einem Provider. Viele Marken verkaufen Zugang zum selben Backbone.",
+  "q.usenet.backbones.have": "Deine bisherigen Provider nutzen: {names}",
+  "q.usenet.backbones.unknown": "roadie kennt das Backbone deines Providers nicht. Das sind die bekannten Backbones:",
+  "q.usenet.backbones.other": "Andere Backbones, jeweils mit den Marken, die Zugang dazu verkaufen:",
+  "q.usenet.backbones.same": "Gehören derselben Firma wie dein Backbone (helfen seltener):",
+  "q.usenet.backbones.source": "Öffentliche Angaben, Stand {date}, alphabetisch sortiert. Prüf vor dem Kauf die Seite des Providers."
 }

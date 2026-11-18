@@ -202,6 +202,22 @@ def ask_duckdns(ui: Prompter, data: dict, checks) -> None:
     data["duckdns"] = {"subdomain": sub, "token": token}
 
 
+def show_backbones(ui: Prompter, providers: list[dict]) -> None:
+    """Which backbones a backup could add, with every brand that sells them: roadie names
+    backbones, not one provider."""
+    have, other, same = nntp.backbone_overview(providers)
+    lines = [t("q.usenet.backbones.intro")]
+    if have:
+        lines += [t("q.usenet.backbones.have", names=", ".join(have)), t("q.usenet.backbones.other")]
+    else:
+        lines.append(t("q.usenet.backbones.unknown"))
+    lines += [f"- {name}: {', '.join(brands)}" for name, brands in other]
+    if same:
+        lines += [t("q.usenet.backbones.same")] + [f"- {name}: {', '.join(brands)}" for name, brands in same]
+    lines.append(t("q.usenet.backbones.source", date=nntp.provider_data()["as_of"]))
+    ui.box(t("q.usenet.backbones.title"), lines)
+
+
 def ask_usenet(ui: Prompter, data: dict, checks) -> None:
     known = nntp.known_providers()
     ui.info(t("q.usenet.list_source"))
@@ -246,6 +262,8 @@ def ask_usenet(ui: Prompter, data: dict, checks) -> None:
             if backup in (host, next((x["name"] for x in known if x["id"] == pid), None)):
                 key = "check.nntp.same_backbone" if level == "network" else "check.nntp.same_owner"
                 ui.warn(t(key, backup=backup, primary=primary, backbone=network))
+        if len(providers) == 1:
+            show_backbones(ui, providers)
         if not ui.confirm(t("q.usenet.another"), default=len(providers) < len(old)):
             break
     data["usenet"] = {"providers": providers}

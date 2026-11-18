@@ -604,5 +604,12 @@
   "explain.docker.why": "roadie pins fixed versions on purpose. A new version of AIOStreams or Authelia can change settings or behaviour; roadie only switches after the whole setup was tested with it. That is why 'latest' is never used.\nYou can always look and read logs – nothing breaks from that. Changing files by hand is fine too, but remember which ones roadie writes again (topic 'Where everything is').",
   "explain.security.why": "No single protection is perfect, so there are several layers: if one fails, the next one still holds. A leaked Authelia password still needs your second factor; an SSH password cannot even be tried; an open port that should not be there is closed by the firewall; a known hole is closed by the daily updates. And if everything goes wrong, the encrypted backup brings the server back.",
   "q.tmdb.token_given": "That is the long read access token. It works for AIOStreams, but your own catalogs (AIOMetadata) need the short 'API Key' (32 characters) from the same page.",
-  "q.tmdb.use_short": "Enter the short API key instead?"
+  "q.tmdb.use_short": "Enter the short API key instead?",
+  "q.usenet.backbones.title": "Backbones for a backup provider",
+  "q.usenet.backbones.intro": "A backup provider steps in when a post is missing at your main provider. That only helps if it uses a different backbone: the server network behind a provider. Many brands sell access to the same backbone.",
+  "q.usenet.backbones.have": "Your providers so far use: {names}",
+  "q.usenet.backbones.unknown": "roadie does not know the backbone of your provider. These are the known backbones:",
+  "q.usenet.backbones.other": "Other backbones, each with the brands that sell access to it:",
+  "q.usenet.backbones.same": "Run by the same company as your backbone (helps less often):",
+  "q.usenet.backbones.source": "Public information as of {date}, in alphabetical order. Check the provider's own page before you buy."
 }

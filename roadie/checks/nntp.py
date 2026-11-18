@@ -99,6 +99,21 @@ def _label(entry: dict) -> str:
     return found["name"] if found else entry.get("host", "?")
 
 
+def backbone_overview(providers: list[dict]) -> tuple[list[str], list[tuple[str, list[str]]], list[tuple[str, list[str]]]]:
+    """For choosing a backup: (backbones of the chosen providers, other backbones, backbones run by
+    the same company as a chosen one), each other backbone with every listed brand that sells it.
+    Alphabetical, so no brand is put first."""
+    data = provider_data()
+    nets = data["networks"]
+    have = {n for p in providers for n in networks_of(p)}
+    owners = {nets[n]["owner"] for n in have}
+    brands = {n: sorted((p["name"] for p in data["providers"] if n in p["networks"]), key=str.lower) for n in nets}
+    rest = sorted((n for n in nets if n not in have and brands[n]), key=lambda n: nets[n]["name"].lower())
+    other = [(nets[n]["name"], brands[n]) for n in rest if nets[n]["owner"] not in owners]
+    same = [(nets[n]["name"], brands[n]) for n in rest if nets[n]["owner"] in owners]
+    return sorted(nets[n]["name"] for n in have), other, same
+
+
 def same_backbone_warnings(providers: list[dict]) -> list[tuple[str, str, str, str]]:
     """(backup, primary, level, network name) for each backup that adds no new network.
     level 'network': every network of the backup is one the primary already has.

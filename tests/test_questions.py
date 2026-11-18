@@ -180,6 +180,7 @@ class QuestionsTest(unittest.TestCase):
         self.assertEqual([p["role"] for p in data["usenet"]["providers"]], ["primary", "backup"])
         self.assertIn("Omicron", out)
         self.assertEqual(data["usenet"]["providers"][1]["provider"], "easynews")
+        self.assertEqual(out.count(i18n.t("q.usenet.backbones.title")), 1)  # once, before the first backup
 
 
 class NewQuestionsTest(unittest.TestCase):
