@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from roadie import help as helppages, i18n, menu
+from roadie import explain, help as helppages, i18n, menu
 from roadie.aiostreams.api import AioError
 from roadie.ops.common import Env
 from roadie.paths import Paths
@@ -79,10 +79,10 @@ class MenuTest(MenuBase):
                                                                      "update": lambda e, u: 0}), 0)
         text = self.out.getvalue()
         for key in ("menu.access", "menu.code", "menu.status", "menu.restart", "menu.people", "menu.change",
-                    "menu.backup", "menu.update", "menu.help"):
+                    "menu.backup", "menu.update", "menu.explain"):
             self.assertIn(i18n.t(key), text)
         self.assertIn("[0] " + i18n.t("menu.exit"), text)
-        self.assertLess(text.index(i18n.t("menu.access")), text.index(i18n.t("menu.help")))
+        self.assertLess(text.index(i18n.t("menu.access")), text.index(i18n.t("menu.explain")))
 
     def test_menu_runs_access_then_back(self):
         self.assertEqual(menu.run(self.env, self.ui("1\n\n0\n")), 0)
@@ -301,21 +301,19 @@ class HelpTest(MenuBase):
         self.assertEqual(i18n.t("help.backup_download.title"), "Backup herunterladen")
 
     def test_help_shows_topic(self):
-        n = helppages.TOPICS.index("do_it_yourself") + 1
-        self.assertEqual(helppages.run(self.env, self.ui(f"{n}\n")), 0)
+        self.assertEqual(explain.run(self.env, self.ui(""), "do_it_yourself"), 0)
         text = self.out.getvalue()
         self.assertIn(i18n.t("menu.restart"), " ".join(text.split()))
         self.assertNotIn("$ ", text)
 
     def test_do_it_yourself_and_more_catalogs_fit_a_phone_screen(self):
         for topic in ("do_it_yourself", "more_catalogs"):
-            n = helppages.TOPICS.index(topic) + 1
             for lang in ("de", "en"):
                 i18n.set_language(lang)
-                ui = self.ui(f"{n}\n")
+                ui = self.ui("")
                 ui.width = 50
-                helppages.run(self.env, ui)
-                box = self.out.getvalue().split("\n> ", 1)[1].strip().splitlines()
+                explain.show(self.env, ui, topic)
+                box = self.out.getvalue().strip().splitlines()
                 self.assertLessEqual(len(box), 22, (topic, lang))
 
     def test_more_catalogs_names_no_indexer(self):
@@ -335,8 +333,8 @@ class HelpTest(MenuBase):
                         .startswith(i18n.t("help.backup_download.no_key")))
 
     def test_every_topic_renders(self):
-        for n in range(1, len(helppages.TOPICS) + 1):
-            helppages.run(self.env, self.ui(f"{n}\n"))
+        for topic in helppages.TOPICS:
+            explain.run(self.env, self.ui(""), topic)
             self.assertNotIn("{", self.out.getvalue())
 
 

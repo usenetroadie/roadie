@@ -1,5 +1,6 @@
-"""`sudo roadie explain`: what is installed on this server, how it fits together, where
-everything lives and how to look after each part yourself.
+"""`sudo roadie explain` (also `help`): the help pages for everyday questions, then what is
+installed on this server, how it fits together, where everything lives and how to look after
+each part yourself.
 
 Written for beginners, but with the real names, paths, ports and commands of this server,
 so reading it is a first step to running it without roadie. A line starting with "$ " is a
@@ -10,7 +11,9 @@ from roadie.i18n import t
 from roadie.ops.common import Env
 from roadie.ui import Prompter
 
-TOPICS = ["overview", "services", "network", "files", "jobs", "docker", "security", "help"]
+# the help pages first (what a beginner needs most), then how the server works
+TOPICS = ["next_steps", "trouble", "terms", "backup_download", "do_it_yourself", "more_catalogs",
+          "overview", "services", "network", "files", "jobs", "docker", "security"]
 # known services in the order of a request; the sub-domain of their web page (None: no page)
 SERVICES = {"traefik": None, "authelia": "auth", "aiostreams": "aiostreams", "prowlarr": "prowlarr",
             "aiometadata": "metadata", "aiometadata-redis": None, "status": "status"}
@@ -27,7 +30,7 @@ def params(env: Env) -> dict:
 
 def _services(env: Env, p: dict) -> list[tuple[str, list[str]]]:
     running = env.stack_services() or [s for s in SERVICES if s not in ("aiometadata", "aiometadata-redis")]
-    boxes = [(t("explain.services.title"), helppages._lines(t("explain.services.body", **p)))]
+    boxes = [(t("explain.services.title"), helppages.lines(t("explain.services.body", **p)))]
     for name in sorted(running, key=lambda s: list(SERVICES).index(s) if s in SERVICES else len(SERVICES)):
         if name not in SERVICES:  # added by the user to compose.yaml
             boxes.append((name, [t("explain.svc.unknown")]))
@@ -37,21 +40,27 @@ def _services(env: Env, p: dict) -> list[tuple[str, list[str]]]:
             lines += [t("explain.svc.address"), "$ https://" + f"{SERVICES[name]}.{p['domain']}"]
         lines += [t(f"explain.svc.{name}.files", **p), t("explain.svc.logs"),
                   f"$ cd {p['stack']} && sudo docker compose logs --tail 50 {name}"]
-        boxes.append((t(f"explain.svc.{name}.name"), helppages._lines("\n".join(lines))))
+        boxes.append((t(f"explain.svc.{name}.name"), helppages.lines("\n".join(lines))))
     return boxes
 
 
+def title(topic: str) -> str:
+    return t(f"help.{topic}.title") if topic in helppages.TOPICS else t(f"explain.{topic}.title")
+
+
 def sections(env: Env, topic: str) -> list[tuple[str, list[str]]]:
+    if topic in helppages.TOPICS:
+        return [(title(topic), helppages.lines(helppages.body(env, topic, **helppages.params(env))))]
     p = params(env)
     if topic == "services":
         return _services(env, p)
     if topic == "jobs":  # the DuckDNS updater only runs with a DuckDNS address
         p["duckdns"] = "" if env.answers.get("domain") else "\n" + t("explain.jobs.duckdns")
     body = t(f"explain.{topic}.body", **p)
-    boxes = [(t(f"explain.{topic}.title"), helppages._lines(body))]
+    boxes = [(t(f"explain.{topic}.title"), helppages.lines(body))]
     why = f"explain.{topic}.why"
     if t(why) != why:  # the reasons, in their own box below the facts
-        boxes.append((t("explain.why"), helppages._lines(t(why, **p))))
+        boxes.append((t("explain.why"), helppages.lines(t(why, **p))))
     return boxes
 
 
@@ -70,7 +79,7 @@ def run(env: Env, ui: Prompter, topic: str | None = None) -> int:
             show(env, ui, name)
         return 0
     if topic is None:
-        options = [(name, t(f"explain.{name}.title")) for name in TOPICS]
+        options = [(name, title(name)) for name in TOPICS]
         options += [("all", t("explain.all")), ("back", t("explain.back"))]
         topic = ui.choose(t("explain.pick"), options)
         if topic == "back":

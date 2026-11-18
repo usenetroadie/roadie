@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
-from roadie import access, authcode, help as helppages, questions, system
+from roadie import access, authcode, questions, system
 from roadie.aiostreams import metadata, people
 from roadie.aiostreams.api import AioClient, AioError
 from roadie.aiostreams.builder import build_user_config
@@ -98,7 +98,6 @@ ITEMS: list[MenuItem] = [
     MenuItem("change", "menu.change", None),  # cli injects the setup run
     MenuItem("backup", "menu.backup", _backup),
     MenuItem("update", "menu.update", None),  # cli injects the update run
-    MenuItem("help", "menu.help", lambda env, ui: helppages.run(env, ui)),
     MenuItem("explain", "menu.explain", lambda env, ui: _explain(env, ui)),
     MenuItem("uninstall", "menu.uninstall", _uninstall),  # last on purpose: not prominent
 ]

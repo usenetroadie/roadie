@@ -13,8 +13,7 @@
 | `sudo roadie people` | manage people (each gets their own addon address) |
 | `sudo roadie doctor` | test every Usenet provider and indexer on its own, plus the last 7 days in numbers |
 | `sudo roadie restart` | restart services (starts stopped ones; AIOStreams reads new indexers) |
-| `sudo roadie explain` | how your server works: services, ports, files, scheduled jobs, and why (`sudo roadie explain all > explained.txt` saves it all) |
-| `sudo roadie help` | help pages, including *Adjust it yourself* |
+| `sudo roadie help` | help pages (next steps, when something does not work, *Adjust it yourself*) and how your server works: services, ports, files, scheduled jobs, and why. Same as `sudo roadie explain`. `sudo roadie help all > help.txt` saves it all |
 | `sudo roadie backup` | encrypted backup now (also runs every Sunday night) |
 | `sudo roadie restore FILE --identity KEYFILE` | restore a backup on a fresh server, then run `sudo roadie` |
 | `sudo roadie update` | update roadie itself, then install the tested service versions (backup first) |
@@ -23,12 +22,12 @@
 | `roadie demo` | try the questions without changing anything |
 
 German shortcuts work as well: `zugang` (access), `personen` (people), `neustart` (restart),
-`hilfe` (help), `erklaeren` (explain), `deinstallieren` (uninstall).
+`hilfe` (help), `erklaeren` (explain, same as help), `deinstallieren` (uninstall).
 
 ## The menu
 
 After the setup, `sudo roadie` opens a menu: *Show my access details*, the login confirmation
-code, status, *Restart services*, *Manage people*, *Change settings*, backup, updates and help.
+code, status, *Restart services*, *Manage people*, *Change settings*, backup, updates, and *Help and how your server works*.
 
 *Change settings* shows all your answers first and asks only the part you pick again, prefilled
 with the current values. The admin user stays; a new SSH key is added, old ones are kept.

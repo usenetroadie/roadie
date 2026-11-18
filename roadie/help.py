@@ -1,4 +1,4 @@
-"""Help pages ("Hilfe und Begriffe"): short, one screen each.
+"""Help pages: short, one screen each. Shown by `sudo roadie explain` (also `help`).
 
 In a body, a line starting with "$ " is a command: printed unwrapped so it can be copied."""
 
@@ -10,11 +10,11 @@ from roadie.ui import Prompter
 TOPICS = ["terms", "backup_download", "trouble", "next_steps", "do_it_yourself", "more_catalogs"]
 
 
-def _lines(body: str) -> list[str]:
+def lines(body: str) -> list[str]:
     return [access.COPY + line[2:] if line.startswith("$ ") else line for line in body.split("\n")]
 
 
-def _params(env: Env) -> dict:
+def params(env: Env) -> dict:
     from roadie.ops import backup
     return {"dir": str(backup.backup_dir(env)), "user": env.answers.get("admin_user") or "ubuntu",
             "host": env.domain}
@@ -34,19 +34,8 @@ def body(env: Env | None, topic: str, **params) -> str:
     return text
 
 
-def show(ui: Prompter, topic: str, env: Env | None = None, **params) -> None:
-    ui.box(t(f"help.{topic}.title"), _lines(body(env, topic, **params)))
-
-
 def next_steps(ui: Prompter, env: Env) -> None:
     """End of the setup: like the help page, but step 1 points to the address shown above."""
-    lines = _lines(body(env, "next_steps"))
-    ui.box(t("help.next_steps.title"), [t("help.next_steps.first_summary")] + lines[1:])
+    rest = lines(body(env, "next_steps"))[1:]
+    ui.box(t("help.next_steps.title"), [t("help.next_steps.first_summary")] + rest)
 
-
-def run(env: Env, ui: Prompter) -> int:
-    options = [(topic, t(f"help.{topic}.title")) for topic in TOPICS] + [("back", t("help.back"))]
-    topic = ui.choose(t("help.title"), options)
-    if topic != "back":
-        show(ui, topic, env, **_params(env))
-    return 0

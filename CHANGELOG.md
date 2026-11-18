@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- Help and explain are one menu entry now: *Help and how your server works*. `sudo roadie help`
+  and `sudo roadie explain` open the same pages. The two pages about getting help are merged into
+  *When something does not work*.
+
 ## 0.4.1 – 2026-11-17
 
 - `sudo roadie explain` explains the *why* as well: every service and every topic says why it is

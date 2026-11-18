@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from roadie import explain, i18n
+from roadie import explain, help as helppages, i18n
 from roadie.ops.common import Env
 from roadie.paths import Paths
 from roadie.secretstore import SecretStore
@@ -50,21 +50,21 @@ class ExplainTest(unittest.TestCase):
             self.assertNotIn("{", text, lang)  # no placeholder left
             for name in explain.TOPICS:
                 if name != "services":
-                    self.assertIn(i18n.t(f"explain.{name}.title"), text)
+                    self.assertIn(explain.title(name), text)
 
     def test_every_part_says_why(self):
         for lang in ("en", "de"):
             catalog = i18n.load(lang)
             for name in explain.TOPICS:
-                if name not in ("services", "help"):
+                if name != "services" and name not in helppages.TOPICS:
                     self.assertIn(f"explain.{name}.why", catalog, (lang, name))
             for name in explain.SERVICES:
                 self.assertIn(f"explain.svc.{name}.why", catalog, (lang, name))
         self.assertIn(i18n.t("explain.why"), self.text("network"))
         self.assertIn(i18n.t("explain.svc.why"), self.text("services"))
 
-    def test_help_points_to_roadie_and_asks_for_the_report(self):
-        text = self.text("help")
+    def test_trouble_points_to_roadie_and_asks_for_the_report(self):
+        text = self.text("trouble")
         self.assertIn("github.com/usenetroadie/roadie/issues/new/choose", text)
         self.assertIn("sudo roadie diagnose", text)
         self.assertIn("security/advisories/new", text)
@@ -120,6 +120,15 @@ class ExplainTest(unittest.TestCase):
         from roadie import cli, menu
         self.assertEqual(cli.ALIASES["erklaeren"], "explain")
         self.assertIn("explain", [item.key for item in menu.ITEMS])
+        self.assertNotIn("help", [item.key for item in menu.ITEMS])  # one entry for help and explain
+
+    def test_help_command_opens_the_help_pages(self):
+        from roadie import cli
+        self.env.state.save()
+        for word in ("help", "hilfe"):
+            out = io.StringIO()
+            cli.main(["--root", self.tmp.name, word, "trouble"], ui=Prompter(inp=io.StringIO(""), out=out))
+            self.assertIn(i18n.t("help.trouble.title"), out.getvalue())
 
 
 if __name__ == "__main__":
