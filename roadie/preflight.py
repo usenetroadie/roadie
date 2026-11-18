@@ -16,7 +16,8 @@ REQUIRED_HOSTS = ("github.com", "ghcr.io", "registry-1.docker.io")
 # only a warning: not everyone uses them (own domain, own ntfy server), and their own questions
 # check them again
 OPTIONAL_HOSTS = ("www.duckdns.org", "ntfy.sh")
-MIN_RAM_MB, RECOMMENDED_RAM_MB, MIN_DISK_GB = 1800, 3800, 20
+# free space: a 20 GB disk has about 16 GB left after the system; roadie uses about 8
+MIN_RAM_MB, RECOMMENDED_RAM_MB, MIN_DISK_GB = 1800, 3800, 15
 
 
 @dataclass
@@ -32,6 +33,7 @@ class Facts:
     docker_present: bool
     clock_synced: bool | None
     reachable: dict[str, bool] = field(default_factory=dict)
+    disk_total_gb: float = 0.0  # size of the disk: the caches are sized from it
 
 
 @dataclass
@@ -100,6 +102,7 @@ def gather_facts(paths: Paths = Paths()) -> Facts:
         docker_present=shutil.which("docker") is not None,
         clock_synced={"yes": True, "no": False}.get(synced),
         reachable={h: _reachable(h) for h in REQUIRED_HOSTS + OPTIONAL_HOSTS},
+        disk_total_gb=shutil.disk_usage(paths.root).total / 1e9,
     )
 
 

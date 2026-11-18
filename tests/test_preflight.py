@@ -70,6 +70,24 @@ class PreflightTest(unittest.TestCase):
     def test_small_disk_is_error(self):
         self.assertIn("preflight.disk", keys(P.evaluate(facts(disk_free_gb=12)), "error"))
 
+    def test_a_20_gb_disk_is_enough(self):
+        # what is left of 20 GB after Ubuntu: the size the guides recommend must pass
+        self.assertNotIn("preflight.disk", keys(P.evaluate(facts(disk_free_gb=16.4)), "error"))
+
+    def test_cache_sizes_follow_the_disk_size_not_the_free_space(self):
+        from types import SimpleNamespace
+        from roadie import phases
+        from roadie.answers import Answers
+        import json
+        from pathlib import Path
+        example = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
+        sizes = []
+        for free in (16.0, 9.0):  # less free space after the setup must not change the caches
+            ctx = SimpleNamespace(answers=Answers.from_dict(json.loads(json.dumps(example))), extra={})
+            phases.prepare(ctx, facts(disk_free_gb=free, disk_total_gb=20.0))
+            sizes.append(ctx.extra["render"].disk_gb)
+        self.assertEqual(sizes, [20.0, 20.0])
+
     def test_clock_unsynced_warns(self):
         self.assertIn("preflight.clock", keys(P.evaluate(facts(clock_synced=False)), "warn"))
 

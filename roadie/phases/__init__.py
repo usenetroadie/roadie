@@ -14,7 +14,10 @@ def prepare(ctx: Context, facts) -> None:
                             text=True, timeout=10).stdout.strip() or "UTC"
     except (OSError, subprocess.TimeoutExpired):
         tz = "UTC"
-    cfg = build_render_config(ctx.answers, load_versions(), facts.mem_mb, facts.disk_free_gb, tz)
+    # the disk size, not the free space: free space shrinks after the setup, and changed cache
+    # sizes would restart AIOStreams on every update
+    disk = facts.disk_total_gb or facts.disk_free_gb
+    cfg = build_render_config(ctx.answers, load_versions(), facts.mem_mb, disk, tz)
     cfg.test_mode = bool(ctx.answers.data.get("test_mode"))
     ctx.extra.update(facts=facts, render=cfg)
 

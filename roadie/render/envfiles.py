@@ -15,7 +15,7 @@ _SAFE = re.compile(r"^[A-Za-z0-9_.:/@=,|+-]*$")  # compose interpolates $ and tr
 
 
 def cache_sizes(disk_gb: float) -> tuple[int, int]:
-    """(usenet segment cache, NZB cache) in bytes, scaled to the free disk space."""
+    """(usenet segment cache, NZB cache) in bytes, scaled to the disk size."""
     segment = min(20, max(2, int(disk_gb * 0.2)))
     nzb = 1 if disk_gb < 40 else 2 if disk_gb < 200 else 5
     return segment * GIB, nzb * GIB
