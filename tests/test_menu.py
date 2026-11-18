@@ -98,7 +98,7 @@ class MenuTest(MenuBase):
         self.assertEqual(calls, [1])
 
     def test_new_item_needs_one_entry(self):
-        extra = menu.MenuItem("extra", "test.hello", lambda env, ui: ui.info("EXTRA RAN") or 0)
+        extra = menu.MenuItem("extra", "menu.extra", lambda env, ui: ui.info("EXTRA RAN") or 0)
         with mock.patch.object(menu, "ITEMS", [*menu.ITEMS, extra]):
             n = len(menu.visible_items(self.env, {"change": 1, "update": 1}))
             menu.run(self.env, self.ui(f"{n}\n\n0\n"), actions={"change": lambda e, u: 0, "update": lambda e, u: 0})

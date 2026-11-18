@@ -28,7 +28,7 @@ class I18nTest(unittest.TestCase):
 
     def test_translate_with_params(self):
         i18n.set_language("de")
-        self.assertEqual(i18n.t("test.hello", name="X"), "Hallo X")
+        self.assertEqual(i18n.t("proof.note_no_catalogs", count=3), "3 Streams gefunden, aber keine Kataloge")
 
     def test_missing_key_falls_back_to_english(self):
         i18n.set_language("de")
