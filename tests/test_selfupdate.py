@@ -257,6 +257,7 @@ class RunWithServerTest(SignedBase):
                       mock.patch.object(selfupdate, "ALLOWED_SIGNERS", self.pub),
                       mock.patch.object(selfupdate, "API_URL", self.server.url),
                       mock.patch.object(selfupdate, "DOWNLOAD_URL", self.server.url),
+                      mock.patch.object(selfupdate, "RAW_URL", self.server.url),  # never the real GitHub
                       mock.patch.object(selfupdate, "__version__", "0.1.0")):
             patch.start()
             self.addCleanup(patch.stop)
@@ -348,6 +349,63 @@ class RunWithServerTest(SignedBase):
         with mock.patch.object(selfupdate, "latest") as latest:
             self.assertIsNone(selfupdate.notice(saved, now=1000.0 + 3600))
         latest.assert_not_called()
+
+
+CHANGELOG = """# Changelog
+
+## Unreleased
+
+- Not released yet.
+
+## 0.3.0 – 2026-11-20
+
+- Faster `setup`. It now **skips** steps that are done.
+- A very long entry that goes on and on and on and on and on and on and on and on and on and on and on and on
+  and continues on the next line.
+
+## 0.2.0 – 2026-11-19
+
+- Fix one thing.\x1b[31m
+
+## 0.1.0 – 2026-11-18
+
+- Old entry.
+"""
+
+
+class NewsTest(unittest.TestCase):
+    def test_entries_after_the_installed_version_up_to_the_new_one(self):
+        news = selfupdate.changelog_news(CHANGELOG, "0.1.0", "v0.3.0")
+        self.assertEqual(news[0], "Faster setup")  # first sentence, no markdown
+        self.assertTrue(news[1].endswith("…") and len(news[1]) <= selfupdate.NEWS_CHARS)
+        self.assertEqual(news[2], "Fix one thing.[31m")  # the escape character is gone
+        self.assertNotIn("Old entry", " ".join(news))
+        self.assertNotIn("Not released", " ".join(news))
+        self.assertEqual(selfupdate.changelog_news(CHANGELOG, "0.2.0", "v0.2.0"), [])
+
+    def test_notice_lines_only_for_a_newer_version(self):
+        saved = {"selfupdate": {"notified": "v0.3.0", "news": ["Faster setup"]}}
+        with mock.patch.object(selfupdate, "__version__", "0.2.0"):
+            lines = selfupdate.notice_lines(saved)
+            self.assertIn("0.2.0", lines[0])
+            self.assertIn("0.3.0", lines[0])
+            self.assertIn("sudo roadie update", lines[1])
+            self.assertIn("- Faster setup", lines)
+            self.assertIn(selfupdate.CHANGELOG_URL, lines[-1])
+        with mock.patch.object(selfupdate, "__version__", "0.3.0"):  # updated meanwhile
+            self.assertEqual(selfupdate.notice_lines(saved), [])
+
+    def test_push_names_the_news(self):
+        from roadie.ops import watch
+        saved = {}
+        with mock.patch.object(selfupdate, "latest", return_value="v0.3.0"), \
+                mock.patch.object(selfupdate, "fetch_news", return_value=["Faster setup"]), \
+                mock.patch.object(selfupdate, "__version__", "0.2.0"):
+            msg = selfupdate.notice(saved, now=1.0)
+        self.assertEqual(saved["selfupdate"]["news"], ["Faster setup"])
+        self.assertIn("- Faster setup", watch.format_messages([msg])[0][1])
+        old = selfupdate.Message("info", "watch.selfupdate_available", {"version": "0.2.0"})
+        self.assertIn("0.2.0", watch.format_messages([old])[0][1])  # saved by an older roadie: still works
 
 
 class NoticeDisabledTest(unittest.TestCase):

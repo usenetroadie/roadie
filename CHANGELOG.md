@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- A new roadie version shows up in red at every SSH login and at the top of the menu, with what it
+  brings and the command to run. The push message names the main changes too.
+- The release page on GitHub lists the changes of that version.
+
 ## 0.5.1 – 2026-11-18
 
 - A server with a 20 GB disk, the size the guides recommend, was refused: the check wanted 20 GB

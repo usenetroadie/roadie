@@ -74,6 +74,13 @@ class MenuBase(unittest.TestCase):
 
 
 class MenuTest(MenuBase):
+    def test_menu_shows_an_update_first(self):
+        self.env.save_json("watch.json", {"selfupdate": {"notified": "v99.0.0", "news": ["Faster setup"]}})
+        menu.run(self.env, self.ui("0\n"), actions={"change": lambda e, u: 0, "update": lambda e, u: 0})
+        text = self.out.getvalue()
+        self.assertLess(text.index("99.0.0"), text.index(i18n.t("menu.title")))
+        self.assertIn("Faster setup", text)
+
     def test_menu_lists_items_and_exits(self):
         self.assertEqual(menu.run(self.env, self.ui("0\n"), actions={"change": lambda e, u: 0,
                                                                      "update": lambda e, u: 0}), 0)

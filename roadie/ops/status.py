@@ -23,6 +23,13 @@ def _wrap(text: str, first: str, rest: str, cols: int) -> list[str]:
 def lines(env: Env, motd: bool = False, cols: int | None = None) -> list[str]:
     cols = cols or width()
     out = ["roadie"]
+    from roadie.ops import selfupdate
+    notice = selfupdate.notice_lines(env.load_json("watch.json"))
+    if notice:  # bold red: an update must not be overlooked at login
+        red = (lambda s: f"\033[1;31m{s}\033[0m") if motd or sys.stdout.isatty() else (lambda s: s)
+        for i, line in enumerate(notice):
+            for part in _wrap(line, "  ", "    " if line.startswith("- ") else "  ", cols):
+                out.append(red(part) if i < 2 else part)
     services = env.services()
     good = sum(1 for s in services if s.get("State") == "running" and s.get("Health") in ("healthy", "", None))
     out.append("  " + t("status.services", ok=good, total=len(services)))

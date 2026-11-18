@@ -36,6 +36,20 @@ class StatusTest(unittest.TestCase):
         self.assertIn(i18n.t("status.menu_hint"), "\n".join(status.lines(self.env, motd=True)))
         self.assertIn("sudo roadie", i18n.t("status.menu_hint"))
 
+    def test_login_message_shows_an_update_in_red_first(self):
+        from unittest import mock
+        from roadie.ops import selfupdate
+        self.env.load_json = lambda name: ({"selfupdate": {"notified": "v9.0.0", "news": ["Faster setup"]}}
+                                           if name == "watch.json" else {})
+        with mock.patch.object(selfupdate, "__version__", "1.0.0"):
+            out = status.lines(self.env, motd=True, cols=200)
+        self.assertIn("\033[1;31m", out[1])  # right under the title, bold red
+        self.assertIn("1.0.0 → 9.0.0", out[1])
+        self.assertIn("sudo roadie update", out[2])
+        self.assertIn("  - Faster setup", out)
+        with mock.patch.object(selfupdate, "__version__", "9.0.0"):  # already updated: nothing
+            self.assertNotIn("9.0.0", "\n".join(status.lines(self.env, motd=True, cols=200)))
+
     def test_status_problem_has_fix(self):
         self.problems = {"c": {"key": "watch.container_down", "params": {"name": "aiostreams"}, "notified_at": 1}}
         text = "\n".join(status.lines(self.env, cols=200))

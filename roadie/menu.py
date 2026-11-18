@@ -125,6 +125,11 @@ def run(env: Env, ui: Prompter, actions: dict[str, Action] | None = None,
     """`reload` reads state and secrets again before each round: an action such as
     'change settings' writes them through its own objects, and a stale Env would write old
     data back on its next save."""
+    from roadie.ops import selfupdate
+    notice = selfupdate.notice_lines(env.load_json("watch.json"))
+    if notice:
+        ui.alert(notice[0])
+        ui.box(notice[1], notice[2:])
     try:
         while True:
             env = (reload() if reload else None) or env

@@ -621,5 +621,10 @@
   "diagnose.saved": "Saved as {path} (only readable by you). Download or copy it from there.",
   "diagnose.share": "Read the report before you share it. Ask or report a problem here: {url}",
   "summary.feedback": "Did everything work? A short \"worked for me\" helps too, and so does anything that went wrong. Nothing is sent automatically:",
-  "answers.err.login_name": "2 to 32 characters: letters, digits, dot, - and _ (no spaces)"
+  "answers.err.login_name": "2 to 32 characters: letters, digits, dot, - and _ (no spaces)",
+  "update.notice.title": "Update available: roadie {old} → {new}",
+  "update.notice.run": "Run: sudo roadie update",
+  "update.notice.new": "New:",
+  "update.notice.all": "All changes: {url}",
+  "watch.selfupdate_news": "New roadie version {version}: sudo roadie update{news}"
 }

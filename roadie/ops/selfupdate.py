@@ -2,7 +2,7 @@
 install it next to the running version, test it, swap it in (old one stays as app.prev) and
 re-run the command with the new version.
 
-Off until REPO and ALLOWED_SIGNERS are filled in (the public project repo does not exist yet)."""
+Off when REPO or ALLOWED_SIGNERS is empty."""
 
 import hashlib
 import http.client
@@ -237,6 +237,68 @@ def run(paths, ui, argv: list[str]) -> int | None:
     return 0  # only reached when execv is mocked in tests
 
 
+CHANGELOG_URL = f"https://github.com/{REPO}/blob/main/CHANGELOG.md"
+RAW_URL = "https://raw.githubusercontent.com"
+MAX_NEWS, NEWS_CHARS = 5, 100
+
+
+def _plain(text: str) -> str:
+    """One changelog entry as a short plain line: no markdown marks, no control characters
+    (nothing from outside may move the cursor or colour the terminal), first sentence only."""
+    text = "".join(c for c in " ".join(text.split()) if c.isprintable()).replace("`", "").replace("*", "")
+    text = text.split(". ", 1)[0].rstrip(".")
+    return text if len(text) <= NEWS_CHARS else text[:NEWS_CHARS - 1].rstrip() + "…"
+
+
+def changelog_news(text: str, current: str, tag: str) -> list[str]:
+    """The entries of every version after `current` up to `tag`, newest first, at most MAX_NEWS."""
+    news, include, entry = [], False, None
+    for line in text.splitlines() + ["## end"]:
+        if line.startswith("## ") or line.startswith("- ") or not line.strip():
+            if entry is not None and include:
+                news.append(_plain(entry))
+            entry = None
+        if line.startswith("## "):
+            version = line[3:].split()[0] if line[3:].split() else ""
+            key = _key(version)
+            include = bool(key) and key > (_key(current) or (0,)) and key <= _key(tag.removeprefix("v"))
+        elif line.startswith("- "):
+            entry = line[2:]
+        elif entry is not None and line.startswith("  "):
+            entry += " " + line.strip()
+    return [n for n in news if n][:MAX_NEWS]
+
+
+def fetch_news(tag: str) -> list[str]:
+    """What the new version brings, from its CHANGELOG.md; [] when GitHub does not answer."""
+    try:
+        text = _get(f"{RAW_URL}/{REPO}/{tag}/CHANGELOG.md").decode("utf-8", "replace")
+    except _NET_ERRORS:
+        return []
+    return changelog_news(text, __version__, tag)
+
+
+def pending(saved: dict) -> tuple[str, list[str]] | None:
+    """(new version, its news) when the watcher found a version newer than this one."""
+    state = saved.get("selfupdate") or {}
+    tag = state.get("notified")
+    if not isinstance(tag, str) or not is_newer(tag, __version__):
+        return None
+    return tag.removeprefix("v"), [n for n in state.get("news") or [] if isinstance(n, str)][:MAX_NEWS]
+
+
+def notice_lines(saved: dict) -> list[str]:
+    """The update notice: title first, then what to run, what is new and where to read more."""
+    found = pending(saved)
+    if not found:
+        return []
+    version, news = found
+    lines = [t("update.notice.title", old=__version__, new=version), t("update.notice.run")]
+    if news:
+        lines += [t("update.notice.new")] + [f"- {n}" for n in news]
+    return lines + [t("update.notice.all", url=CHANGELOG_URL)]
+
+
 def notice(saved: dict, now: float | None = None) -> Message | None:
     """Watcher: one push per new version, GitHub asked at most once a day. Updates `saved`."""
     if not enabled():
@@ -250,4 +312,9 @@ def notice(saved: dict, now: float | None = None) -> Message | None:
     if not tag or not is_newer(tag, __version__) or state.get("notified") == tag:
         return None
     state["notified"] = tag
-    return Message("info", "watch.selfupdate_available", {"version": tag.removeprefix("v")})
+    state["news"] = fetch_news(tag)
+    version = tag.removeprefix("v")
+    if not state["news"]:  # (pushes saved by an older roadie use this key with {version} only)
+        return Message("info", "watch.selfupdate_available", {"version": version})
+    news = "".join(f"\n- {n}" for n in state["news"][:3])
+    return Message("info", "watch.selfupdate_news", {"version": version, "news": news})
