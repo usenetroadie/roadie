@@ -1,11 +1,11 @@
 ---
-name: Question
-about: Something is unclear, or you are stuck – no question is too small
+name: Feedback or question
+about: An idea, a wish, something unclear, or you are stuck. No question is too small.
 labels: question
 ---
 
-**What do you want to do, or what is unclear?**
-<!-- e.g. "How do I add a second indexer?" or "What does this message mean?" -->
+**What is your idea, or what is unclear?**
+<!-- e.g. "It would help if ...", "How do I add a second indexer?" or "What does this message mean?" -->
 
 **What did you try?**
 <!-- Commands, menu items, pages you opened. -->

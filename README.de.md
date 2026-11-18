@@ -53,7 +53,7 @@ ohne roadie pflegst.
 - `sudo roadie hilfe`: was als Nächstes zu tun ist, was hilft, wenn etwas nicht geht, und jeder
   Dienst, Port, jede Datei und jede geplante Aufgabe auf deinem Server, und warum
 
-Nichts wird an irgendwen geschickt: keine Telemetrie.
+Keine Telemetrie. Keine automatischen Berichte. Du entscheidest, was du teilst.
 
 ## Schnellstart
 

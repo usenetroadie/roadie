@@ -52,7 +52,7 @@ without roadie.
 - `sudo roadie help`: what to do next, what to do when something does not work, and every service,
   port, file and scheduled job on your server, and why
 
-Nothing is sent to anyone: no telemetry.
+No telemetry. No automatic reports. You decide what to share.
 
 ## Quick start
 
