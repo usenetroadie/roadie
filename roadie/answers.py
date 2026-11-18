@@ -107,6 +107,13 @@ def normalise_time(value: str) -> str:
     return f"{int(m.group(1)):02d}:{m.group(2)}"
 
 
+AUTH_USERNAME = re.compile(r"[a-zA-Z0-9_.-]{2,32}")
+
+
+def auth_username_problem(name: str) -> str | None:
+    return None if AUTH_USERNAME.fullmatch(name or "") else t("answers.err.login_name")
+
+
 def admin_user_problem(user: str) -> str | None:
     """Translated reason why `user` cannot be the admin account, or None. An existing service
     account (uid < 1000 or no login shell) must never get passwordless sudo."""
@@ -254,10 +261,13 @@ def _check(data: dict) -> _Checker:
     indexers = data.get("indexers") or []
     if not indexers:
         c.err("indexers", t("answers.err.need_indexer"))
+    names = [str(ix.get("name") or "").strip().lower() for ix in indexers]
     for i, ix in enumerate(indexers):
         path = f"indexers[{i}]"
         if not ix.get("name"):
             c.err(f"{path}.name", t("answers.err.missing"))
+        elif names.index(names[i]) != i:
+            c.err(f"{path}.name", t("answers.err.duplicate"))
         if not ix.get("api_key"):
             c.err(f"{path}.api_key", t("answers.err.missing"))
         try:
@@ -277,8 +287,8 @@ def _check(data: dict) -> _Checker:
         _check_people(c, data["people"])
 
     auth_user = c.get("auth.username")
-    if auth_user is not None and not re.fullmatch(r"[a-zA-Z0-9_.-]{2,32}", auth_user):
-        c.err("auth.username", t("answers.err.username"))
+    if auth_user is not None and auth_username_problem(auth_user):
+        c.err("auth.username", auth_username_problem(auth_user))
     pw = c.get("auth.password")
     if pw is not None and len(pw) < 12:
         c.err("auth.password", t("answers.err.password_short", min=12))

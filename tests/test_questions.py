@@ -168,6 +168,16 @@ class QuestionsTest(unittest.TestCase):
         self.assertNotIn("fallback", data["indexers"][0])
         self.assertNotIn(i18n.t("q.indexers.tiers"), " ".join(out.split()))
 
+    def test_login_name_and_indexer_name_are_checked_when_typed(self):
+        lines = USENET_LINES[:22] + ["Max Mustermann", "max"] + USENET_LINES[23:]  # 22: login name
+        second = ["y", "My indexer", "Other", "https://other.example.com", "", "", "n"]
+        lines = lines[:15] + second + ["", ""] + lines[16:]
+        data, out, _ = run(lines, USENET_SECRETS[:3] + ["OTHERKEY"] + USENET_SECRETS[3:])
+        self.assertEqual(data["auth"]["username"], "max")
+        self.assertEqual([ix["name"] for ix in data["indexers"]], ["My indexer", "Other"])
+        self.assertIn(i18n.t("answers.err.duplicate"), out)
+        self.assertIn(i18n.t("answers.err.login_name"), " ".join(out.split()))
+
     def test_password_mismatch_reasks(self):
         secrets = USENET_SECRETS[:3] + ["a-long-password-123", "different-password-1", "b-long-password-123", "b-long-password-123"]
         data, out, _ = run(USENET_LINES, secrets)

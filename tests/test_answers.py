@@ -120,6 +120,21 @@ class AnswersTest(unittest.TestCase):
         d["indexers"] = []
         self.assertTrue(any(e.startswith("indexers") for e in A.validate(d)))
 
+    def test_indexer_names_are_unique(self):
+        d = example()
+        d["indexers"].append(dict(d["indexers"][0], url="https://other.example.com"))
+        d["indexers"][1]["name"] = d["indexers"][0]["name"].upper()
+        self.assertTrue(any(e.startswith("indexers[1].name") for e in A.validate(d)))
+
+    def test_login_name_message_fits_the_rule(self):
+        d = example()
+        d["auth"]["username"] = "Max Mustermann"
+        errors = [e for e in A.validate(d) if e.startswith("auth.username")]
+        self.assertEqual(len(errors), 1)
+        self.assertIn("spaces", errors[0])
+        d["auth"]["username"] = "Max.M"  # capitals and dots are fine
+        self.assertFalse(any(e.startswith("auth.username") for e in A.validate(d)))
+
     def test_usenet_requires_provider(self):
         d = example()
         d["usenet"] = {"providers": []}

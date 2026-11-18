@@ -2,6 +2,16 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- A server with a 20 GB disk, the size the guides recommend, was refused: the check wanted 20 GB
+  free, and after the system about 16 GB are left. 15 GB free are enough now.
+- The stream caches were sized from the free disk space at each run. That space shrinks after the
+  setup, so an update could change the sizes and restart AIOStreams. They now follow the disk size.
+- The login name is checked as you type it. A name with a space used to pass and only failed at the
+  very end, so all questions had to be answered again.
+- Two indexers with the same name are refused (roadie finds its indexers in Prowlarr by name).
+
 ## 0.5.0 – 2026-11-18
 
 - More than one indexer: roadie asks which are your main ones. AIOStreams searches those first and

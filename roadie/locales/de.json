@@ -620,5 +620,6 @@
   "cli.report_hint": "Brauchst du Hilfe? sudo roadie diagnose zeigt einen Bericht ohne Passwörter, Schlüssel, IP-Adressen und deine Domain und speichert ihn als Datei. Lies ihn, dann frag hier: https://github.com/usenetroadie/roadie/issues/new/choose. Nichts wird automatisch gesendet.",
   "diagnose.saved": "Gespeichert als {path} (nur für dich lesbar). Von dort kannst du ihn herunterladen oder kopieren.",
   "diagnose.share": "Lies den Bericht, bevor du ihn teilst. Fragen oder Probleme melden: {url}",
-  "summary.feedback": "Hat alles geklappt? Ein kurzes „hat funktioniert“ hilft auch, genauso wie alles, was schiefging. Nichts wird automatisch gesendet:"
+  "summary.feedback": "Hat alles geklappt? Ein kurzes „hat funktioniert“ hilft auch, genauso wie alles, was schiefging. Nichts wird automatisch gesendet:",
+  "answers.err.login_name": "2 bis 32 Zeichen: Buchstaben, Ziffern, Punkt, - und _ (keine Leerzeichen)"
 }

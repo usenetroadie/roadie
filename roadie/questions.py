@@ -10,8 +10,9 @@ from pathlib import Path
 
 from roadie import i18n
 from roadie.aiostreams.people import MAIN, slug
-from roadie.answers import (MAX_PEOPLE, _data, admin_user_problem, content_languages, normalise_domain, normalise_duckdns,
-                                  normalise_newznab_url, normalise_ssh_key, normalise_time)
+from roadie.answers import (MAX_PEOPLE, _data, admin_user_problem, auth_username_problem, content_languages,
+                            normalise_domain, normalise_duckdns, normalise_newznab_url, normalise_ssh_key,
+                            normalise_time)
 from roadie.checks import domain as domain_check, duckdns, newznab, nntp, tmdb
 from roadie.i18n import t
 from roadie.ui import Prompter
@@ -276,7 +277,10 @@ def ask_indexers(ui: Prompter, data: dict, checks) -> None:
     indexers = []
     while True:
         prev = old[len(indexers)] if len(indexers) < len(old) else {}
-        name = ui.ask(t("q.indexers.name"), default=prev.get("name"))
+        taken = {ix["name"].lower() for ix in indexers}  # Prowlarr knows the indexers by name
+        name = ui.ask(t("q.indexers.name"), default=prev.get("name"),
+                      validate=lambda v: t("answers.err.duplicate") if v.strip().lower() in taken
+                      else (None if v.strip() else t("ui.required"))).strip()
 
         def ask():
             url = normalise_newznab_url(ui.ask(t("q.indexers.url"), default=prev.get("url"),
@@ -427,7 +431,7 @@ def password_problem(password: str, login: str) -> str | None:
 def ask_auth(ui: Prompter, data: dict) -> None:
     ui.info(t("q.auth.help"))
     old = _current(data, "auth") or {}
-    user = ui.ask(t("q.auth.username"), default=old.get("username") or "admin")
+    user = ui.ask(t("q.auth.username"), default=old.get("username") or "admin", validate=auth_username_problem)
     keep = bool(old.get("password"))
     while True:
         pw = ui.ask_secret(t("q.auth.password"), validate=lambda v: password_problem(v, user), keep=keep)
