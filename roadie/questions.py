@@ -298,6 +298,11 @@ def ask_tmdb(ui: Prompter, data: dict, checks) -> None:
         ui.hint(t(k))
     if ui.confirm(t("q.tmdb.have"), default=bool(old)):
         (key,) = _checked(ui, lambda: (_ask_secret(ui, t("q.tmdb.key"), old),), checks.tmdb)
+        while len(key) > 40:  # the read access token: AIOMetadata only takes the short API key
+            ui.warn(t("q.tmdb.token_given"))
+            if not ui.confirm(t("q.tmdb.use_short"), default=True):
+                break
+            (key,) = _checked(ui, lambda: (_ask_secret(ui, t("q.tmdb.key"), None),), checks.tmdb)
         data["tmdb_api_key"] = key
 
 

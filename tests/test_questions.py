@@ -486,6 +486,14 @@ class ChangeSettingsTest(unittest.TestCase):
         data, out, _ = change(["2", part_no("tmdb"), "", "1"], copy.deepcopy(stored), ["NEWTMDB"])
         self.assertEqual(data["tmdb_api_key"], "NEWTMDB")
 
+    def test_long_tmdb_token_asks_for_the_short_key(self):
+        token, short = "eyJ" + "a" * 200, "0123456789abcdef0123456789abcdef"
+        data, out, _ = change(["2", part_no("tmdb"), "", "", "1"], copy.deepcopy(stored_answers()), [token, short])
+        self.assertIn(i18n.t("q.tmdb.token_given"), " ".join(out.split()))
+        self.assertEqual(data["tmdb_api_key"], short)
+        data, _, _ = change(["2", part_no("tmdb"), "", "n", "1"], copy.deepcopy(stored_answers()), [token])
+        self.assertEqual(data["tmdb_api_key"], token)  # the token still works for AIOStreams
+
     def test_change_server_keeps_admin_user_adds_key(self):
         stored = stored_answers()
         new_key = KEY.split()[0] + " " + KEY.split()[1][:-4] + "AAAA"
