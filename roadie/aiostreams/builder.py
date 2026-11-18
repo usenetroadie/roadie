@@ -29,7 +29,14 @@ PERSON_FIELDS = ("preferredLanguages", "preferredResolutions", "preferredVisualT
 # config has no limits yet: users fine-tune them on the website.
 RESULT_LIMITS = {"resolution": 5, "global": 20}
 # Presets the wizard owns (by instanceId); every other preset belongs to the user and stays.
-WIZARD_PRESETS = ("roadieprowlarr", "roadietmdb", "roadiestreaming", "roadiecollections", "roadiemetadata")
+WIZARD_PRESETS = ("roadieprowlarr", "roadieprowlarrfallback", "roadietmdb", "roadiestreaming", "roadiecollections",
+                  "roadiemetadata")
+# Main and fallback indexers: Prowlarr tags pick them, so an indexer the user adds in Prowlarr
+# joins a side by getting one of the tags. The fallback side is only asked when the main side
+# found fewer than FALLBACK_BELOW streams (in the chosen languages other than English).
+MAIN_TAG, FALLBACK_TAG = "roadie-main", "roadie-fallback"
+FALLBACK_PRESET = "roadieprowlarrfallback"
+FALLBACK_BELOW = 5
 PRESET_TIMEOUT = 7000  # AIOStreams' default for the catalog presets (v2.37)
 STREAMING_SERVICES = ["nfx", "amp", "dnp"]  # Netflix, Prime Video, Disney+
 # Catalog language per content language (values from the presets of AIOStreams v2.37). The
@@ -75,6 +82,37 @@ def forced_subtitles(content: dict) -> dict:
     when a scene is in another language. Works where AIOStreams knows the release's tracks."""
     langs = "|".join(content["languages"])
     return {"expression": f"subtitleTrack(streams, 'forced', 'lang={langs}')", "score": 5, "enabled": True}
+
+
+def has_fallback(indexers: list[dict]) -> bool:
+    """True when the indexers are split into main and fallback ones."""
+    roles = {bool(ix.get("fallback")) for ix in indexers}
+    return roles == {True, False}
+
+
+def _prowlarr_preset(iid: str, name: str, tag: str | None) -> dict:
+    options = {"name": name, "timeout": 10000, "services": ["aiostreams"]}
+    if tag:
+        options["tags"] = tag
+    return {"type": "prowlarr", "instanceId": iid, "enabled": True, "options": options}
+
+
+def fallback_groups(content: dict) -> dict:
+    """Ask the main indexers first; the fallback ones only when that found too little."""
+    langs = [lang for lang in content["languages"] if lang != "English"]
+    found = f"language(totalStreams, {', '.join(repr(lang) for lang in langs)})" if langs else "totalStreams"
+    return {"enabled": True, "behaviour": "sequential", "onConditionFailure": "stop",
+            "groupings": [{"addons": ["roadieprowlarr"], "condition": "true"},
+                          {"addons": [FALLBACK_PRESET], "condition": f"count({found}) < {FALLBACK_BELOW}"}]}
+
+
+def merge_groups(current: dict | None, new: dict | None) -> dict | None:
+    """The wizard's groups replace the current ones; without a split, groups the wizard made
+    earlier go and the user's own stay."""
+    if new:
+        return copy.deepcopy(new)
+    ours = any(FALLBACK_PRESET in g.get("addons", []) for g in (current or {}).get("groupings") or [])
+    return None if ours else copy.deepcopy(current)
 
 
 def content_fields(content: dict) -> dict:
@@ -144,8 +182,9 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
 
     services = [{"id": "aiostreams", "enabled": True, "credentials": {"aiostreamsAuth": playback_auth}}]
     # URL and API key come from the instance (BUILTIN_PROWLARR_* env), not from this config
-    presets = [{"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True,
-                "options": {"name": "Prowlarr", "timeout": 10000, "services": ["aiostreams"]}},
+    split = has_fallback(d["indexers"])
+    presets = [_prowlarr_preset("roadieprowlarr", "Prowlarr", MAIN_TAG if split else None),
+               *([_prowlarr_preset(FALLBACK_PRESET, "Prowlarr (fallback indexers)", FALLBACK_TAG)] if split else []),
                *catalog_presets(content, d.get("tmdb_api_key"))]
     if metadata_preset:
         presets = [metadata_preset if p["instanceId"] == "roadietmdb" else p for p in presets]
@@ -153,6 +192,9 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
     cfg["catalogModifications"] = catalog_mods(with_tmdb_addon=metadata_preset is None)
     cfg["resultLimits"] = dict(RESULT_LIMITS)
     cfg["failover"] = {"enabled": True, "contentTypes": ["usenet"]}
+    cfg.pop("groups", None)
+    if split:
+        cfg["groups"] = fallback_groups(content)
 
     cfg.pop("tmdbApiKey", None)
     cfg.pop("tmdbAccessToken", None)

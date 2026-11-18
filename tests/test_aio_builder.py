@@ -163,9 +163,38 @@ class BuilderTest(unittest.TestCase):
         new = build()["presets"]
         merged = merge_presets(old, new)
         self.assertEqual(merged, new)  # prowlarr and tmdb replaced by the new ones
-        self.assertEqual(WIZARD_PRESETS, ("roadieprowlarr", "roadietmdb", "roadiestreaming", "roadiecollections",
-                                          "roadiemetadata"))
+        self.assertEqual(WIZARD_PRESETS, ("roadieprowlarr", "roadieprowlarrfallback", "roadietmdb", "roadiestreaming",
+                                          "roadiecollections", "roadiemetadata"))
         self.assertNotIn("presets", SECTIONS["streams"])
+
+    def test_fallback_indexers_are_asked_only_when_the_main_ones_find_too_little(self):
+        ixs = [{"name": "A", "url": "https://a.example.com", "api_key": "k"},
+               {"name": "B", "url": "https://b.example.com", "api_key": "k", "fallback": True}]
+        cfg = build(indexers=ixs, **{"content.languages": ["German", "English"]})
+        presets = {p["instanceId"]: p for p in cfg["presets"]}
+        self.assertEqual(presets["roadieprowlarr"]["options"]["tags"], "roadie-main")
+        self.assertEqual(presets["roadieprowlarrfallback"]["options"]["tags"], "roadie-fallback")
+        groups = cfg["groups"]
+        self.assertEqual(groups["behaviour"], "sequential")
+        self.assertEqual([g["addons"] for g in groups["groupings"]], [["roadieprowlarr"], ["roadieprowlarrfallback"]])
+        self.assertEqual(groups["groupings"][1]["condition"], "count(language(totalStreams, 'German')) < 5")
+        english = build(indexers=ixs, **{"content.languages": ["English"]})
+        self.assertEqual(english["groups"]["groupings"][1]["condition"], "count(totalStreams) < 5")
+
+    def test_no_split_no_tags_no_groups(self):
+        cfg = build()
+        self.assertNotIn("groups", cfg)
+        self.assertNotIn("tags", next(p for p in cfg["presets"] if p["instanceId"] == "roadieprowlarr")["options"])
+        all_fallback = [{"name": "A", "url": "https://a.example.com", "api_key": "k", "fallback": True}]
+        self.assertNotIn("groups", build(indexers=all_fallback))
+
+    def test_merge_groups_keeps_the_users_own(self):
+        from roadie.aiostreams.builder import merge_groups
+        own = {"enabled": True, "groupings": [{"addons": ["mine"], "condition": "true"}]}
+        ours = {"enabled": True, "groupings": [{"addons": ["roadieprowlarrfallback"], "condition": "true"}]}
+        self.assertEqual(merge_groups(own, None), own)
+        self.assertIsNone(merge_groups(ours, None))
+        self.assertEqual(merge_groups(own, ours), ours)
 
     def test_stream_limits_set(self):
         self.assertEqual(build()["resultLimits"], {"resolution": 5, "global": 20})

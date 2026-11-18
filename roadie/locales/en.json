@@ -334,7 +334,7 @@
   "help.next_steps.body": "1. Install Nuvio (phone, tablet, TV) or Stremio. Add your addon address there under Addons. You can find it under 'Show my access details'.\n2. Open the settings page and log in. On the first login, set up a passkey or a code app.\n3. If not done yet: install the ntfy app and subscribe to your topic. Then your server reports problems to your phone.",
   "help.next_steps.backup": "4. Your first backup is made on Sunday around 04:07 – or right now with: sudo roadie → 'Create a backup now'. Then download it. How: see Help → Download a backup.",
   "help.do_it_yourself.title": "Adjust it yourself",
-  "help.do_it_yourself.body": "AIOStreams: open the settings page. Load your configuration with UUID and config password (under 'Show my access details'). Change what you like and save. It takes effect right away.\nThe wizard only sets languages, quality (with HDR), Usenet streaming, TMDB, sorting and its own addons. With 'Change settings' and with updates it only sets these parts again. Everything else stays, including your own addons.\nStream limit (5 per resolution, 20 in total): under Filters → Result Limits. The wizard sets it only the first time, your changes stay.\nProwlarr: open the indexer management (same login). Under Indexers you add indexers and test them. Then choose 'Restart services' in sudo roadie. Only then does AIOStreams know the new indexers. The wizard deletes nothing in Prowlarr.",
+  "help.do_it_yourself.body": "AIOStreams: open the settings page. Load your configuration with UUID and config password (under 'Show my access details'). Change what you like and save. It takes effect right away.\nThe wizard only sets languages, quality (with HDR), Usenet streaming, TMDB, sorting and its own addons. With 'Change settings' and with updates it only sets these parts again. Everything else stays, including your own addons.\nStream limit (5 per resolution, 20 in total): under Filters → Result Limits. The wizard sets it only the first time, your changes stay.\nProwlarr: open the indexer management (same login). Under Indexers you add indexers and test them. Then choose 'Restart services' in sudo roadie. The wizard deletes nothing in Prowlarr. Main and fallback indexers: give new ones the tag roadie-main or roadie-fallback.",
   "cli.cmd.restart": "restart services (starts stopped services, reads new indexers)",
   "menu.restart": "Restart services",
   "restart.running": "Restarting the services. This takes up to three minutes …",
@@ -380,7 +380,7 @@
   "review.address": "Address: {value}",
   "review.token": "Token: {value}",
   "review.provider": "{host}, user {user}, {connections} connections, password {password}",
-  "review.indexer": "Indexer {name}: {url}, key {secret}",
+  "review.indexer": "Indexer {name}: {url}, key {secret}{role}",
   "review.tmdb": "TMDB key: {value}",
   "review.languages": "Languages: {value}",
   "review.original_audio": "Original language too: {value}",
@@ -611,5 +611,9 @@
   "q.usenet.backbones.unknown": "roadie does not know the backbone of your provider. These are the known backbones:",
   "q.usenet.backbones.other": "Other backbones, each with the brands that sell access to it:",
   "q.usenet.backbones.same": "Run by the same company as your backbone (helps less often):",
-  "q.usenet.backbones.source": "Public information as of {date}, in alphabetical order. Check the provider's own page before you buy."
+  "q.usenet.backbones.source": "Public information as of {date}, in alphabetical order. Check the provider's own page before you buy.",
+  "q.indexers.tiers": "You have more than one indexer. roadie can search your main indexers first and ask the others only when the main ones find fewer than 5 streams in your languages. That saves the daily limits of the others. Indexers with small daily limits make good fallbacks.",
+  "q.indexers.is_main": "Is {name} one of your main indexers? (n = fallback)",
+  "q.indexers.no_main": "No main indexer chosen, so all of them are searched at once.",
+  "review.indexer_fallback": " (fallback)"
 }

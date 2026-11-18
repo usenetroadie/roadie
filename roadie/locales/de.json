@@ -334,7 +334,7 @@
   "help.next_steps.body": "1. Installiere Nuvio (Handy, Tablet, Fernseher) oder Stremio. Füge dort bei den Addons deine Addon-Adresse ein. Du findest sie unter „Meine Zugänge anzeigen“.\n2. Öffne die Einstellungsseite und melde dich an. Richte beim ersten Login einen Passkey oder eine Code-App ein.\n3. Falls noch nicht geschehen: Installiere die App ntfy und abonniere dein Topic. Dann meldet dein Server Probleme aufs Handy.",
   "help.next_steps.backup": "4. Dein erstes Backup entsteht am Sonntag gegen 04:07 – oder sofort mit: sudo roadie → „Backup jetzt erstellen“. Lade es danach herunter. Wie das geht, steht unter Hilfe → Backup herunterladen.",
   "help.do_it_yourself.title": "Selbst anpassen",
-  "help.do_it_yourself.body": "AIOStreams: Öffne die Einstellungsseite. Lade deine Konfiguration mit UUID und Konfig-Passwort (unter „Meine Zugänge anzeigen“). Ändere, was du willst, und speichere. Es wirkt sofort.\nDer Assistent setzt nur Sprachen, Qualität (mit HDR), Usenet-Streaming, TMDB, Sortierung und seine eigenen Addons. Bei „Einstellungen ändern“ und bei Updates setzt er nur diese Teile neu. Alles andere bleibt, auch deine eigenen Addons.\nStream-Grenze (5 je Auflösung, 20 insgesamt): unter Filters → Result Limits. Der Assistent setzt sie nur beim ersten Mal, deine Änderungen bleiben.\nProwlarr: Öffne die Indexer-Verwaltung (gleicher Login). Unter Indexers fügst du Indexer hinzu und testest sie. Wähle danach in sudo roadie „Dienste neu starten“. Erst dann kennt AIOStreams die neuen Indexer. Der Assistent löscht in Prowlarr nichts.",
+  "help.do_it_yourself.body": "AIOStreams: Öffne die Einstellungsseite. Lade deine Konfiguration mit UUID und Konfig-Passwort (unter „Meine Zugänge anzeigen“). Ändere, was du willst, und speichere. Es wirkt sofort.\nDer Assistent setzt nur Sprachen, Qualität (mit HDR), Usenet-Streaming, TMDB, Sortierung und seine eigenen Addons. Nur diese Teile setzt er bei „Einstellungen ändern“ und Updates neu, alles andere bleibt.\nStream-Grenze (5 je Auflösung, 20 insgesamt): unter Filters → Result Limits. Der Assistent setzt sie nur beim ersten Mal, deine Änderungen bleiben.\nProwlarr: Öffne die Indexer-Verwaltung (gleicher Login). Unter Indexers fügst du Indexer hinzu und testest sie. Wähle danach in sudo roadie „Dienste neu starten“. Der Assistent löscht in Prowlarr nichts. Haupt-/Ersatz-Indexer: Neue brauchen das Tag roadie-main oder roadie-fallback.",
   "cli.cmd.restart": "Dienste neu starten (startet gestoppte Dienste, liest neue Indexer ein)",
   "menu.restart": "Dienste neu starten",
   "restart.running": "Starte die Dienste neu. Das dauert bis zu drei Minuten …",
@@ -380,7 +380,7 @@
   "review.address": "Adresse: {value}",
   "review.token": "Token: {value}",
   "review.provider": "{host}, Benutzer {user}, {connections} Verbindungen, Passwort {password}",
-  "review.indexer": "Indexer {name}: {url}, Schlüssel {secret}",
+  "review.indexer": "Indexer {name}: {url}, Schlüssel {secret}{role}",
   "review.tmdb": "TMDB-Schlüssel: {value}",
   "review.languages": "Sprachen: {value}",
   "review.original_audio": "Auch Originalsprache: {value}",
@@ -611,5 +611,9 @@
   "q.usenet.backbones.unknown": "roadie kennt das Backbone deines Providers nicht. Das sind die bekannten Backbones:",
   "q.usenet.backbones.other": "Andere Backbones, jeweils mit den Marken, die Zugang dazu verkaufen:",
   "q.usenet.backbones.same": "Gehören derselben Firma wie dein Backbone (helfen seltener):",
-  "q.usenet.backbones.source": "Öffentliche Angaben, Stand {date}, alphabetisch sortiert. Prüf vor dem Kauf die Seite des Providers."
+  "q.usenet.backbones.source": "Öffentliche Angaben, Stand {date}, alphabetisch sortiert. Prüf vor dem Kauf die Seite des Providers.",
+  "q.indexers.tiers": "Du hast mehr als einen Indexer. roadie kann zuerst deine Haupt-Indexer durchsuchen und die anderen nur fragen, wenn die Haupt-Indexer weniger als 5 Streams in deinen Sprachen finden. Das schont die Tageslimits der anderen. Indexer mit kleinen Tageslimits eignen sich gut als Ersatz.",
+  "q.indexers.is_main": "Ist {name} einer deiner Haupt-Indexer? (n = Ersatz)",
+  "q.indexers.no_main": "Kein Haupt-Indexer gewählt, daher werden alle gleichzeitig durchsucht.",
+  "review.indexer_fallback": " (Ersatz)"
 }

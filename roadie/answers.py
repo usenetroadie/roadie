@@ -264,6 +264,8 @@ def _check(data: dict) -> _Checker:
             ix["url"] = normalise_newznab_url(ix.get("url", ""))
         except ValueError as e:
             c.err(f"{path}.url", str(e))
+        if not isinstance(ix.get("fallback", False), bool):
+            c.err(f"{path}.fallback", t("answers.err.bool"))
         for key in ("daily_api_limit", "daily_grab_limit"):
             v = ix.get(key)
             if v is not None and (not isinstance(v, int) or v < 1):

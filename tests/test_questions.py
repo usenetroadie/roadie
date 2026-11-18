@@ -156,6 +156,18 @@ class QuestionsTest(unittest.TestCase):
         self.assertEqual(data["indexers"][0]["daily_api_limit"], 2000)
         self.assertEqual(data["indexers"][0]["daily_grab_limit"], 450)
 
+    def test_second_indexer_with_small_limit_is_suggested_as_fallback(self):
+        second = ["y", "Small", "https://small.example.com", "25", "", "n"]  # another, name, url, limits, no more
+        lines = USENET_LINES[:15] + second + ["", ""] + USENET_LINES[16:]  # Enter takes both suggestions
+        data, out, _ = run(lines, USENET_SECRETS[:3] + ["SMALLKEY"] + USENET_SECRETS[3:])
+        self.assertEqual([ix.get("fallback") for ix in data["indexers"]], [False, True])
+        self.assertIn(i18n.t("q.indexers.tiers"), " ".join(out.split()))
+
+    def test_one_indexer_is_never_a_fallback(self):
+        data, out, _ = run(USENET_LINES, USENET_SECRETS)
+        self.assertNotIn("fallback", data["indexers"][0])
+        self.assertNotIn(i18n.t("q.indexers.tiers"), " ".join(out.split()))
+
     def test_password_mismatch_reasks(self):
         secrets = USENET_SECRETS[:3] + ["a-long-password-123", "different-password-1", "b-long-password-123", "b-long-password-123"]
         data, out, _ = run(USENET_LINES, secrets)

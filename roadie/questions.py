@@ -299,6 +299,17 @@ def ask_indexers(ui: Prompter, data: dict, checks) -> None:
                          "daily_api_limit": api, "daily_grab_limit": grab})
         if not ui.confirm(t("q.indexers.another"), default=len(indexers) < len(old)):
             break
+    if len(indexers) > 1:
+        ui.info(t("q.indexers.tiers"))
+        for ix in indexers:
+            prev = next((o for o in old if o.get("name") == ix["name"]), None)
+            limit = ix["daily_api_limit"]  # suggestion: a small daily limit makes a fallback
+            main = not prev.get("fallback") if prev else limit is None or limit >= 100
+            ix["fallback"] = not ui.confirm(t("q.indexers.is_main", name=ix["name"]), default=main)
+        if all(ix["fallback"] for ix in indexers):
+            ui.warn(t("q.indexers.no_main"))
+            for ix in indexers:
+                ix["fallback"] = False
     data["indexers"] = indexers
 
 
@@ -516,7 +527,8 @@ def _summary(key: str, data: dict) -> list[str]:
     if key == "usenet":
         return ([t("review.provider", host=p["host"], user=p["username"], connections=p["connections"],
                    password=_secret(p["password"])) for p in data["usenet"]["providers"]]
-                + [t("review.indexer", name=x["name"], url=x["url"], secret=_secret(x["api_key"]))
+                + [t("review.indexer", name=x["name"], url=x["url"], secret=_secret(x["api_key"]),
+                     role=t("review.indexer_fallback") if x.get("fallback") else "")
                    for x in data["indexers"]])
     if key == "tmdb":
         return [t("review.tmdb", value=_secret(data.get("tmdb_api_key")))]

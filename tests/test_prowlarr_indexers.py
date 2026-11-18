@@ -21,7 +21,7 @@ SCHEMA = {"implementation": "Newznab", "name": "Generic Newznab",
 
 class FakeProwlarr:
     def __init__(self):
-        self.indexers, self.calls, self.next_id = {}, [], 1
+        self.indexers, self.calls, self.next_id, self.tags = {}, [], 1, []
 
     def __call__(self, base, key, method, path, body=None):
         self.calls.append((method, path))
@@ -29,6 +29,11 @@ class FakeProwlarr:
             return [copy.deepcopy(SCHEMA)]
         if path == "/api/v1/appprofile":
             return [{"id": 1}]
+        if path == "/api/v1/tag":
+            if method == "POST":
+                self.tags.append({"id": len(self.tags) + 10, "label": body["label"]})
+                return self.tags[-1]
+            return copy.deepcopy(self.tags)
         if method == "GET":  # Prowlarr masks the key in answers
             out = copy.deepcopy(list(self.indexers.values()))
             for ix in out:
@@ -106,6 +111,27 @@ class ProwlarrIndexersTest(unittest.TestCase):
         self.run_step({"name": "A", "url": "https://a.example.com", "api_key": "k"})
         self.assertEqual(sorted(i["name"] for i in self.fake.indexers.values()), ["A", "Mine"])
         self.assertEqual(self.writes(), [("DELETE", "/api/v1/indexer/2")])
+
+    def tags_of(self, name):
+        labels = {t["id"]: t["label"] for t in self.fake.tags}
+        ix = next(i for i in self.fake.indexers.values() if i["name"] == name)
+        return [labels.get(i, i) for i in ix.get("tags", [])]
+
+    def test_main_and_fallback_indexers_get_their_tag(self):
+        a = {"name": "A", "url": "https://a.example.com", "api_key": "k"}
+        b = {"name": "B", "url": "https://b.example.com", "api_key": "k", "fallback": True}
+        self.run_step(a, b)
+        self.assertEqual((self.tags_of("A"), self.tags_of("B")), (["roadie-main"], ["roadie-fallback"]))
+        self.fake.indexers[2]["tags"].append(7)  # a tag the user set stays
+        self.run_step(a, dict(b, fallback=False))  # no split any more: the wizard's tags go
+        self.assertEqual((self.tags_of("A"), self.tags_of("B")), ([], [7]))
+
+    def test_without_fallback_nothing_changes_for_existing_installs(self):
+        ix = {"name": "A", "url": "https://a.example.com", "api_key": "k"}
+        self.run_step(ix)
+        self.run_step(dict(ix, fallback=False))
+        self.assertEqual(self.writes(), [])
+        self.assertEqual(self.fake.tags, [])
 
 
 if __name__ == "__main__":

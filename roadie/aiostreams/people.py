@@ -10,7 +10,7 @@ import unicodedata
 
 from roadie.aiostreams.api import AioClient, AioError
 from roadie.aiostreams.builder import (PERSON_FIELDS, SECTIONS, content_fields, merge_catalog_mods,
-                                             merge_presets, merge_sections)
+                                             merge_groups, merge_presets, merge_sections)
 from roadie.i18n import t
 
 MAIN = "main"
@@ -62,6 +62,11 @@ def update_keeping_own(api: AioClient, uuid: str, password: str, config: dict) -
     for key, merge in (("presets", merge_presets), ("catalogModifications", merge_catalog_mods)):
         if key in config or key in current:
             merged[key] = merge(current.get(key) or [], config.get(key) or [])
+    groups = merge_groups(current.get("groups"), config.get("groups"))
+    if groups:
+        merged["groups"] = groups
+    else:
+        merged.pop("groups", None)
     if "resultLimits" in config and "resultLimits" not in current:  # cleared on the website ({}) counts as the user's own
         merged["resultLimits"] = copy.deepcopy(config["resultLimits"])
     if "parentConfig" in config:

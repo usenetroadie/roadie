@@ -14,6 +14,10 @@ roadie sets things up – you stay in charge.
   the first time.
 - **Prowlarr:** open the indexer management (same login), add and test indexers under *Indexers*,
   then run `sudo roadie restart` so AIOStreams knows them. roadie deletes nothing it did not add.
+- **Main and fallback indexers:** with more than one indexer, roadie asks which ones are your main
+  indexers. AIOStreams searches those first and the fallback ones only when the main ones found
+  fewer than 5 streams in your languages (other than English). roadie marks them in Prowlarr with
+  the tags `roadie-main` and `roadie-fallback`; an indexer you add yourself needs one of the two.
 
 ## Your own AIOMetadata
 
@@ -48,6 +52,8 @@ sudo roadie setup --answers answers.json --dry-run   # only check answers and se
 ```
 
 For your own domain, replace the `duckdns` block with `"domain": "example.com"`.
+
+An indexer with `"fallback": true` is a fallback indexer (see above).
 
 `people` is optional in an answers file: without it the stored people stay; people left out of
 the list are removed and their addon address stops working.

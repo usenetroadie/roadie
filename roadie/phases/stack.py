@@ -12,7 +12,7 @@ from pathlib import Path
 from roadie import system
 from roadie.aiostreams import metadata, people
 from roadie.aiostreams.api import AioClient
-from roadie.aiostreams.builder import build_user_config
+from roadie.aiostreams.builder import FALLBACK_TAG, MAIN_TAG, build_user_config, has_fallback
 from roadie.checks import domain as domain_check, duckdns as duckdns_check
 from roadie.engine import Context, Outcome, Step, StepFailed
 from roadie.i18n import t
@@ -268,11 +268,20 @@ def prowlarr_indexers(ctx: Context) -> None:
     # Prowlarr masks API keys in its answers: a fingerprint of what we applied tells us what changed
     applied = ctx.state.answers.get("_prowlarr_indexers") or {}
     wanted, changed = {}, False
+    split = has_fallback(indexers)
+    tags = {t["label"]: t["id"] for t in _prowlarr(base, key, "GET", "/api/v1/tag")}
+    for label in (MAIN_TAG, FALLBACK_TAG) if split else ():
+        if label not in tags:
+            tags[label] = _prowlarr(base, key, "POST", "/api/v1/tag", {"label": label})["id"]
+    ours = {tags[label] for label in (MAIN_TAG, FALLBACK_TAG) if label in tags}
     for ix in indexers:
         values = {"baseUrl": ix["url"], "apiPath": "/api", "apiKey": ix["api_key"],
                   "baseSettings.queryLimit": ix.get("daily_api_limit"),
                   "baseSettings.grabLimit": ix.get("daily_grab_limit")}
-        wanted[ix["name"]] = hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
+        tag = (FALLBACK_TAG if ix.get("fallback") else MAIN_TAG) if split else None
+        # the tag only joins the fingerprint when set: installs without a split see no change
+        wanted[ix["name"]] = hashlib.sha256(json.dumps({**values, **({"tag": tag} if tag else {})},
+                                                       sort_keys=True).encode()).hexdigest()
         old = current.get(ix["name"])
         if old and applied.get(ix["name"]) == wanted[ix["name"]]:
             continue
@@ -287,6 +296,7 @@ def prowlarr_indexers(ctx: Context) -> None:
         for field in entry["fields"]:
             if field["name"] in values:
                 field["value"] = values[field["name"]]
+        entry["tags"] = [i for i in entry.get("tags") or [] if i not in ours] + ([tags[tag]] if tag else [])
         try:
             _prowlarr(base, key, method, path, entry)
         except RuntimeError as e:
