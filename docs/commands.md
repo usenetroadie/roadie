@@ -13,7 +13,7 @@
 | `sudo roadie people` | manage people (each gets their own addon address) |
 | `sudo roadie doctor` | test every Usenet provider and indexer on its own, plus the last 7 days in numbers |
 | `sudo roadie restart` | restart services (starts stopped ones; AIOStreams reads new indexers) |
-| `sudo roadie explain` | what is installed, how it fits together, ports, files, scheduled jobs and the commands to look after each part yourself (`sudo roadie explain all > explained.txt` saves everything) |
+| `sudo roadie explain` | how your server works: services, ports, files, scheduled jobs, and why (`sudo roadie explain all > explained.txt` saves it all) |
 | `sudo roadie help` | help pages, including *Adjust it yourself* |
 | `sudo roadie backup` | encrypted backup now (also runs every Sunday night) |
 | `sudo roadie restore FILE --identity KEYFILE` | restore a backup on a fresh server, then run `sudo roadie` |
@@ -35,12 +35,9 @@ with the current values. The admin user stays; a new SSH key is added, old ones 
 
 ## Status page and weekly report
 
-`https://status.<your address>` shows in your browser – behind the same login – whether every
-service runs, known problems and what to do about them, the last backup, available updates and
-the last 7 days in numbers. The page is plain HTML, renewed every 5 minutes.
-
-Every Sunday morning roadie sends the week as a push message: how much was streamed, how many
-releases were not playable, whether your backup provider stepped in.
+`https://status.<your address>` shows, behind the same login, whether everything runs, the last
+backup and available updates. Every Sunday morning a push message sums up the week. What runs when:
+`sudo roadie explain jobs`.
 
 ## Several people
 

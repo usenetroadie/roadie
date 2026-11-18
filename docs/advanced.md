@@ -35,7 +35,8 @@ services and movie collections; show or hide rows under *Addons → Catalogs*. M
 - **Watchly, MyTrakt, Simkl:** rows from your own watch history.
 
 Set the addon up on its website, copy its address (ends with `manifest.json`), load your
-configuration in AIOStreams and add it under *Addons → Custom*. roadie leaves it alone.
+configuration in AIOStreams and add it under *Addons* with *Using an addon that isn't in the
+Marketplace?*. roadie leaves it alone.
 
 ## Unattended setup
 
