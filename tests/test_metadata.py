@@ -36,7 +36,8 @@ class WhenTest(unittest.TestCase):
     def test_needs_key_and_ram(self):
         self.assertTrue(wants_metadata({"tmdb_api_key": KEY}, 4000))
         self.assertFalse(wants_metadata({"tmdb_api_key": None}, 8000))
-        self.assertFalse(wants_metadata({"tmdb_api_key": KEY}, 2000))
+        self.assertTrue(wants_metadata({"tmdb_api_key": KEY}, 2000))  # 2 GB servers too
+        self.assertFalse(wants_metadata({"tmdb_api_key": KEY}, 1000))
         self.assertFalse(wants_metadata({"tmdb_api_key": "e" * 60}, 8000))  # read access token: not taken
         self.assertTrue(cfg().metadata)
         self.assertFalse(cfg(tmdb=None).metadata)

@@ -39,7 +39,7 @@ A VPS (virtual private server) is a small server in a data center that is yours 
 provider with a public IPv4 address works – for example OVH, Hetzner, Netcup or IONOS. Choose:
 
 - **Ubuntu 24.04 LTS** (this guide; Debian 12/13 work the same with the noted differences)
-- **2 vCPU, 4 GB RAM, 20 GB disk** or more. 2 GB RAM works without AIOMetadata.
+- **2 vCPU, 4 GB RAM, 20 GB disk** or more. 2 GB RAM works too, with swap.
 - nothing else installed on it
 
 The provider gives you an IP address and a first login (often `root` or `ubuntu`, with a

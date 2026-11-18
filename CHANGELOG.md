@@ -2,6 +2,18 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+- More than one indexer: roadie asks which are your main ones. AIOStreams searches those first and
+  asks the others only when the main ones found fewer than 5 streams in your languages. That saves
+  the daily limits of small indexers.
+- Releases with forced subtitles in your languages rank a little higher, for scenes in another
+  language.
+- Before you add a backup provider, roadie lists the backbones you do not have yet, each with the
+  brands that sell access to it.
+- A push message when the newest backup was not downloaded within 36 hours (not on Debian 12).
+- Your own AIOMetadata now also on servers with 2 GB RAM.
+
 ## 0.4.2 – 2026-11-18
 
 - The setup asked for the long TMDB "API Read Access Token". Your own AIOMetadata only works with

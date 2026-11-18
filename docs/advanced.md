@@ -21,7 +21,7 @@ roadie sets things up – you stay in charge.
 
 ## Your own AIOMetadata
 
-With a TMDB API key (and 4 GB RAM or more) roadie runs its own
+With a TMDB API key roadie runs its own
 [AIOMetadata](https://github.com/cedya77/aiometadata): catalogs (trending, popular, top rated, by year
 and language) and details in your first language, instead of the simple TMDB addon. roadie creates
 its configuration once; after that it is yours. Open `https://metadata.<your address>/configure`

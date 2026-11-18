@@ -359,7 +359,7 @@
   "start.cancel": "Du kannst jederzeit mit Strg+C abbrechen und später mit sudo roadie weitermachen.",
   "start.ready": "Alles bereit? (Enter = weiter)",
   "q.server.login_as": "Ab jetzt meldest du dich als „{user}“ an, nicht mehr als ubuntu oder root.",
-  "q.tmdb.help": "Freiwillig, aber sehr wichtig: Ein kostenloser TMDB-Schlüssel macht das ganze Setup deutlich besser. Titel werden genau abgeglichen, dadurch erscheinen viel weniger falsche Streams. Titel und Poster kommen in deiner Sprache, und roadie richtet dir eigene Kataloge (AIOMetadata) ein, wenn der Server genug Arbeitsspeicher hat. Den Schlüssel zu holen dauert etwa fünf Minuten.",
+  "q.tmdb.help": "Freiwillig, aber sehr wichtig: Ein kostenloser TMDB-Schlüssel macht das ganze Setup deutlich besser. Titel werden genau abgeglichen, dadurch erscheinen viel weniger falsche Streams. Titel und Poster kommen in deiner Sprache, und roadie richtet dir eigene Kataloge (AIOMetadata) ein. Den Schlüssel zu holen dauert etwa fünf Minuten.",
   "q.people": "Für wen richtest du das ein?",
   "q.people.one": "Nur für mich",
   "q.people.many": "Für mehrere Personen",

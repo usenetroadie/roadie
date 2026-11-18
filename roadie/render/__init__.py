@@ -29,7 +29,7 @@ class RenderConfig:
     reboot_time: str = "05:00"
     ipv6: bool = False
     test_mode: bool = False  # automated tests: self-signed certificate, no DuckDNS
-    metadata: bool = False  # own AIOMetadata (needs a TMDB key and RAM to spare)
+    metadata: bool = False  # own AIOMetadata (needs a TMDB key)
 
     def host(self, name: str) -> str:
         return f"{name}.{self.domain}"
@@ -55,11 +55,11 @@ def build_render_config(answers, versions: dict, mem_mb: int, disk_gb: float, tz
     )
 
 
-METADATA_MIN_RAM_MB = 3800  # AIOMetadata + Redis need about 400 MB more
+METADATA_MIN_RAM_MB = 1800  # AIOMetadata + Redis: about 350 MB; measured fine on 2 GB (18.11.2026)
 
 
 def wants_metadata(data: dict, mem_mb: int) -> bool:
     """Own AIOMetadata comes with a TMDB API key (the short v3 one: AIOMetadata takes no
-    read access token), on servers with RAM to spare."""
+    read access token), on every server roadie supports (2 GB RAM and more)."""
     key = data.get("tmdb_api_key") or ""
     return bool(re.fullmatch(r"[0-9a-fA-F]{32}", key)) and mem_mb >= METADATA_MIN_RAM_MB

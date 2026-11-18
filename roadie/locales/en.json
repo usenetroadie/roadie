@@ -359,7 +359,7 @@
   "start.cancel": "You can stop at any time with Ctrl+C and continue later with sudo roadie.",
   "start.ready": "All set? (Enter = continue)",
   "q.server.login_as": "From now on you log in as '{user}', no longer as ubuntu or root.",
-  "q.tmdb.help": "Optional, but very important: a free TMDB key makes the whole setup a lot better. Titles are matched exactly, so far fewer wrong streams show up. Titles and posters come in your language, and roadie sets up your own catalogs (AIOMetadata) if the server has enough memory. Getting the key takes about five minutes.",
+  "q.tmdb.help": "Optional, but very important: a free TMDB key makes the whole setup a lot better. Titles are matched exactly, so far fewer wrong streams show up. Titles and posters come in your language, and roadie sets up your own catalogs (AIOMetadata). Getting the key takes about five minutes.",
   "q.people": "Who are you setting this up for?",
   "q.people.one": "Only for me",
   "q.people.many": "For several people",
