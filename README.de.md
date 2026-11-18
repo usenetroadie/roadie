@@ -200,8 +200,7 @@ Die wichtigsten Befehle: `sudo roadie` (Menü), `sudo roadie status`, `sudo road
 - **Mitmachen:** siehe [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Dank an:** [AIOStreams](https://github.com/Viren070/AIOStreams) von Viren070, [Traefik](https://traefik.io),
   [Authelia](https://www.authelia.com), [Prowlarr](https://prowlarr.com), [age](https://age-encryption.org),
-  [ntfy](https://ntfy.sh). Usenet-Backbone-Daten: [usenetalmanac.com](https://usenetalmanac.com) /
-  usenet.rexum.space Community-Karte. roadie gehört zu keinem dieser Projekte, auch nicht zu Stremio oder Nuvio.
+  [ntfy](https://ntfy.sh). roadie gehört zu keinem dieser Projekte, auch nicht zu Stremio oder Nuvio.
 
 **Verantwortung:** roadie installiert und konfiguriert nur Software. Es stellt keine Inhalte oder
 Quellen für Inhalte bereit, listet oder empfiehlt sie nicht. Du bist selbst dafür verantwortlich,

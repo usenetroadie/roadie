@@ -192,8 +192,7 @@ streams the file directly from your Usenet provider. More: [Security](docs/secur
 - **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Credits:** [AIOStreams](https://github.com/Viren070/AIOStreams) by Viren070, [Traefik](https://traefik.io),
   [Authelia](https://www.authelia.com), [Prowlarr](https://prowlarr.com), [age](https://age-encryption.org),
-  [ntfy](https://ntfy.sh). Usenet backbone data: [usenetalmanac.com](https://usenetalmanac.com) /
-  usenet.rexum.space community map. roadie is not affiliated with any of them, nor with Stremio or Nuvio.
+  [ntfy](https://ntfy.sh). roadie is not affiliated with any of them, nor with Stremio or Nuvio.
 
 **Responsibility:** roadie only installs and configures software. It does not provide, list or
 recommend any content or sources of content. You are responsible for how you use the software and
