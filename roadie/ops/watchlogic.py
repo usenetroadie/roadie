@@ -63,3 +63,20 @@ def parse_accepted_logins(journal_text: str) -> list[tuple[str, str]]:
         if len(parts) >= 6 and parts[0] == "Accepted" and parts[2] == "for" and parts[4] == "from":
             out.append((parts[3], parts[5]))
     return out
+
+
+def sftp_downloads(journal_text: str) -> dict[str, int]:
+    """Bytes sent per file name, from sftp-server lines like
+    'close "/home/alice/backups/x.tar.age" bytes read 123 written 0'."""
+    out: dict[str, int] = {}
+    for line in journal_text.splitlines():
+        if not line.startswith('close "') or '" bytes read ' not in line:
+            continue
+        path, rest = line[len('close "'):].split('" bytes read ', 1)
+        try:
+            sent = int(rest.split()[0])
+        except (IndexError, ValueError):
+            continue
+        name = path.rsplit("/", 1)[-1]
+        out[name] = max(out.get(name, 0), sent)
+    return out

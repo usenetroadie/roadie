@@ -16,11 +16,13 @@ from roadie.i18n import t
 from roadie.ops import selfupdate, statuspage
 from roadie.ops.passkey import fix_discoverable
 from roadie.ops.common import APP_SERVICES, BACKUP_MARKER, Env, disk_used_percent, mem_available_mb
-from roadie.ops.watchlogic import Message, Problem, decide, new_login_ips, parse_accepted_logins
+from roadie.ops.watchlogic import Message, Problem, decide, new_login_ips, parse_accepted_logins, sftp_downloads
+from roadie.render.system import SFTP_LOG_LINE, SSHD_DROPIN
 
 DISK_LIMIT_PERCENT, RAM_LIMIT_MB, TLS_MIN_DAYS = 85, 250, 14
 MAX_UNSENT = 20  # pushes that failed are sent again in the next run, at most this many
 BACKUP_MAX_SECONDS = 3 * 3600  # an older marker is a leftover (crash), not a running backup
+DOWNLOAD_REMIND_SECONDS = 36 * 3600  # the Sunday night backup: a reminder on Monday afternoon
 
 
 def container_problems(services: list[dict], expected: list[str]) -> list[Problem]:
@@ -140,7 +142,44 @@ def collect_events(env: Env, saved: dict, now: float) -> list[Message]:
         new_version = None
     if new_version:
         events.append(new_version)
+    try:  # optional as well
+        reminder = backup_download_reminder(env, saved, now)
+    except Exception as exc:
+        print(f"backup download check failed: {type(exc).__name__}", file=sys.stderr)
+        reminder = None
+    if reminder:
+        events.append(reminder)
     return events
+
+
+def backup_download_reminder(env: Env, saved: dict, now: float) -> Message | None:
+    """Once per backup: a reminder when the newest one was not downloaded within 36 hours.
+    Only when sshd logs SFTP downloads (roadie turns that on where sshd allows it)."""
+    from roadie.ops import backup
+    try:
+        if SFTP_LOG_LINE not in (env.paths.root / SSHD_DROPIN.lstrip("/")).read_text():
+            return None
+        files = sorted(backup.backup_dir(env).glob("roadie-backup-*.tar.age"), key=lambda f: f.stat().st_mtime)
+        newest = files[-1] if files else None
+        info = newest.stat() if newest else None
+    except OSError:
+        return None
+    if not newest:
+        return None
+    seen = saved.get("backup_download") or {}
+    if seen.get("file") != newest.name:
+        seen = {"file": newest.name, "downloaded": False, "reminded": False, "checked": info.st_mtime}
+    if not seen["downloaded"]:
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(seen["checked"]))
+        journal = system.run(["journalctl", "-t", "sftp-server", "--since", stamp, "-o", "cat", "--no-pager"],
+                             check=False)
+        seen["downloaded"] = sftp_downloads(journal).get(newest.name, 0) >= info.st_size * 0.99
+        seen["checked"] = now
+    saved["backup_download"] = seen
+    if seen["downloaded"] or seen["reminded"] or now - info.st_mtime < DOWNLOAD_REMIND_SECONDS:
+        return None
+    seen["reminded"] = True
+    return Message("info", "watch.backup_not_downloaded", {"file": newest.name, "mb": round(info.st_size / 1048576)})
 
 
 def format_messages(messages: list[Message]) -> list[tuple[str, str, int]]:

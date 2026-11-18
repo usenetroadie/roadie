@@ -121,3 +121,50 @@ class BackupQuietTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BackupDownloadTest(unittest.TestCase):
+    """One reminder per backup when it was not downloaded within 36 hours (needs SFTP logging)."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.env = make_env(tmp.name)
+        self.backups = Path(tmp.name) / "backups"
+        self.backups.mkdir()
+        self.file = self.backups / "roadie-backup-2026-11-15.tar.age"
+        self.file.write_bytes(b"x" * 1000)
+        self.made = self.file.stat().st_mtime
+        dropin = Path(tmp.name) / "etc/ssh/sshd_config.d/01-roadie.conf"
+        dropin.parent.mkdir(parents=True)
+        dropin.write_text("PermitRootLogin no\nSubsystem sftp /usr/lib/openssh/sftp-server -l INFO\n")
+        self.dropin = dropin
+        self.journal = ""
+        for target, value in (("roadie.ops.backup.backup_dir", lambda env: self.backups),
+                              ("roadie.ops.watch.system.run", lambda *a, **k: self.journal)):
+            patcher = mock.patch(target, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def check(self, saved, hours):
+        return watch.backup_download_reminder(self.env, saved, self.made + hours * 3600)
+
+    def test_reminds_once_when_not_downloaded(self):
+        saved = {}
+        self.assertIsNone(self.check(saved, 10))
+        message = self.check(saved, 40)
+        self.assertEqual((message.key, message.params["file"]), ("watch.backup_not_downloaded", self.file.name))
+        self.assertIsNone(self.check(saved, 52))
+
+    def test_complete_download_counts(self):
+        saved = {}
+        self.journal = f'close "{self.file}" bytes read 400 written 0\n'
+        self.assertIsNone(self.check(saved, 1))
+        self.assertIsNotNone(self.check(saved, 40))  # only part of the file was sent
+        saved = {}
+        self.journal = f'open "{self.file}"\nclose "{self.file}" bytes read 1000 written 0\n'
+        self.assertIsNone(self.check(saved, 40))
+
+    def test_nothing_without_sftp_logging(self):
+        self.dropin.write_text("PermitRootLogin no\n")
+        self.assertIsNone(self.check({}, 40))

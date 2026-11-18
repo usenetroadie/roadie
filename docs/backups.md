@@ -22,6 +22,10 @@ Now and then copy the newest backup to your phone or computer, for example once 
 - **Termius:** connect to your server, open SFTP and download the newest file ending in `.tar.age`.
 - **Terminal on a computer:** `scp ADMIN@YOUR-ADDRESS:backups/*.tar.age .`
 
+roadie notices a complete download and sends a push message when the newest backup was not
+downloaded within 36 hours, once per backup. For this, sshd logs SFTP downloads. On Debian 12 its
+SSH version does not allow that next to the default settings, so there is no reminder there.
+
 ## Move to a new server
 
 1. Install roadie on the new server ([Quick start](../README.md#quick-start)).

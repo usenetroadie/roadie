@@ -615,5 +615,6 @@
   "q.indexers.tiers": "Du hast mehr als einen Indexer. roadie kann zuerst deine Haupt-Indexer durchsuchen und die anderen nur fragen, wenn die Haupt-Indexer weniger als 5 Streams in deinen Sprachen finden. Das schont die Tageslimits der anderen. Indexer mit kleinen Tageslimits eignen sich gut als Ersatz.",
   "q.indexers.is_main": "Ist {name} einer deiner Haupt-Indexer? (n = Ersatz)",
   "q.indexers.no_main": "Kein Haupt-Indexer gewählt, daher werden alle gleichzeitig durchsucht.",
-  "review.indexer_fallback": " (Ersatz)"
+  "review.indexer_fallback": " (Ersatz)",
+  "watch.backup_not_downloaded": "Das neueste Backup ({file}, {mb} MB) wurde noch nicht heruntergeladen. Geht der Server kaputt, ist ein Backup, das nur auf dem Server liegt, mit weg. So kopierst du es auf Handy oder Computer: Hilfe → Backup herunterladen."
 }

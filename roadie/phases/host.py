@@ -3,6 +3,7 @@
 import ipaddress
 import os
 import re
+import tempfile
 import time
 from pathlib import Path
 
@@ -212,9 +213,9 @@ def ssh_hardening(ctx: Context) -> Outcome | None:
     if isinstance(seen, str) and trust_ip(ctx, seen):  # the address the admin logs in from
         system.write_files(_fail2ban_files(ctx), ctx.paths.stack_dir)
         system.run(["fail2ban-client", "reload"], check=False)
-    dropin = render_system.sshd_dropin(ctx.extra["render"])
-    system.write_files([dropin], ctx.paths.stack_dir)
     _RUN_SSHD.mkdir(mode=0o755, exist_ok=True)
+    dropin = render_system.sshd_dropin(ctx.extra["render"], sftp_log=sftp_override_works())
+    system.write_files([dropin], ctx.paths.stack_dir)
     try:
         system.run(["sshd", "-t"])
     except system.CommandFailed:
@@ -224,6 +225,20 @@ def ssh_hardening(ctx: Context) -> Outcome | None:
     system.run(["systemctl", "try-reload-or-restart", "ssh"])
     ctx.state.answers["_ssh_hardened"] = True
     ctx.ui.ok(t("ssh.check.done"))
+
+
+def sftp_override_works() -> bool:
+    """Whether this sshd takes a second Subsystem line and uses the first one. Newer OpenSSH
+    does; 9.2 (Debian 12) refuses to start. Tried on a throwaway config, never the real one."""
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = Path(tmp) / "sshd_config"
+        probe.write_text("HostKey /etc/ssh/ssh_host_ed25519_key\n"
+                         f"{render_system.SFTP_LOG_LINE}\nSubsystem sftp /usr/lib/openssh/sftp-server\n")
+        try:
+            system.run(["sshd", "-t", "-f", str(probe)])
+            return True
+        except system.CommandFailed:
+            return False
 
 
 def steps() -> list[Step]:

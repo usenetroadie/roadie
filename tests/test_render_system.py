@@ -45,6 +45,8 @@ class SshTest(unittest.TestCase):
         for line in ("PasswordAuthentication no", "KbdInteractiveAuthentication no", "PermitRootLogin no",
                      "AllowUsers streamadmin", "AllowTcpForwarding no"):
             self.assertIn(line + "\n", text)
+        self.assertNotIn("Subsystem", text)  # only where sshd allows it (Debian 12 refuses)
+        self.assertIn("Subsystem sftp /usr/lib/openssh/sftp-server -l INFO\n", S.sshd_dropin(cfg(), sftp_log=True).content)
 
 
 class Fail2banTest(unittest.TestCase):
@@ -124,3 +126,20 @@ class UfwTest(unittest.TestCase):
     def test_no_ssh_port_no_firewall(self):
         with self.assertRaises(ValueError):
             S.ufw_commands(ssh_ports=[])
+
+
+class SftpProbeTest(unittest.TestCase):
+    def test_probe_tries_a_throwaway_config(self):
+        from unittest import mock
+        from roadie import system
+        from roadie.phases import host
+        seen = []
+
+        def run(cmd, **kw):
+            seen.append(Path(cmd[-1]).read_text())
+            return ""
+        with mock.patch.object(system, "run", run):
+            self.assertTrue(host.sftp_override_works())
+        self.assertIn(S.SFTP_LOG_LINE, seen[0])
+        with mock.patch.object(system, "run", mock.Mock(side_effect=system.CommandFailed(["sshd"], 255, "already defined"))):
+            self.assertFalse(host.sftp_override_works())

@@ -615,5 +615,6 @@
   "q.indexers.tiers": "You have more than one indexer. roadie can search your main indexers first and ask the others only when the main ones find fewer than 5 streams in your languages. That saves the daily limits of the others. Indexers with small daily limits make good fallbacks.",
   "q.indexers.is_main": "Is {name} one of your main indexers? (n = fallback)",
   "q.indexers.no_main": "No main indexer chosen, so all of them are searched at once.",
-  "review.indexer_fallback": " (fallback)"
+  "review.indexer_fallback": " (fallback)",
+  "watch.backup_not_downloaded": "The newest backup ({file}, {mb} MB) has not been downloaded yet. If the server breaks, a backup that is only on the server is gone with it. How to copy it to your phone or computer: Help → Download a backup."
 }
