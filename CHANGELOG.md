@@ -2,7 +2,7 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 0.5.0 – 2026-11-18
 
 - More than one indexer: roadie asks which are your main ones. AIOStreams searches those first and
   asks the others only when the main ones found fewer than 5 streams in your languages. That saves
