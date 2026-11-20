@@ -22,7 +22,7 @@ class StatusTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.paths = Paths(Path(self.tmp.name))
         self.paths.etc_dir.mkdir(parents=True)
-        self.paths.state_file.write_text(json.dumps({"answers": {"domain": "example.duckdns.org"}, "done": []}))
+        self.paths.state_file.write_text(json.dumps({"answers": {"domain": "example.duckdns.org"}, "done": ["summary"]}))
         store = SecretStore(self.paths.secrets_file)
         store.set("aiostreams_config_uuid", "UUID-SECRET")
         store.set("aiostreams_config_encrypted", "ENC-SECRET")
@@ -49,6 +49,34 @@ class StatusTest(unittest.TestCase):
         self.assertIn("  - Faster setup", out)
         with mock.patch.object(selfupdate, "__version__", "9.0.0"):  # already updated: nothing
             self.assertNotIn("9.0.0", "\n".join(status.lines(self.env, motd=True, cols=200)))
+
+    def test_status_shows_missing_indexer(self):
+        self.env.state.answers["_indexers_missing"] = ["NinjaSim"]
+        text = " ".join(" ".join(status.lines(self.env, cols=200)).split())
+        self.assertIn(" ".join(i18n.t("status.indexer_missing", name="NinjaSim").split()), text)
+
+    def test_motd_mentions_ssh_until_hardened(self):
+        text = " ".join(" ".join(status.lines(self.env, motd=True, cols=200)).split())
+        self.assertIn(" ".join(i18n.t("status.ssh_not_tested").split()), text)
+        self.env.state.answers["_ssh_hardened"] = True
+        text = " ".join(" ".join(status.lines(self.env, motd=True, cols=200)).split())
+        self.assertNotIn(" ".join(i18n.t("status.ssh_not_tested").split()), text)
+
+    def test_status_unfinished_setup(self):
+        self.env.state.done = []
+        text = "\n".join(status.lines(self.env, cols=200))
+        self.assertIn(i18n.t("status.setup_unfinished"), text)
+        self.assertNotIn(i18n.t("status.no_problems"), text)
+        self.env.state.mark_done("summary")
+        text = "\n".join(status.lines(self.env, cols=200))
+        self.assertNotIn(i18n.t("status.setup_unfinished"), text)
+        self.assertIn(i18n.t("status.no_problems"), text)
+
+    def test_status_after_restore(self):
+        self.env.state.answers["_restored"] = {"file": "roadie-backup-2026-11-19.tar.age", "at": "2026-11-20 10:00"}
+        text = "\n".join(status.lines(self.env, cols=200))
+        self.assertIn("roadie-backup-2026-11-19.tar.age", text)
+        self.assertNotIn(i18n.t("status.no_backup"), text)
 
     def test_status_problem_has_fix(self):
         self.problems = {"c": {"key": "watch.container_down", "params": {"name": "aiostreams"}, "notified_at": 1}}
@@ -82,13 +110,13 @@ class StatusTest(unittest.TestCase):
             self.assertEqual(status.width(), 53)
 
     def test_every_problem_key_has_fix_in_both_languages(self):
-        for lang in ("en", "de"):
+        for lang in ("en",):
             i18n.set_language(lang)
             for key in PROBLEM_KEYS:
                 self.assertNotEqual(i18n.t(key + ".fix"), key + ".fix", (lang, key))
 
     def test_tls_fix_says_certificates_renew_themselves(self):
-        for lang in ("en", "de"):
+        for lang in ("en",):
             i18n.set_language(lang)
             fix = i18n.t("watch.tls_expiring.fix")
             self.assertIn("443", fix)

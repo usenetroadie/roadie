@@ -28,6 +28,17 @@ message names the step; most problems are a wrong key or a service that was brie
 - A **new indexer** added in Prowlarr is only used after *Restart services*.
 - Many failed or incomplete releases: a backup provider on a **different backbone** helps.
 
+## An indexer does not answer during the setup
+
+Indexers are down now and then for a few minutes. roadie asks whether to try again or keep the
+indexer anyway. A kept indexer is added to Prowlarr as soon as it answers, at the next
+`sudo roadie update` or *Change settings*. roadie needs at least one indexer that answers.
+
+## The setup cannot download the programs
+
+Docker Hub or GitHub did not answer or are busy. Wait a few minutes and run `sudo roadie` again;
+it goes on where it stopped.
+
 ## A service is not running
 
 Choose *Restart services* (`sudo roadie restart`). If that does not help, restart the server – it
@@ -35,7 +46,9 @@ is offline for about two minutes: `sudo reboot`.
 
 ## Login problems
 
-- **Confirmation code:** `sudo roadie code` shows the newest one.
+- **Confirmation code:** `sudo roadie code` shows the newest one. Authelia says it sent it by
+  email, but it only lands on your server. After a few tries Authelia makes no new codes for some
+  minutes: wait 5 minutes, then choose *Add* again.
 - **Passkey not working:** wait 5 minutes – roadie's watcher fixes a known Safari issue on its own.
   If it still fails, delete the old passkey in your password app and create it again.
 - **Locked out of SSH:** log in through your provider's web console, then check

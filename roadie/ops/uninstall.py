@@ -35,7 +35,8 @@ def plan(env: Env) -> list[str]:
 def kept(env: Env) -> list[str]:
     from roadie.ops import backup
     user = env.answers.get("admin_user") or "-"
-    return [t("uninstall.kept.admin", user=user), t("uninstall.kept.ssh"),
+    ssh = t("uninstall.kept.ssh") if env.answers.get("_ssh_hardened") else t("uninstall.kept.ssh_password")
+    return [t("uninstall.kept.admin", user=user), ssh,
             t("uninstall.kept.backups", folder=str(backup.backup_dir(env))),
             t("uninstall.kept.docker"), t("uninstall.kept.swap")]
 
@@ -122,6 +123,7 @@ def _confirm(env: Env, ui: Prompter) -> bool:
     ui.info(t("uninstall.goes"))
     for item in plan(env):
         ui.info(f"  - {item}")
+    ui.warn(t("uninstall.addons_stop"))
     ui.info(t("uninstall.stays"))
     for item in kept(env):
         ui.info(f"  - {item}")
@@ -150,7 +152,9 @@ def run(env: Env, ui: Prompter, confirmed: bool) -> int:
     program_text = t("uninstall.step.program")
     program_failed = t("uninstall.step_incomplete", step=program_text)
 
-    if not _stop_containers(ui, stack):
+    with ui.working(t("uninstall.working")):
+        stopped = _stop_containers(ui, stack)
+    if not stopped:
         return 1  # nothing deleted yet: running again is safe
     ui.ok(t("uninstall.step.containers"))
 

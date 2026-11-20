@@ -2,8 +2,25 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 0.6.0 – 2026-11-20
 
+- roadie speaks English only now. Servers set up in German keep working, the texts are English
+  after the update. The languages of your streams do not change.
+- The newest backup can be downloaded on your status page, in the browser. No SSH app needed.
+- Testing the SSH key at the end of the setup is optional now. Do it later with `sudo roadie` →
+  *Finish SSH setup*. Changing settings no longer waits for an SSH login.
+- Stopped in the middle of the questions? The finished parts are kept, and `sudo roadie` goes on there.
+- A new server with an uploaded roadie backup offers to restore it first. The private backup key
+  can be pasted.
+- An indexer that does not answer during the setup is no longer called a wrong address. You can
+  try again or keep it. One indexer that fails no longer stops the whole setup.
+- roadie asks how many connections your plan allows and uses nine tenths of them. On servers set
+  up earlier this applies when you change the Usenet settings.
+- The watcher checks the Usenet login once an hour and tells you when the provider is away.
+- The end of the setup shows the addon link and your login first, the rest is in
+  `sudo roadie access`. Long steps show a running clock.
+- `sudo roadie diagnose` shows a short report. All log lines are in the report file.
+- The login page is explained before you see it, including where the confirmation code comes from.
 - A new roadie version shows up in red at every SSH login and at the top of the menu, with what it
   brings and the command to run. The push message names the main changes too.
 - The release page on GitHub lists the changes of that version.

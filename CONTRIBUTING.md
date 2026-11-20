@@ -15,7 +15,7 @@ path, every change tested.
 
 1. Keep the change small and focused on one thing.
 2. No new dependencies – roadie must run on a fresh Ubuntu with nothing but Python 3.
-3. Every text the user sees exists in English **and** German (`roadie/locales/en.json`, `de.json`).
+3. Every text the user sees lives in `roadie/locales/en.json`.
 4. Add or adapt a test, then run:
 
    ```sh

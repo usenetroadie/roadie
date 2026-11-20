@@ -46,8 +46,9 @@ without roadie.
 - catalogs on the start page, and with a free TMDB key your own [AIOMetadata](https://github.com/cedya77/aiometadata)
 - one addon address per person, each with their own languages and quality if wanted
 - HTTPS on a free DuckDNS name or your own domain, and a passkey login in front of every settings page
-- SSH with keys only, a firewall, fail2ban and automatic security updates
-- push messages when something breaks, encrypted weekly backups with a reminder to download them,
+- SSH with keys only (switched on once your key login worked), a firewall, fail2ban and automatic
+  security updates
+- push messages when something breaks, encrypted weekly backups you can download in the browser,
   updates only to tested versions
 - `sudo roadie help`: what to do next, what to do when something does not work, and every service,
   port, file and scheduled job on your server, and why

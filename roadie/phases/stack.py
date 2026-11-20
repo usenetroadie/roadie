@@ -34,6 +34,7 @@ DUCKDNS_UNITS = {
         "[Timer]\nOnBootSec=1min\nOnUnitActiveSec=5min\n\n[Install]\nWantedBy=timers.target\n",
 }
 
+SMALL_SERVER_MB = 3500  # below this the swap file carries part of the load
 PROOF_TITLE = ("movie", "tt0111161")
 PROOF_TIMEOUT = 90  # a first search asks the indexers and can be slow
 
@@ -174,7 +175,7 @@ def stack_files(ctx: Context) -> None:
         ctx.redact.add(value)
     password = data["auth"]["password"]
     if ctx.secrets.get("authelia_hash_for") != _fingerprint(password):
-        system.run(["docker", "pull", "-q", cfg.images["authelia"]])
+        pull_image(cfg.images["authelia"])
         ctx.secrets.set("authelia_hash", system.authelia_hash(cfg.images["authelia"], password))
         ctx.secrets.set("authelia_hash_for", _fingerprint(password))
     files = (compose.render_compose(cfg) + traefik.render_traefik(cfg)
@@ -199,7 +200,13 @@ def _compose(ctx: Context, *args: str, check: bool = True) -> str:
 def stack_up(ctx: Context) -> None:
     new = ctx.extra.get("config_hashes")
     running = set(_compose(ctx, "ps", "--services", "--status", "running", check=False).split())
-    _compose(ctx, "pull", "-q")
+    try:
+        _compose(ctx, "pull", "-q")
+    except system.CommandFailed as e:
+        problem = pull_problem(e.output)
+        if problem:
+            raise StepFailed("stack_up", problem) from None
+        raise
     _compose(ctx, "up", "-d", "--remove-orphans")
     if new is None:
         return
@@ -249,6 +256,39 @@ def _prowlarr(base: str, key: str, method: str, path: str, body=None):
     raise RuntimeError(error)
 
 
+PULL_TROUBLE = ("dial tcp", "connection refused", "tls handshake timeout", "toomanyrequests",
+                "no such host", "i/o timeout", "temporary failure in name resolution")
+
+
+def pull_problem(output: str) -> str | None:
+    """A plain explanation when Docker could not download the program images."""
+    low = output.lower()
+    return t("stack.pull_failed") if any(word in low for word in PULL_TROUBLE) else None
+
+
+def pull_image(image: str) -> None:
+    """docker pull, with a plain explanation when the download servers do not answer."""
+    try:
+        system.run(["docker", "pull", "-q", image])
+    except system.CommandFailed as e:
+        problem = pull_problem(e.output)
+        if problem:
+            raise StepFailed("stack_files", problem) from None
+        raise
+
+
+def prowlarr_problem(reason: str) -> str:
+    """Prowlarr's own words for a refused indexer, told plainly."""
+    low = reason.lower()
+    if "no results" in low:
+        return t("prowlarr.no_results")
+    if any(w in low for w in ("unable to connect", "timeout", "timed out", "connection refused")):
+        return t("prowlarr.no_answer")
+    if any(w in low for w in ("unauthorized", "api key", "apikey", "forbidden")):
+        return t("prowlarr.bad_key")
+    return reason[:200]
+
+
 def _prowlarr_reason(text: str) -> str:
     """Pull the human-readable messages out of Prowlarr's validation answer."""
     start = text.find("[")
@@ -259,7 +299,7 @@ def _prowlarr_reason(text: str) -> str:
         return text
 
 
-def prowlarr_indexers(ctx: Context) -> None:
+def prowlarr_indexers(ctx: Context) -> Outcome | None:
     """Keep Prowlarr in line with the answers: add new indexers, update changed ones, remove
     the ones the wizard added earlier that are gone. Indexers the user added in Prowlarr stay."""
     indexers = ctx.answers.data["indexers"]
@@ -267,7 +307,7 @@ def prowlarr_indexers(ctx: Context) -> None:
     current = {i["name"]: i for i in _prowlarr(base, key, "GET", "/api/v1/indexer")}
     # Prowlarr masks API keys in its answers: a fingerprint of what we applied tells us what changed
     applied = ctx.state.answers.get("_prowlarr_indexers") or {}
-    wanted, changed = {}, False
+    wanted, changed, failed = {}, False, []
     split = has_fallback(indexers)
     tags = {t["label"]: t["id"] for t in _prowlarr(base, key, "GET", "/api/v1/tag")}
     for label in (MAIN_TAG, FALLBACK_TAG) if split else ():
@@ -299,19 +339,34 @@ def prowlarr_indexers(ctx: Context) -> None:
         entry["tags"] = [i for i in entry.get("tags") or [] if i not in ours] + ([tags[tag]] if tag else [])
         try:
             _prowlarr(base, key, method, path, entry)
-        except RuntimeError as e:
-            raise StepFailed("prowlarr_indexers", t("prowlarr.indexer_failed", name=ix["name"],
-                                                    reason=_prowlarr_reason(str(e)))) from None
+        except RuntimeError as e:  # this one is tried again at the next run; the others go on
+            failed.append((ix["name"], prowlarr_problem(_prowlarr_reason(str(e)))))
+            if ix["name"] in applied:
+                wanted[ix["name"]] = applied[ix["name"]]  # keep the working old one
+            else:
+                del wanted[ix["name"]]
+            continue
         changed = True
+    if failed and len(failed) == len(indexers) and not any(n in current for n, _ in failed):
+        name, reason = failed[0]  # before removing anything: never leave Prowlarr without an indexer
+        raise StepFailed("prowlarr_indexers", t("prowlarr.indexer_failed", name=name, reason=reason))
     for name in set(applied) - set(wanted):
         if name in current:
             _prowlarr(base, key, "DELETE", f"/api/v1/indexer/{current[name]['id']}")
             changed = True
     ctx.state.answers["_prowlarr_indexers"] = wanted
+    if failed:
+        ctx.state.answers["_indexers_missing"] = [n for n, _ in failed]
+    else:
+        ctx.state.answers.pop("_indexers_missing", None)
     if changed:  # AIOStreams reads Prowlarr's indexer list only once at startup
         _compose(ctx, "restart", "aiostreams")
         if not stack_healthy(ctx):
             raise StepFailed("prowlarr_indexers", t("stack.unhealthy", services="aiostreams"))
+    if failed:
+        return Outcome("warn", note=t("prowlarr.some_missing", names=", ".join(n for n, _ in failed)),
+                       open_key="open.indexers_missing", hints=tuple(f"{n}: {r}" for n, r in failed))
+    return None
 
 
 def metadata_config(ctx: Context) -> None:
@@ -391,7 +446,14 @@ def summary(ctx: Context) -> None:
         ctx.ui.info(t("summary.access_later"))
         return
     ctx.ui.heading(t("summary.heading_open" if ctx.extra.get("open_points") else "summary.heading"))
-    access.show(env, ctx.ui, mask_login_password=True)
+    restored = ctx.state.answers.get("_restored")
+    if isinstance(restored, dict) and not restored.get("shown"):  # once, right after the move
+        ctx.ui.box(t("summary.restored_title"), [t("summary.restored")])
+        restored["shown"] = True
+    access.show(env, ctx.ui, mask_login_password=True, essentials_only=True)
+    facts = ctx.extra.get("facts")
+    if facts is not None and facts.mem_mb < SMALL_SERVER_MB:
+        ctx.ui.info(t("summary.small_server"))
     helppages.next_steps(ctx.ui, env)
     ctx.ui.info(t("summary.again"))
     if not ctx.state.answers.get("_feedback_hint_shown"):  # once, not after every change

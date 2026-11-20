@@ -122,7 +122,8 @@ class DiagnoseTest(unittest.TestCase):
             self.assertEqual(diagnose.run(env), 0)
         self.assertIn("step stack_up: it broke", out.getvalue())
         saved = home / "roadie-report.txt"
-        self.assertEqual(saved.read_text().strip(), out.getvalue().strip())
+        self.assertIn("step stack_up: it broke", saved.read_text())  # the file: the whole report
+        self.assertEqual(saved.read_text().splitlines()[0], out.getvalue().splitlines()[0])  # summary first
         self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
         self.assertIn(str(saved), err.getvalue())  # hints on stderr: `diagnose > file` stays clean
         self.assertNotIn(str(saved), out.getvalue())

@@ -35,6 +35,17 @@ class StatusPageTest(unittest.TestCase):
         with mock.patch.object(Env, "services", return_value=services):
             return statuspage.render(self.env, 1_800_000_000)
 
+    def test_status_page_links_backup(self):
+        folder = self.env.paths.stack_dir / "data/status/backup"
+        folder.mkdir(parents=True)
+        (folder / "roadie-backup-2026-11-19.tar.age").write_bytes(b"x" * 3_000_000)
+        text = self.page()
+        self.assertIn('href="backup/roadie-backup-2026-11-19.tar.age"', text)
+        self.assertIn("3 MB", text)
+
+    def test_status_page_without_backup_no_link(self):
+        self.assertNotIn('href="backup/', self.page())
+
     def test_all_fine(self):
         text = self.page()
         self.assertIn(i18n.t("page.all_fine"), text)

@@ -86,11 +86,13 @@ class MenuItem:
     text_key: str
     run: Action | None  # None: only shown when the caller injects an action for `key`
     visible: Callable[[Env], bool] = _always
+    pause: bool = True  # "Enter = back to the menu" afterwards; the help has its own way back
 
 
 ITEMS: list[MenuItem] = [
     MenuItem("access", "menu.access", access.show),
     MenuItem("code", "menu.code", authcode.show),
+    MenuItem("ssh", "menu.ssh", None, visible=lambda env: not env.state.answers.get("_ssh_hardened")),
     MenuItem("status", "menu.status", _status),
     MenuItem("restart", "menu.restart", restart),
     MenuItem("doctor", "menu.doctor", _doctor),
@@ -98,7 +100,7 @@ ITEMS: list[MenuItem] = [
     MenuItem("change", "menu.change", None),  # cli injects the setup run
     MenuItem("backup", "menu.backup", _backup),
     MenuItem("update", "menu.update", None),  # cli injects the update run
-    MenuItem("explain", "menu.explain", lambda env, ui: _explain(env, ui)),
+    MenuItem("explain", "menu.explain", lambda env, ui: _explain(env, ui), pause=False),
     MenuItem("uninstall", "menu.uninstall", _uninstall),  # last on purpose: not prominent
 ]
 
@@ -142,8 +144,9 @@ def run(env: Env, ui: Prompter, actions: dict[str, Action] | None = None,
             choice = _pick(ui, len(items))
             if choice == 0:
                 return 0
+            item, action = items[choice - 1]
             try:
-                code = items[choice - 1][1](env, ui)
+                code = action(env, ui)
             except (KeyboardInterrupt, EOFError):
                 raise
             except Exception as exc:  # never show a traceback: it may contain secrets
@@ -151,6 +154,8 @@ def run(env: Env, ui: Prompter, actions: dict[str, Action] | None = None,
             else:
                 if not env.paths.state_file.exists():  # roadie was removed: nothing left to show
                     return code or 0
+                if not item.pause:
+                    continue
             ui.ask(t("menu.back"), default="", validate=lambda v: None)
     except EOFError:
         return 0

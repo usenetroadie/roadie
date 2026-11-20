@@ -35,9 +35,33 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertIn("sha256sum -c", text)
         self.assertLess(text.index("ssh-keygen -Y verify"), text.index("install.sh"))  # checked before use
         self.assertEqual(text.rstrip().splitlines()[-1], 'main "$@"')  # a cut-off download runs nothing
-        for readme in ("README.md", "README.de.md"):
+        for readme in ("README.md",):
             self.assertIn(f"raw.githubusercontent.com/{selfupdate.REPO}/main/get.sh | sudo bash",
                           (ROOT / readme).read_text())
+
+    def test_english_only(self):
+        self.assertFalse((ROOT / "README.de.md").exists())
+        self.assertFalse((ROOT / "roadie/locales/de.json").exists())
+        publish = ROOT / "tools/publish.sh"  # private only: the public repo has no tools/
+        if publish.exists():
+            self.assertNotIn("README.de.md", publish.read_text())
+
+    def test_docs_scp_uses_the_key_and_no_german(self):
+        import re
+        publish = ROOT / "tools/publish.sh"  # private only; the public repo holds exactly the published files
+        allow = (re.search(r"allow=\(([^)]*)\)", publish.read_text()).group(1).split() if publish.exists()
+                 else ["README.md", "CONTRIBUTING.md", *(f"docs/{p.name}" for p in (ROOT / "docs").glob("*.md"))])
+        for name in allow:
+            path = ROOT / name
+            files = [path] if path.is_file() else []
+            for f in files:
+                if f.suffix != ".md" or f.name == "manual-setup.md":  # by hand: the reader's own default key
+                    continue
+                text = f.read_text()
+                self.assertNotIn("README.de", text, name)
+                for line in text.splitlines():
+                    if "scp " in line:
+                        self.assertIn("-i ", line, (name, line))
 
     def test_release_settings_documented(self):
         note = (ROOT / ".github/RELEASING.md").read_text()

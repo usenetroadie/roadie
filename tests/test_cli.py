@@ -122,12 +122,35 @@ class CliTest(unittest.TestCase):
         code, out = self.run_cli("--root", str(self.root), "setup", "--answers", self.answers_file())
         self.assertEqual(code, 0, out)  # the same name is fine
 
-    def test_answers_language_used(self):
+    def test_finish_ssh_from_menu_hardens_after_login(self):
+        from unittest import mock
+        from roadie.engine import Outcome
+        from roadie.phases import host
+        from roadie.state import State
+        code, out = self.run_cli("--root", str(self.root), "setup", "--answers", self.answers_file())
+        self.assertEqual(code, 0, out)
+        seen = {}
+
+        def fake_hardening(ctx):
+            seen["interactive"] = ctx.extra.get("interactive")
+            ctx.state.answers["_ssh_hardened"] = True
+            return None
+        from roadie.paths import Paths
+        from roadie.ui import Prompter
+        with mock.patch.object(host, "ssh_hardening", side_effect=fake_hardening), \
+                mock.patch.object(cli.phases, "prepare"):
+            self.assertEqual(cli._finish_ssh(Paths(self.root), Prompter(inp=io.StringIO(""), out=io.StringIO()),
+                                             fake_facts), 0)
+        self.assertTrue(seen["interactive"])
+        self.assertTrue(State(Paths(self.root).state_file).answers["_ssh_hardened"])
+
+    def test_old_german_answers_run_in_english(self):
         def de(d):
-            d["language"] = "de"
+            d["language"] = "de"  # saved by roadie 0.5 and earlier
             d["admin_user"] = "root"
         _, out = self.run_cli("--root", str(self.root), "setup", "--answers", self.answers_file(de))
-        self.assertIn("nicht root", out)
+        self.assertIn("root", out)
+        self.assertNotIn("nicht", out)
 
     def test_unexpected_error_is_short_and_redacted(self):
         def boom(paths=None):
@@ -138,11 +161,12 @@ class CliTest(unittest.TestCase):
         self.assertNotIn("change-me-to-something-long", out)
         self.assertIn("crash with", out)
 
-    def test_help_in_both_languages(self):
-        _, en = self.run_cli("--lang", "en", "--help")
-        _, de = self.run_cli("--lang", "de", "--help")
-        self.assertIn("setup", en)
-        self.assertNotEqual(en, de)
+    def test_lang_option_still_accepted(self):
+        # an older roadie restarts the new one after a self-update with its --lang option
+        _, en = self.run_cli("--help")
+        code, de = self.run_cli("--lang", "de", "--help")
+        self.assertEqual(code, 0)
+        self.assertEqual(en, de)
 
 
 class InteractiveTest(unittest.TestCase):
@@ -153,8 +177,8 @@ class InteractiveTest(unittest.TestCase):
         self.asked = 0
         self._orig = cli.questions.ask_all
 
-        def fake_ask_all(ui, checks=None, language=None):
-            self.language = language
+        def fake_ask_all(ui, checks=None, **kwargs):
+            self.kwargs = kwargs
             self.asked += 1
             return copy.deepcopy(self.example)
         cli.questions.ask_all = fake_ask_all
@@ -180,20 +204,64 @@ class InteractiveTest(unittest.TestCase):
         self.assertIn("streamadmin", state)
         self.assertNotIn("example-password", state)
 
-    def test_language_asked_before_preflight(self):
-        code, out = self.run_cli("2\n")
+    def test_draft_offered_and_continued(self):
+        from roadie import drafts
+        from roadie.paths import Paths
+        from roadie.secretstore import SecretStore
+        secrets_file = Paths(self.root).secrets_file
+        secrets_file.parent.mkdir(parents=True, exist_ok=True)
+        drafts.save(SecretStore(secrets_file), {"admin_user": "streamadmin"}, ["server"])
+        code, out = self.run_cli("\n")  # Enter: go on where I stopped
         self.assertEqual(code, 0, out)
-        self.assertEqual(self.language, "de")
-        heading = i18n.load("de")["phase.preflight"]
-        self.assertLess(out.index("Language / Sprache"), out.index(heading))
+        self.assertIn(i18n.t("cli.draft.continue"), out)
+        self.assertEqual(self.kwargs["start"], {"admin_user": "streamadmin"})
+        self.assertEqual(self.kwargs["done"], ["server"])
+        self.assertIsNone(drafts.load(SecretStore(secrets_file)))  # gone once the setup starts
 
-    def test_language_not_asked_with_lang_or_on_resume(self):
-        code, out = self.run_cli("", "--lang", "en")
+    def test_found_backup_offered_first(self):
+        from unittest import mock
+        from roadie.ops import backup
+        home = self.root / "root"
+        home.mkdir()
+        (home / "roadie-backup-2026-11-19.tar.age").write_bytes(b"x")
+        example = copy.deepcopy(self.example)
+
+        def fake_restore(paths, archive, key, overwrite=False, then_continue=False):
+            from roadie.answers import Answers
+            from roadie.secretstore import SecretStore
+            from roadie.state import State
+            self.restored = (archive, key)
+            paths.etc_dir.mkdir(parents=True, exist_ok=True)
+            st, se = State(paths.state_file), SecretStore(paths.secrets_file)
+            Answers.from_dict(example).store(st, se)
+            st.save()
+            return 0
+        with mock.patch.object(backup, "restore_with_key", side_effect=fake_restore):
+            ui_text = "y\n"
+            from roadie.ui import Prompter
+            out = io.StringIO()
+            ui = Prompter(inp=io.StringIO(ui_text), out=out, secret_reader=lambda p: "AGE-SECRET-KEY-1TEST")
+            with contextlib.redirect_stdout(out):
+                code = cli.main(["--root", str(self.root)], gather=fake_facts, ui=ui, steps=NO_STEPS)
+        self.assertEqual(code, 0, out.getvalue()[-800:])
+        self.assertEqual(self.asked, 0)  # no questions: the backup has the answers
+        self.assertTrue(self.restored[0].endswith("roadie-backup-2026-11-19.tar.age"))
+        self.assertEqual(self.restored[1], "AGE-SECRET-KEY-1TEST")
+
+    def test_change_settings_explains_first(self):
+        from unittest import mock
+        code, out = self.run_cli("1\n")  # first setup
         self.assertEqual(code, 0, out)
-        self.assertIsNone(self.language)
+        with mock.patch.object(cli.questions, "change_settings", return_value=copy.deepcopy(self.example)):
+            code, out = self.run_cli("2\n")  # stored answers: "change settings"
+        self.assertEqual(code, 0, out)
+        self.assertIn(" ".join(i18n.t("change.what_happens").split()), " ".join(out.split()))
+
+    def test_no_language_question(self):
+        code, out = self.run_cli("", "--lang", "de")
+        self.assertEqual(code, 0, out)
         self.assertNotIn("Language / Sprache", out)
-        code, out = self.run_cli("1\n")  # stored answers: menu "continue", no language question
-        self.assertNotIn("Language / Sprache", out)
+        self.assertNotIn("Deutsch", out)
 
     def test_test_mode_flag_marks_interactive_answers(self):
         code, out = self.run_cli("1\n", "setup", "--test-mode")
@@ -272,7 +340,7 @@ class FinalLineTest(unittest.TestCase):
         code, out = self.run_setup(None)
         self.assertEqual(code, 0)
         self.assertIn(i18n.t("cli.done"), out)
-        self.assertNotIn(i18n.t("cli.done_open", count=1), out)
+        self.assertNotIn(i18n.t("cli.done_later"), out)
 
     def test_failed_step_is_remembered_for_diagnose_and_cleared_after_a_good_run(self):
         from roadie.engine import Step, StepFailed
@@ -293,11 +361,11 @@ class FinalLineTest(unittest.TestCase):
         from roadie.engine import Outcome
         code, out = self.run_setup(Outcome("skipped", open_key="open.ssh_hardening"))
         self.assertEqual(code, 0)
-        self.assertNotIn(i18n.t("cli.done"), out)
         lines = out.strip().splitlines()
-        self.assertIn(i18n.t("cli.done_open", count=1), lines[-2])
+        self.assertIn(i18n.t("cli.done_later"), lines[-2])
+        self.assertNotIn("[!]", lines[-2])  # done, with a calm list: not a warning
         self.assertIn(i18n.t("open.ssh_hardening"), out)
-        self.assertIn("sudo roadie setup", i18n.t("open.ssh_hardening"))
+        self.assertIn("Finish SSH setup", i18n.t("open.ssh_hardening"))
 
     def test_proof_without_streams_is_open_point(self):
         from roadie.engine import Step
@@ -313,7 +381,7 @@ class FinalLineTest(unittest.TestCase):
                 unittest.mock.patch.object(stack, "_container_url", return_value="http://10.0.0.2:3000"):
             code, out = self.run_setup(None, Step("proof", "step.proof", stack.proof, always=True))
         self.assertEqual(code, 0)
-        self.assertIn(i18n.t("cli.done_open", count=2), out)  # proof + missing TMDB key (none in this test)
+        self.assertIn(i18n.t("cli.done_later"), out)  # proof + missing TMDB key (none in this test)
         self.assertIn(i18n.t("open.proof"), out)
         self.assertIn(i18n.t("open.tmdb"), out)
 
@@ -486,20 +554,19 @@ class DemoTest(unittest.TestCase):
 class BeginnerCliTest(unittest.TestCase):
     setUp, tearDown, run_cli, answers_file = CliTest.setUp, CliTest.tearDown, CliTest.run_cli, CliTest.answers_file
 
-    def test_demo_banner_german(self):
+    def test_demo_banner_without_language_question(self):
         from tests.test_questions import USENET_LINES, USENET_SECRETS
         from roadie.ui import Prompter
         lines = list(USENET_LINES)
-        lines[0] = "2"
         out = io.StringIO()
         queue = list(USENET_SECRETS)
         ui = Prompter(inp=io.StringIO("\n".join(lines) + "\n"), out=out, secret_reader=lambda p: queue.pop(0))
         code = cli.main(["--root", str(self.root), "demo"], ui=ui)
         self.assertEqual(code, 0, out.getvalue()[-500:])
         text = out.getvalue()
-        german = i18n.load("de")["demo.banner"]
-        self.assertLess(text.index(german), text.index("Language / Sprache"))  # before the language choice
-        self.assertEqual(text.rstrip().splitlines()[-1].strip(), german)  # closing banner in the chosen language
+        banner = i18n.t("demo.banner")
+        self.assertNotIn("Language / Sprache", text)
+        self.assertEqual(text.rstrip().splitlines()[-1].strip(), banner)
 
     def test_answers_file_never_prompts(self):
         with unittest.mock.patch("sys.stdin", io.StringIO("")):

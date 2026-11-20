@@ -44,7 +44,10 @@ def write_url_files(env: Env) -> None:
                  "".join(f"{p['name']}\t{url}\n" for p, url in urls if url))
 
 
-def sections(env: Env, mask_login_password: bool = False) -> list[tuple[str, list[str]]]:
+ESSENTIALS = ("access.t.players", "access.t.settings")  # what the end of the first setup shows
+
+
+def sections(env: Env, mask_login_password: bool = False, essentials_only: bool = False) -> list[tuple[str, list[str]]]:
     a = env.answers
     domain = _domain(env)
     aio = f"https://aiostreams.{domain}" if domain else None
@@ -72,7 +75,7 @@ def sections(env: Env, mask_login_password: bool = False) -> list[tuple[str, lis
         settings += [t("access.login_password"), t("access.password_masked")]
     else:
         settings += _pair(t("access.login_password"), login_password)
-    settings.append(t("access.settings_hint"))
+    settings.append(t("access.login_first_time"))
     out.append((t("access.t.settings"), settings))
 
     lines = [t("access.config_text")]
@@ -110,12 +113,19 @@ def sections(env: Env, mask_login_password: bool = False) -> list[tuple[str, lis
         lines.append(t("access.no_backup"))
     lines.append(t("access.backup_key"))
     out.append((t("access.t.backup"), lines))
+    if essentials_only:
+        wanted = [t(k) for k in ESSENTIALS]
+        out = [s for s in out if s[0] in wanted]
+        out.sort(key=lambda s: wanted.index(s[0]))
     return out
 
 
-def show(env: Env, ui: Prompter, mask_login_password: bool = False) -> int:
-    for title, lines in sections(env, mask_login_password):
+def show(env: Env, ui: Prompter, mask_login_password: bool = False, essentials_only: bool = False) -> int:
+    for title, lines in sections(env, mask_login_password, essentials_only):
         ui.box(title, lines)
+    if essentials_only:
+        ui.info(t("summary.details_later"))
+        return 0
     ui.info(t("access.save_hint"))
     ui.hint(t("access.diy_hint"))
     return 0

@@ -165,6 +165,24 @@ class BackupDownloadTest(unittest.TestCase):
         self.journal = f'open "{self.file}"\nclose "{self.file}" bytes read 1000 written 0\n'
         self.assertIsNone(self.check(saved, 40))
 
+    def access_log(self, line):
+        log = self.env.paths.stack_dir / "data/traefik/access.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(line)
+
+    def test_reminder_satisfied_by_page_download(self):
+        self.access_log(f'203.0.113.9 - - [15/Nov/2026:10:00:00 +0000] "GET /backup/{self.file.name} HTTP/2.0" 200 1000 "-" "-" 1 "status@file" "http://status:8080" 5ms\n')
+        self.assertIsNone(self.check({}, 40))
+
+    def test_failed_page_download_does_not_count(self):
+        self.access_log(f'203.0.113.9 - - [15/Nov/2026:10:00:00 +0000] "GET /backup/{self.file.name} HTTP/2.0" 404 0 "-" "-" 1 "status@file" "-" 1ms\n')
+        self.assertIsNotNone(self.check({}, 40))
+
+    def test_page_log_enough_without_sftp_logging(self):
+        self.dropin.write_text("PermitRootLogin no\n")  # Debian 12: no SFTP log
+        self.access_log("")
+        self.assertIsNotNone(self.check({}, 40))
+
     def test_nothing_without_sftp_logging(self):
         self.dropin.write_text("PermitRootLogin no\n")
         self.assertIsNone(self.check({}, 40))

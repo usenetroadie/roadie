@@ -18,7 +18,6 @@ from roadie.i18n import t
 from roadie.ui import Prompter
 
 
-UI_LANGUAGE_NAMES = {"en": "English", "de": "German"}  # interface language -> AIOStreams language
 FEW_CONNECTIONS = 4
 AGE_MARKER = "_age_recipient"  # state marker: the wizard created the backup key already
 PREFILL = "_prefill"  # only while asking: "change settings" offers the current answers as defaults
@@ -44,10 +43,17 @@ class LiveChecks:
     def nntp(self, host, port, tls, user, password):
         return nntp.check_nntp(host, port, tls, user, password)
 
+    def __init__(self):
+        self._limits = {}
+
     def newznab(self, url, key):
-        return newznab.check_newznab(url, key)
+        result, api, grab = newznab.probe(url, key)  # the one search also tells the limits
+        self._limits[(url, key)] = (api, grab)
+        return result
 
     def newznab_limits(self, url, key):
+        if (url, key) in self._limits:
+            return self._limits.pop((url, key))
         return newznab.detect_limits(url, key)
 
     def tmdb(self, key):
@@ -90,20 +96,6 @@ def _checked(ui: Prompter, ask, check):
             (ui.warn if getattr(result, "warn", False) else ui.ok)(t(result.key, **result.params))
             return values
         ui.fail(t(result.key, **result.params))
-
-
-def ask_language(ui: Prompter, default: str | None = None) -> str:
-    language = ui.choose(t("q.language"), [("en", "English"), ("de", "Deutsch")], default=default)
-    i18n.set_language(language)
-    return language
-
-
-def ask_basics(ui: Prompter, data: dict, checks=None) -> None:
-    """`data["language"]` already set (chosen before the server check): not asked again."""
-    if data.pop("_language_given", False):
-        i18n.set_language(data["language"])
-    else:
-        data["language"] = ask_language(ui, _current(data, "language"))
 
 
 def start_page(ui: Prompter) -> None:
@@ -203,6 +195,11 @@ def ask_duckdns(ui: Prompter, data: dict, checks) -> None:
     data["duckdns"] = {"subdomain": sub, "token": token}
 
 
+def used_connections(plan: int) -> int:
+    """roadie keeps about a tenth of the plan free for checks and other devices."""
+    return max(1, plan * 9 // 10)
+
+
 def show_backbones(ui: Prompter, providers: list[dict]) -> None:
     """Which backbones a backup could add, with every brand that sells them: roadie names
     backbones, not one provider."""
@@ -232,7 +229,8 @@ def ask_usenet(ui: Prompter, data: dict, checks) -> None:
         def ask():
             pid = ui.choose(t("q.usenet.provider"), [(p["id"], p["name"]) for p in known]
                             + [("other", t("q.usenet.not_listed"))],
-                            default=prev and prev.get("provider", "other"))
+                            default=prev and prev.get("provider", "other"),
+                            footer=t("q.usenet.provider_footer"))
             p = next((x for x in known if x["id"] == pid), {})
             if p.get("host"):
                 host, port, tls = p["host"], p["port"], p["tls"]
@@ -249,13 +247,15 @@ def ask_usenet(ui: Prompter, data: dict, checks) -> None:
                                                        prev.get("password") if same else None)
 
         pid, host, port, tls, user, password = _checked(ui, ask, lambda pid, *rest: checks.nntp(*rest))
-        ui.info(t("check.nntp.connections_hint"))
-        conns = int(ui.ask(t("q.usenet.connections"), default=str(prev.get("connections", 20)),
-                           validate=lambda v: _int_or_none(v, 1, 100)))
+        plan = int(ui.ask(t("q.usenet.plan_connections"),
+                          default=str(prev.get("plan_connections") or prev.get("connections", 20)),
+                          validate=lambda v: _int_or_none(v, 1, 100)))
+        conns = used_connections(plan)
+        ui.info(t("q.usenet.uses", count=conns))
         if conns < FEW_CONNECTIONS:
             ui.warn(t("q.usenet.few_connections"))
         entry = {"host": host, "port": port, "tls": tls, "username": user, "password": password,
-                 "connections": conns, "role": role}
+                 "connections": conns, "plan_connections": plan, "role": role}
         if pid != "other":
             entry["provider"] = pid
         providers.append(entry)
@@ -283,13 +283,43 @@ def ask_indexers(ui: Prompter, data: dict, checks) -> None:
                       else (None if v.strip() else t("ui.required"))).strip()
 
         def ask():
-            url = normalise_newznab_url(ui.ask(t("q.indexers.url"), default=prev.get("url"),
-                                               validate=_validator(normalise_newznab_url)))
+            raw = ui.ask(t("q.indexers.url"), default=prev.get("url"), validate=_validator(normalise_newznab_url))
+            url = normalise_newznab_url(raw)
+            if raw.strip().rstrip("/").lower().endswith("/api"):
+                ui.info(t("q.indexers.api_removed"))
             same = url == prev.get("url")  # never send an old key to another address
             return url, _ask_secret(ui, t("q.indexers.key"), prev.get("api_key") if same else None)
 
-        url, key = _checked(ui, ask, checks.newznab)
-        api, grab = checks.newznab_limits(url, key)
+        while True:
+            url, key = ask()
+            result = checks.newznab(url, key)
+            if result.ok or result.key != "check.newznab.down":
+                (ui.ok if result.ok else ui.fail)(t(result.key, **result.params))
+                if result.ok:
+                    unchecked = False
+                    break
+                continue
+            ui.warn(t(result.key, **result.params))
+            choice = ui.choose(t("q.indexers.down_q"), [("retry", t("q.indexers.down_retry")),
+                                                       ("keep", t("q.indexers.down_keep")),
+                                                       ("change", t("q.indexers.down_change"))])
+            while choice == "retry":  # ask the same address again, then the same choice
+                result = checks.newznab(url, key)
+                if result.ok or result.key != "check.newznab.down":
+                    break
+                ui.warn(t(result.key, **result.params))
+                choice = ui.choose(t("q.indexers.down_q"), [("retry", t("q.indexers.down_retry")),
+                                                           ("keep", t("q.indexers.down_keep")),
+                                                           ("change", t("q.indexers.down_change"))])
+            if choice == "keep":
+                unchecked = True
+                break
+            if choice == "retry":
+                (ui.ok if result.ok else ui.fail)(t(result.key, **result.params))
+                if result.ok:
+                    unchecked = False
+                    break
+        api, grab = (None, None) if unchecked else checks.newznab_limits(url, key)
         if api or grab:
             ui.ok(t("q.indexers.limits_found", api=api or t("q.indexers.unlimited"),
                     grab=grab or t("q.indexers.unlimited")))
@@ -300,7 +330,10 @@ def ask_indexers(ui: Prompter, data: dict, checks) -> None:
             api = _ask_limit(ui, "q.indexers.limit", prev.get("daily_api_limit"))
             grab = _ask_limit(ui, "q.indexers.grab_limit", prev.get("daily_grab_limit"))
         indexers.append({"name": name, "url": url, "api_key": key,
-                         "daily_api_limit": api, "daily_grab_limit": grab})
+                         "daily_api_limit": api, "daily_grab_limit": grab, **({"unchecked": True} if unchecked else {})})
+        if all(ix.get("unchecked") for ix in indexers):
+            ui.warn(t("q.indexers.need_one"))
+            continue
         if not ui.confirm(t("q.indexers.another"), default=len(indexers) < len(old)):
             break
     if len(indexers) > 1:
@@ -345,9 +378,8 @@ def language_name(lang: str) -> str:
 
 
 def language_order() -> list[str]:
-    """Content languages with the interface language first, then English, then the rest as stored."""
-    first = list(dict.fromkeys([UI_LANGUAGE_NAMES.get(i18n.language(), "English"), "English"]))
-    return first + [lang for lang in content_languages() if lang not in first]
+    """Content languages: English first, then the rest as stored."""
+    return ["English"] + [lang for lang in content_languages() if lang != "English"]
 
 
 def ask_content(ui: Prompter, data: dict, heading: bool = True) -> None:
@@ -473,10 +505,8 @@ def _ask_usenet_part(ui: Prompter, data: dict, checks) -> None:
     ask_indexers(ui, data, checks)
 
 
-# Ordered parts of the questionnaire: (key, fn(ui, data, checks)). "basics" (the language) comes
-# first and is not numbered.
+# Ordered parts of the questionnaire: (key, fn(ui, data, checks)).
 PARTS = [
-    ("basics", ask_basics),
     ("server", lambda ui, data, checks: ask_server(ui, data)),
     ("domain", ask_domain),
     ("usenet", _ask_usenet_part),
@@ -490,11 +520,7 @@ PART_KEYS = [k for k, _ in PARTS]
 
 
 def _ask_part(ui: Prompter, data: dict, checks, key: str) -> None:
-    numbered = PART_KEYS[1:]
-    if key in numbered:
-        ui.section(numbered.index(key) + 1, len(numbered), t(f"part.{key}"))
-    else:
-        ui.heading(t(f"part.{key}"))
+    ui.section(PART_KEYS.index(key) + 1, len(PART_KEYS), t(f"part.{key}"))
     dict(PARTS)[key](ui, data, checks)
 
 
@@ -513,13 +539,12 @@ def _person_line(person: dict) -> str:
         return line
     langs = [language_name(x) for x in c["languages"]] + ([t("review.original")] if c["original_audio"] else [])
     quality = t("review.quality_first", value="4K" if c["prefer_4k"] else "1080p")
-    return f"{line}: {' + '.join(langs)}, {quality}, {t('review.hdr', value=_yes_no(c['hdr']))}"
+    hdr = f", {t('review.hdr', value=_yes_no(c['hdr']))}" if c["prefer_4k"] else ""
+    return f"{line}: {' + '.join(langs)}, {quality}{hdr}"
 
 
 def _summary(key: str, data: dict) -> list[str]:
     """Review lines of one part; secret values only as "••• (set)"."""
-    if key == "basics":
-        return [t("review.language", value="Deutsch" if data["language"] == "de" else "English")]
     if key == "server":
         return [t("review.admin_user", value=data["admin_user"]),
                 t("review.ssh_key", value=data["ssh_public_key"][:24] + "…")]
@@ -533,6 +558,7 @@ def _summary(key: str, data: dict) -> list[str]:
                    password=_secret(p["password"])) for p in data["usenet"]["providers"]]
                 + [t("review.indexer", name=x["name"], url=x["url"], secret=_secret(x["api_key"]),
                      role=t("review.indexer_fallback") if x.get("fallback") else "")
+                   + (" " + t("review.indexer_unchecked") if x.get("unchecked") else "")
                    for x in data["indexers"]])
     if key == "tmdb":
         return [t("review.tmdb", value=_secret(data.get("tmdb_api_key")))]
@@ -540,8 +566,8 @@ def _summary(key: str, data: dict) -> list[str]:
         c = data["content"]
         return [t("review.languages", value=", ".join(language_name(x) for x in c["languages"])),
                 t("review.original_audio", value=_yes_no(c["original_audio"])),
-                t("review.quality", value="4K" if c["prefer_4k"] else "1080p"),
-                t("review.hdr", value=_yes_no(c["hdr"]))]
+                t("review.quality", value="4K" if c["prefer_4k"] else "1080p")] + (
+                [t("review.hdr", value=_yes_no(c["hdr"]))] if c["prefer_4k"] else [])
     if key == "people":
         return [_person_line(p) for p in data["people"]]
     if key == "auth":
@@ -559,7 +585,7 @@ def review(ui: Prompter, data: dict) -> str | None:
     keys = PART_KEYS
     while True:
         ui.heading(t("review.heading"))
-        for key in keys:  # no numbers here: they would not match "Part x of y" (basics is unnumbered)
+        for key in keys:
             ui.info(t(f"part.{key}"))
             for line in _summary(key, data):
                 ui.hint(line)
@@ -570,16 +596,22 @@ def review(ui: Prompter, data: dict) -> str | None:
             return key
 
 
-def ask_all(ui: Prompter, checks=None, language: str | None = None) -> dict:
-    """`language`: already chosen (before the server check), so not asked again; the review can change it."""
+def ask_all(ui: Prompter, checks=None, start: dict | None = None, done: list[str] | None = None,
+            on_part=None) -> dict:
+    """`start`/`done`: answers and finished parts of an interrupted run (they are not asked
+    again); `on_part(data, done)` is called after every finished part (to keep a draft)."""
     checks = checks or LiveChecks()
-    data: dict = {}
-    if language:
-        data.update(language=language, _language_given=True)
-    ask_basics(ui, data)
-    start_page(ui)
-    for key in PART_KEYS[1:]:
+    data: dict = copy.deepcopy(start) if start else {}
+    done = list(done or [])
+    if not done:
+        start_page(ui)
+    for key in PART_KEYS:
+        if key in done:
+            continue
         _ask_part(ui, data, checks, key)
+        done.append(key)
+        if on_part:
+            on_part(data, done)
     return _review_until_ok(ui, data, checks)
 
 

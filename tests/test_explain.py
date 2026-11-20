@@ -41,8 +41,17 @@ class ExplainTest(unittest.TestCase):
         explain.run(self.env, Prompter(inp=io.StringIO(""), out=out), topic)
         return out.getvalue()
 
+    def test_help_returns_to_list(self):
+        from roadie.ui import Prompter
+        out = io.StringIO()
+        ui = Prompter(inp=io.StringIO("1\n\n" + str(len(explain.TOPICS) + 2) + "\n"), out=out)
+        ui.tty = True
+        ui.inp.isatty = lambda: True
+        self.assertEqual(explain.run(self.env, ui), 0)
+        self.assertEqual(out.getvalue().count(i18n.t("explain.pick")), 2)  # back in the list after the page
+
     def test_every_topic_in_both_languages_with_this_servers_values(self):
-        for lang in ("en", "de"):
+        for lang in ("en",):
             text = self.text("all", lang)
             for value in ("aiostreams.example.duckdns.org", "streamadmin", "2222", "04:30",
                           str(self.env.paths.stack_dir), "/home/streamadmin/backups"):
@@ -53,7 +62,7 @@ class ExplainTest(unittest.TestCase):
                     self.assertIn(explain.title(name), text)
 
     def test_every_part_says_why(self):
-        for lang in ("en", "de"):
+        for lang in ("en",):
             catalog = i18n.load(lang)
             for name in explain.TOPICS:
                 if name != "services" and name not in helppages.TOPICS:
@@ -81,7 +90,7 @@ class ExplainTest(unittest.TestCase):
         self.assertIn("sudo docker compose logs --tail 50 aiostreams", text)
 
     def test_every_known_service_has_its_texts(self):
-        for lang in ("en", "de"):
+        for lang in ("en",):
             catalog = i18n.load(lang)
             for name in explain.SERVICES:
                 for part in ("name", "what", "why", "files"):
@@ -106,15 +115,6 @@ class ExplainTest(unittest.TestCase):
         text = self.text(None)
         self.assertIn(i18n.t("explain.security.title"), text)
         self.assertIn(i18n.t("explain.overview.title"), text)
-
-    def test_lang_option_wins_over_the_setup_language(self):
-        from roadie import cli
-        self.env.answers["language"] = "en"
-        self.env.state.save()
-        out = io.StringIO()
-        cli.main(["--root", self.tmp.name, "--lang", "de", "explain", "jobs"],
-                 ui=Prompter(inp=io.StringIO(""), out=out))
-        self.assertIn(i18n.load("de")["explain.jobs.title"], out.getvalue())
 
     def test_cli_and_menu(self):
         from roadie import cli, menu

@@ -63,5 +63,18 @@ class AuthcodeTest(unittest.TestCase):
             self.assertIn(datetime(2026, 11, 14, 20, 27, tzinfo=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M"), out.getvalue())
 
 
+
+class CodeTextsTest(unittest.TestCase):
+    def test_code_none_explains_wait(self):
+        from roadie import i18n
+        text = i18n.t("authcode.none")
+        self.assertIn("minutes", text)
+        self.assertNotIn("Send code", text)
+
+    def test_code_old_hint_no_login_page_button(self):
+        from roadie import i18n
+        self.assertIn("'Add'", i18n.t("authcode.old"))
+
+
 if __name__ == "__main__":
     unittest.main()

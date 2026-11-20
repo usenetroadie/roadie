@@ -73,13 +73,15 @@ Plan about 20–30 minutes. You can stop at any time with Ctrl+C and continue la
 
 1. **Add the addon:** copy the addon address roadie shows you and add it in Stremio or Nuvio.
    Keep it private – it works without a login.
-2. **First login to the settings pages:** open the address roadie shows, log in with your name and
-   password, then set up a **passkey** (Face ID / fingerprint) or a code app. The confirmation code
-   for this step: `sudo roadie code`.
+2. **First login to the settings pages:** open the address roadie shows. The login page is called
+   Authelia and is in English. Log in with your name and password, then add a **passkey**
+   (Face ID / fingerprint) or a code app. Authelia says it sent a code by email: there is no email,
+   `sudo roadie code` shows the code.
 3. **Push messages:** subscribe to your topic in the ntfy app (`sudo roadie access` shows it).
 4. **Backup key:** if roadie created one, it showed you the private key once. Keep it in your password
    manager – without it no backup can be opened. See [Backups](backups.md).
-5. **SSH:** log in once with your SSH key as the new admin user. Only then does roadie switch off
-   password logins (run `sudo roadie` → *Continue / check everything again* to finish this step).
+5. **SSH (when you are ready):** log in once with your SSH key as the new admin user, then choose
+   `sudo roadie` → *Finish SSH setup*. Only then does roadie switch off password logins, so you
+   cannot lock yourself out. Until then the login message reminds you.
 
 `sudo roadie access` shows all addresses and logins again at any time.

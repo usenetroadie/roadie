@@ -1,5 +1,6 @@
 """Terminal prompts: numbered lists and hidden input; works in any SSH terminal."""
 
+import contextlib
 import getpass
 import os
 import re
@@ -111,6 +112,28 @@ class Prompter:
         if self._ticker and self._ticker is not threading.current_thread():
             self._ticker.join()
         return True
+
+    @contextlib.contextmanager
+    def working(self, title: str):
+        """A long task outside the setup steps (backup, removal, installing a program): a
+        running clock on a terminal, so nobody thinks it hangs; one plain line otherwise."""
+        if not self.tty:
+            self._print(f"{title} …")
+            yield
+            return
+        self._step_label = self._step_title = title
+        self._step_started = time.monotonic()
+        self._ticking = True
+        self._ticker = threading.Thread(target=self._tick, daemon=True)
+        self._ticker.start()
+        try:
+            yield
+        except BaseException:
+            self._stop_ticker()
+            self._clear_live()
+            raise
+        self._stop_ticker()
+        self.ok(f"{title} ({self._elapsed()})")
 
     def step_end(self, status: str = "ok", note: str | None = None) -> None:
         """Final line of a step: ok (with time), warn (something to look at later) or skipped."""
@@ -275,11 +298,14 @@ class Prompter:
         return text
 
     def choose(self, label: str, options: list, default: str | None = None,
-               hints: list[str] | None = None) -> str:
+               hints: list[str] | None = None, footer: str | None = None) -> str:
+        """`footer`: repeated under a long list, where the question has scrolled away."""
         values = [v for v, _ in options]
         if default in values:
             label += " " + t("ui.enter_default", default=values.index(default) + 1)
         self._list(label, options, hints)
+        if footer:
+            self.hint(footer)
         while True:
             raw = self._readline("> ")
             if not raw and default in values:

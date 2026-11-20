@@ -78,6 +78,16 @@ def render(env: Env, now: float | None = None) -> str:
     backup_line = (t("page.backup", time=str(backup.get("time", "")).replace("T", " ")) if backup.get("file")
                    else t("status.no_backup"))
     parts.append(section(t("page.t.care"), items([esc(backup_line), esc(_update_line(env))])))
+    from roadie.ops.backup import published
+    offered = published(env)
+    try:
+        mb = max(1, round(offered.stat().st_size / 1_000_000)) if offered else 0
+    except OSError:  # removed by a backup running right now
+        offered = None
+    if offered:
+        parts.append(section(t("page.t.backup_download"), items([
+            f'<a href="backup/{html.escape(offered.name, quote=True)}" download>{esc(offered.name)}</a> ({mb} MB)'
+            f'<span class="fix">{esc(t("page.backup_download_help"))}</span>'])))
     stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(now))
     return (f'<!doctype html><html lang="{esc(t("page.lang"))}"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'

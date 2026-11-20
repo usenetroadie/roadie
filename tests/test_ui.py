@@ -14,6 +14,31 @@ def make(text, secret="s3cr3t-value"):
     return Prompter(inp=io.StringIO(text), out=out, secret_reader=lambda prompt: secret), out
 
 
+class WorkingTest(unittest.TestCase):
+    def test_working_non_tty_prints_once(self):
+        p, out = make("")
+        p.tty = False
+        with p.working("Creating the backup"):
+            pass
+        self.assertEqual(out.getvalue().count("Creating the backup"), 1)
+
+    def test_working_on_terminal_ends_with_ok_and_time(self):
+        p, out = make("")
+        p.tty = True
+        with p.working("Removing"):
+            pass
+        self.assertFalse(p._ticking)
+        self.assertRegex(out.getvalue(), r"Removing \(0:0\d\)")
+
+    def test_working_stops_ticker_on_error(self):
+        p, out = make("")
+        p.tty = True
+        with self.assertRaises(ValueError):
+            with p.working("Removing"):
+                raise ValueError("boom")
+        self.assertFalse(p._ticking)
+
+
 class PrompterTest(unittest.TestCase):
     def test_choose_by_number(self):
         p, _ = make("2\n")
@@ -145,8 +170,7 @@ class LiveLineTest(unittest.TestCase):
 
 class LayoutTest(unittest.TestCase):
     def setUp(self):
-        i18n.set_language("de")
-        self.addCleanup(i18n.set_language, "en")
+        i18n.set_language("en")
 
     def test_wraps_at_word_boundary(self):
         p, out = make("")
@@ -178,7 +202,7 @@ class LayoutTest(unittest.TestCase):
         p.unicode = True
         p.section(3, 8, "Web-Adresse")
         line = [l for l in out.getvalue().splitlines() if l][0]
-        self.assertTrue(line.startswith("\u2501\u2501 Teil 3 von 8 \u00b7 Web-Adresse"), line)
+        self.assertTrue(line.startswith("\u2501\u2501 Part 3 of 8 \u00b7 Web-Adresse"), line)
         self.assertEqual(len(line), 39)  # one column free: no extra line on full-width terminals
 
     def test_long_section_title_is_shortened(self):
@@ -227,11 +251,6 @@ class LayoutTest(unittest.TestCase):
         p, out = make("\n")
         self.assertEqual(p.ask("Verbindungen", default="20"), "20")
         self.assertIn("(Enter = 20)", out.getvalue())
-
-    def test_confirm_hint_german(self):
-        p, out = make("\n")
-        self.assertFalse(p.confirm("Ok?", default=False))
-        self.assertIn("(j/n, Enter = nein)", out.getvalue())
 
     def test_box_keeps_long_line_copyable(self):
         p, out = make("")
@@ -306,8 +325,7 @@ def visible(line):
 
 class LookTest(unittest.TestCase):
     def setUp(self):
-        i18n.set_language("de")
-        self.addCleanup(i18n.set_language, "en")
+        i18n.set_language("en")
 
     def test_questions_and_headings_use_the_green_of_the_name(self):
         p, out = make("2\nok\n")
@@ -405,7 +423,7 @@ class LookTest(unittest.TestCase):
         out = FakeTty()
         p = Prompter(inp=io.StringIO("\n"), out=out)
         p.offer_clear()
-        self.assertIn("Bildschirm jetzt leeren?", out.getvalue())
+        self.assertIn("Clear the screen now?", out.getvalue())
         self.assertTrue(out.getvalue().endswith("\033[H\033[2J\033[3J"))  # like ncurses clear
 
     def test_countdown_discards_early_input(self):
@@ -440,7 +458,7 @@ class LookTest(unittest.TestCase):
         lines = out.getvalue().splitlines()
         self.assertRegex(lines[1], r"^\[ok\] \[2/5\] Push: Test gesendet \(0:0\d\)$")
         self.assertEqual(lines[3], "[!]  [3/5] Backup: kein Schlüssel")
-        self.assertEqual(lines[5], "[!]  [4/5] Wartung: übersprungen")
+        self.assertEqual(lines[5], "[!]  [4/5] Wartung: skipped")
 
     def test_wraps_during_step(self):
         import os

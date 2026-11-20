@@ -59,6 +59,9 @@ def check_nntp(host: str, port: int, tls: bool, username: str, password: str, ti
             if reply.startswith("281"):
                 return CheckResult(True, "check.nntp.ok")
             if reply.startswith(("481", "482", "502")):
+                low = reply.lower()
+                if "connection" in low or "too many" in low:  # every connection busy streaming: login is fine
+                    return CheckResult(False, "check.nntp.busy")
                 return CheckResult(False, "check.nntp.bad_login")
             return CheckResult(False, "check.nntp.unexpected", {"code": reply[:3]})
     except _Fail as e:

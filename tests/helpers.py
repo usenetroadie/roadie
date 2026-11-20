@@ -63,7 +63,7 @@ class MockHttp:
 class MockNntp:
     """Minimal NNTP server. users: {username: password}. greeting: first line sent."""
 
-    def __init__(self, users=None, greeting="200 mock ready", silent=False):
+    def __init__(self, users=None, greeting="200 mock ready", silent=False, auth_reply=None):
         self.users = users or {}
         outer = self
 
@@ -82,7 +82,8 @@ class MockNntp:
                         self.wfile.write(b"381 password required\r\n")
                     elif line.upper().startswith("AUTHINFO PASS"):
                         ok = outer.users.get(user) == cmd[2]
-                        self.wfile.write(b"281 ok\r\n" if ok else b"481 rejected\r\n")
+                        reply = auth_reply or ("281 ok" if ok else "481 rejected")
+                        self.wfile.write((reply + "\r\n").encode())
                     elif line.upper() == "QUIT":
                         self.wfile.write(b"205 bye\r\n")
                         return

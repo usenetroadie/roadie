@@ -55,9 +55,9 @@ def provider_no(pid):
     return str([p["id"] for p in known_providers()].index(pid) + 1)
 
 
-def lang_no(name, ui="en"):
-    """Number of a content language in the list: interface language first, then English, then the rest."""
-    first = {"en": ["English"], "de": ["German", "English"]}[ui]
+def lang_no(name):
+    """Number of a content language in the list: English first, then the rest."""
+    first = ["English"]
     order = first + [x for x in content_languages() if x not in first]
     return str(order.index(name) + 1)
 
@@ -76,7 +76,6 @@ def run(lines, secrets, checks=None):
 
 
 USENET_LINES = [
-    "1",            # language en
     "",             # start page: ready
     "streamadmin",  # admin user
     "1",            # ssh key: I have one
@@ -135,15 +134,15 @@ class QuestionsTest(unittest.TestCase):
 
     def test_failed_check_reasks(self):
         bad = CheckResult(False, "check.newznab.bad_key")
-        lines = USENET_LINES[:14] + ["https://indexer.example.com", "", ""] + USENET_LINES[15:]
-        lines[12] = "https://indexer.example.com"
+        lines = USENET_LINES[:13] + ["https://indexer.example.com", "", ""] + USENET_LINES[14:]
+        lines[11] = "https://indexer.example.com"
         secrets = USENET_SECRETS[:3] + ["GOODKEY"] + USENET_SECRETS[3:]
         data, out, checks = run(lines, secrets, FakeChecks(newznab=[bad, OK]))
         self.assertEqual(data["indexers"][0]["api_key"], "GOODKEY")
         self.assertIn(i18n.t("check.newznab.bad_key"), " ".join(out.split()))  # output is word-wrapped
 
     def test_limits_read_from_indexer_are_not_asked(self):
-        lines = USENET_LINES[:13] + USENET_LINES[15:]
+        lines = USENET_LINES[:12] + USENET_LINES[14:]
         data, out, _ = run(lines, USENET_SECRETS, FakeChecks(limits=(100, 25)))
         self.assertEqual(data["indexers"][0]["daily_api_limit"], 100)
         self.assertEqual(data["indexers"][0]["daily_grab_limit"], 25)
@@ -151,14 +150,14 @@ class QuestionsTest(unittest.TestCase):
 
     def test_limits_asked_when_indexer_does_not_tell(self):
         lines = list(USENET_LINES)
-        lines[13], lines[14] = "2000", "450"
+        lines[12], lines[13] = "2000", "450"
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["indexers"][0]["daily_api_limit"], 2000)
         self.assertEqual(data["indexers"][0]["daily_grab_limit"], 450)
 
     def test_second_indexer_with_small_limit_is_suggested_as_fallback(self):
         second = ["y", "Small", "https://small.example.com", "25", "", "n"]  # another, name, url, limits, no more
-        lines = USENET_LINES[:15] + second + ["", ""] + USENET_LINES[16:]  # Enter takes both suggestions
+        lines = USENET_LINES[:14] + second + ["", ""] + USENET_LINES[15:]  # Enter takes both suggestions
         data, out, _ = run(lines, USENET_SECRETS[:3] + ["SMALLKEY"] + USENET_SECRETS[3:])
         self.assertEqual([ix.get("fallback") for ix in data["indexers"]], [False, True])
         self.assertIn(i18n.t("q.indexers.tiers"), " ".join(out.split()))
@@ -169,9 +168,9 @@ class QuestionsTest(unittest.TestCase):
         self.assertNotIn(i18n.t("q.indexers.tiers"), " ".join(out.split()))
 
     def test_login_name_and_indexer_name_are_checked_when_typed(self):
-        lines = USENET_LINES[:22] + ["Max Mustermann", "max"] + USENET_LINES[23:]  # 22: login name
+        lines = USENET_LINES[:21] + ["Max Mustermann", "max"] + USENET_LINES[22:]  # 22: login name
         second = ["y", "My indexer", "Other", "https://other.example.com", "", "", "n"]
-        lines = lines[:15] + second + ["", ""] + lines[16:]
+        lines = lines[:14] + second + ["", ""] + lines[15:]
         data, out, _ = run(lines, USENET_SECRETS[:3] + ["OTHERKEY"] + USENET_SECRETS[3:])
         self.assertEqual(data["auth"]["username"], "max")
         self.assertEqual([ix["name"] for ix in data["indexers"]], ["My indexer", "Other"])
@@ -186,7 +185,7 @@ class QuestionsTest(unittest.TestCase):
 
     def test_own_domain_flow(self):
         lines = list(USENET_LINES)
-        lines[5:7] = ["2", "https://Example.com/"]  # own domain instead of DuckDNS name
+        lines[4:6] = ["2", "https://Example.com/"]  # own domain instead of DuckDNS name
         data, out, checks = run(lines, USENET_SECRETS[1:])  # no DuckDNS token asked
         a = Answers.from_dict(data)
         self.assertEqual(a.data["domain"], "example.com")
@@ -197,7 +196,7 @@ class QuestionsTest(unittest.TestCase):
         self.assertIn("auth.", flat)
 
     def test_backbone_warning_shown(self):
-        lines = USENET_LINES[:10] + ["y", provider_no("easynews"), "user2", "", "n"] + USENET_LINES[11:]
+        lines = USENET_LINES[:9] + ["y", provider_no("easynews"), "user2", "", "n"] + USENET_LINES[10:]
         data, out, _ = run(lines, USENET_SECRETS[:2] + ["pw2"] + USENET_SECRETS[2:])
         self.assertEqual([p["role"] for p in data["usenet"]["providers"]], ["primary", "backup"])
         self.assertIn("Omicron", out)
@@ -211,7 +210,7 @@ class NewQuestionsTest(unittest.TestCase):
 
     def test_generated_ssh_key_shown_once_and_only_public_part_kept(self):
         lines = list(USENET_LINES)
-        lines[3:5] = ["2", "n", "j"]  # create a key; "saved?" no -> shown again -> yes
+        lines[2:4] = ["2", "n", "j"]  # create a key; "saved?" no -> shown again -> yes
         data, out, _ = run(lines, USENET_SECRETS)
         a = Answers.from_dict(data)
         self.assertTrue(a.data["ssh_public_key"].startswith("ssh-ed25519 "))
@@ -219,29 +218,22 @@ class NewQuestionsTest(unittest.TestCase):
         self.assertNotIn("PRIVATE", json.dumps(a.to_dict(include_secrets=True)))
 
 
-def de_lines():
-    lines = list(USENET_LINES)
-    lines[0] = "2"
-    lines[lines.index(f"{german()},1")] = "1,2"  # German UI: German first, English second
-    return lines
-
-
 class BeginnerTest(unittest.TestCase):
     def tearDown(self):
         i18n.set_language("en")
 
     def test_parts_are_numbered(self):
-        _, out, _ = run(de_lines(), USENET_SECRETS)
-        self.assertIn("Teil 1 von 8", out)
-        self.assertIn("Teil 8 von 8", out)
-        self.assertNotIn("Teil 9", out)
+        _, out, _ = run(USENET_LINES, USENET_SECRETS)
+        self.assertIn("Part 1 of 8", out)
+        self.assertIn("Part 8 of 8", out)
+        self.assertNotIn("Part 9", out)
 
     def test_start_page_lists_what_is_needed(self):
-        _, out, _ = run(de_lines(), USENET_SECRETS)
+        _, out, _ = run(USENET_LINES, USENET_SECRETS)
         flat = " ".join(out.split())
         self.assertIn("DuckDNS", flat)
-        self.assertIn("Indexer", flat)
-        self.assertIn("Strg+C", flat)
+        self.assertIn("indexer", flat)
+        self.assertIn("Ctrl+C", flat)
 
     def test_review_hides_secrets(self):
         _, out, _ = run(USENET_LINES, USENET_SECRETS)
@@ -260,8 +252,8 @@ class BeginnerTest(unittest.TestCase):
 
     def test_review_people_reasked_from_scratch(self):
         lines = list(USENET_LINES)
-        lines[21] = "2"           # several people
-        lines[22:22] = ["", "Anna", "", ""]  # main name default, Anna inherits, done
+        lines[20] = "2"           # several people
+        lines[21:21] = ["", "Anna", "", ""]  # main name default, Anna inherits, done
         lines[-1:] = ["2", part_no("people"), "1", "1"]  # change people -> only me -> ok
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual([p["id"] for p in data["people"]], ["main"])
@@ -285,12 +277,10 @@ class BeginnerTest(unittest.TestCase):
 
     def test_login_hint_quotes_match_language(self):
         self.assertIn("'tim'", i18n.t("q.server.login_as", user="tim"))
-        i18n.set_language("de")
-        self.assertIn("„tim“", i18n.t("q.server.login_as", user="tim"))
 
     def test_people_several_with_own_settings(self):
         lines = list(USENET_LINES)
-        lines[21:22] = ["2", "Tim", "Anna", "2", german(), "", "2", "Ben", "", ""]
+        lines[20:21] = ["2", "Tim", "Anna", "2", german(), "", "2", "Ben", "", ""]
         data, out, _ = run(lines, USENET_SECRETS)
         Answers.from_dict(data)
         self.assertEqual([(p["id"], p["mode"]) for p in data["people"]],
@@ -306,7 +296,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_main_person_default_is_admin_name(self):
         lines = list(USENET_LINES)
-        lines[21:22] = ["2", "", ""]  # several people, main name default, nobody else
+        lines[20:21] = ["2", "", ""]  # several people, main name default, nobody else
         data, out, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["people"][0]["name"], "streamadmin")
         self.assertIn("(Enter = streamadmin)", out)
@@ -314,7 +304,7 @@ class BeginnerTest(unittest.TestCase):
     def test_provider_list_not_listed_option(self):
         from roadie.checks.nntp import known_providers
         lines = list(USENET_LINES)
-        lines[7:8] = [str(len(known_providers()) + 1), "news.example.com", "", ""]  # last option, host, port, TLS
+        lines[6:7] = [str(len(known_providers()) + 1), "news.example.com", "", ""]  # last option, host, port, TLS
         data, out, _ = run(lines, USENET_SECRETS)
         p = data["usenet"]["providers"][0]
         self.assertEqual((p["host"], p["port"], p["tls"]), ("news.example.com", 563, True))
@@ -327,27 +317,87 @@ class BeginnerTest(unittest.TestCase):
         self.assertEqual(data["usenet"]["providers"][0]["provider"], "eweka")
         self.assertEqual(data["usenet"]["providers"][0]["host"], "news.eweka.nl")
 
-    def test_language_list_ui_language_first(self):
-        _, out, _ = run(USENET_LINES, USENET_SECRETS)
-        self.assertIn("[1] English", out)
-        _, out, _ = run(de_lines(), USENET_SECRETS)
-        self.assertIn("[1] Deutsch", out)
-        self.assertIn("[2] Englisch", out)
-
     def test_few_connections_hint(self):
         _, out, _ = run(USENET_LINES, USENET_SECRETS)
         self.assertNotIn(i18n.t("q.usenet.few_connections"), out)
         lines = list(USENET_LINES)
-        lines[9] = "2"
+        lines[8] = "2"
         data, out, _ = run(lines, USENET_SECRETS)
-        self.assertEqual(data["usenet"]["providers"][0]["connections"], 2)
+        self.assertEqual(data["usenet"]["providers"][0]["connections"], 1)
         self.assertIn(i18n.t("q.usenet.few_connections"), " ".join(out.split()))
+
+    def test_down_offers_keep(self):
+        down = CheckResult(False, "check.newznab.down")
+        lines = list(USENET_LINES)
+        lines[12:12] = ["2"]  # after the URL: indexer does not answer -> keep it anyway
+        lines[15:16] = ["Second", "https://second.example.com", "", "", "n", "y", "y"]  # one that works
+        secrets = list(USENET_SECRETS)
+        secrets[3:3] = ["SECONDKEY"]
+        data, out, _ = run(lines, secrets, FakeChecks(newznab=[down, OK]))
+        first, second = data["indexers"]
+        self.assertTrue(first.get("unchecked"))
+        self.assertNotIn("unchecked", second)
+        self.assertIn(" ".join(i18n.t("check.newznab.down").split()), " ".join(out.split()))
+        self.assertIn(" ".join(i18n.t("q.indexers.need_one").split()), " ".join(out.split()))
+        Answers.from_dict(data)
+
+    def test_down_retry_then_ok(self):
+        down = CheckResult(False, "check.newznab.down")
+        lines = list(USENET_LINES)
+        lines[12:12] = ["1"]  # try again
+        data, _, checks = run(lines, USENET_SECRETS, FakeChecks(newznab=[down, OK]))
+        self.assertEqual([c for c in checks.calls if c[0] == "newznab"], [("newznab", "https://indexer.example.com")] * 2)
+        self.assertNotIn("unchecked", data["indexers"][0])
+
+    def test_private_key_printed_without_prefix(self):
+        lines = list(USENET_LINES)
+        lines[2:4] = ["2", "y"]  # create a key, saved
+        _, out, _ = run(lines, USENET_SECRETS)
+        key_lines = [l for l in out.splitlines() if "PRIVATE KEY" in l]
+        self.assertTrue(key_lines)
+        self.assertTrue(all(l.startswith("-----") for l in key_lines), key_lines)
+
+    def test_used_connections(self):
+        from roadie.questions import used_connections
+        self.assertEqual([used_connections(n) for n in (20, 1, 40, 10)], [18, 1, 36, 9])
+
+    def test_connections_question_asks_plan_max(self):
+        data, out, _ = run(USENET_LINES, USENET_SECRETS)  # Enter: a plan with 20
+        p = data["usenet"]["providers"][0]
+        self.assertEqual((p["plan_connections"], p["connections"]), (20, 18))
+        flat = " ".join(out.split())
+        self.assertIn(i18n.t("q.usenet.plan_connections"), flat)
+        self.assertIn(i18n.t("q.usenet.uses", count=18), flat)
+        Answers.from_dict(data)
+
+    def test_provider_list_repeats_prompt(self):
+        _, out, _ = run(USENET_LINES, USENET_SECRETS)
+        text = " ".join(out.split())
+        footer = " ".join(i18n.t("q.usenet.provider_footer").split())
+        self.assertIn(footer, text)
+        self.assertLess(text.index("XS News"), text.index(footer))  # below the list
+
+    def test_api_suffix_hint(self):
+        _, out, _ = run(USENET_LINES, USENET_SECRETS)  # the example URL ends in /api
+        self.assertIn(" ".join(i18n.t("q.indexers.api_removed").split()), " ".join(out.split()))
+        lines = list(USENET_LINES)
+        lines[11] = "https://indexer.example.com"
+        _, out, _ = run(lines, USENET_SECRETS)
+        self.assertNotIn(" ".join(i18n.t("q.indexers.api_removed").split()), " ".join(out.split()))
+
+    def test_review_hides_hdr_without_4k(self):
+        from roadie.questions import _summary
+        data, _, _ = run(USENET_LINES, USENET_SECRETS)
+        data["content"].update(prefer_4k=False, hdr=False)
+        self.assertFalse(any("HDR" in line for line in _summary("content", data)))
+        data["content"].update(prefer_4k=True)
+        self.assertTrue(any("HDR" in line for line in _summary("content", data)))
 
     def test_narrow_language_hint(self):
         _, out, _ = run(USENET_LINES, USENET_SECRETS)
         self.assertNotIn(i18n.t("q.content.narrow"), " ".join(out.split()))
         lines = list(USENET_LINES)
-        lines[17:19] = [german(), "n"]  # only German, no original audio
+        lines[16:18] = [german(), "n"]  # only German, no original audio
         data, out, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["content"]["languages"], ["German"])
         self.assertIn(i18n.t("q.content.narrow"), " ".join(out.split()))
@@ -367,17 +417,12 @@ class BeginnerTest(unittest.TestCase):
 
     def test_review_shows_own_person_settings(self):
         lines = list(USENET_LINES)
-        lines[21:22] = ["2", "Tim", "Anna", "2", lang_no("English"), "", "2", ""]
+        lines[20:21] = ["2", "Tim", "Anna", "2", lang_no("English"), "", "2", ""]
         _, out, _ = run(lines, USENET_SECRETS)
         review = " ".join(out.split()).split(i18n.t("review.heading"))[-1]
         self.assertIn("Anna", review)
         self.assertIn("English + Original", review)
         self.assertIn("1080p first", review)
-
-    def test_language_names_localized(self):
-        data, out, _ = run(de_lines(), USENET_SECRETS)
-        self.assertIn("Englisch", out)
-        self.assertEqual(data["content"]["languages"], ["German", "English"])
 
     def test_language_names_cover_every_language(self):
         names = json.loads((Path(__file__).parent.parent / "roadie/data/language_names.json").read_text())
@@ -391,13 +436,13 @@ class BeginnerTest(unittest.TestCase):
 
     def test_advanced_asked_when_wanted(self):
         lines = list(USENET_LINES)
-        lines[23:24] = ["y", "06:30", "https://hc-ping.com/abc"]
+        lines[22:23] = ["y", "06:30", "https://hc-ping.com/abc"]
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["maintenance"]["reboot_time"], "06:30")
         self.assertEqual(data["notify"]["healthchecks_url"], "https://hc-ping.com/abc")
 
     def test_admin_user_login_hint(self):
-        _, out, _ = run(de_lines(), USENET_SECRETS)
+        _, out, _ = run(USENET_LINES, USENET_SECRETS)
         self.assertIn("streamadmin", " ".join(out.split()).split("ubuntu")[0])
 
 def stored_answers():
@@ -427,6 +472,15 @@ def part_no(key):
 
 
 class ChangeSettingsTest(unittest.TestCase):
+    def test_old_provider_without_plan_connections_prefills(self):
+        stored = stored_answers()
+        p = stored["usenet"]["providers"][0]
+        p.pop("plan_connections", None)
+        p["connections"] = 30  # saved by roadie 0.5
+        data, out, _ = change(["2", part_no("usenet")] + [""] * 30 + ["1"], copy.deepcopy(stored))
+        self.assertIn("(Enter = 30)", out)
+        self.assertEqual(data["usenet"]["providers"][0]["plan_connections"], 30)
+
     """"Change settings": review first, one part prefilled (spec 4)."""
 
     def tearDown(self):
@@ -490,12 +544,6 @@ class ChangeSettingsTest(unittest.TestCase):
         self.assertIn(i18n.t("q.domain.change_warning"), " ".join(out.split()))
         self.assertIn("aiostreams.", out)
         Answers.from_dict(data)
-
-    def test_change_language_switches_ui_at_once(self):
-        stored = stored_answers()
-        data, out, _ = change(["2", part_no("basics"), "2", "1"], copy.deepcopy(stored))
-        self.assertEqual(data["language"], "de")
-        self.assertIn(i18n.load("de")["review.heading"], out)
 
     def test_change_people_points_to_people_menu(self):
         stored = stored_answers()

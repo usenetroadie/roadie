@@ -8,8 +8,9 @@ To report a security problem, see [SECURITY.md](../SECURITY.md).
 ## How the server is protected
 
 Only SSH and the web ports 80 and 443 are open. Every settings page sits behind a login with a
-passkey or a code app, SSH accepts only your key, and a firewall, fail2ban and automatic security
-updates guard the rest. All passwords are readable only by root and never appear on the command
+passkey or a code app, and a firewall, fail2ban and automatic security updates guard the rest. SSH
+accepts only your key as soon as you finished *Finish SSH setup* once; until then password login
+stays on, so nobody gets locked out. All passwords are readable only by root and never appear on the command
 line, in the output or in problem reports.
 
 Your server explains this itself, with its real ports, rules and files, and why each part is

@@ -19,6 +19,10 @@ def check_newznab(url: str, api_key: str, timeout: float = 15) -> CheckResult:
         resp = http_get(f"{base}/api?{urlencode({'t': 'caps', 'apikey': api_key})}", timeout=timeout)
     except HttpError as e:
         return network_failure(e)
+    return check_newznab_body(resp)
+
+
+def check_newznab_body(resp) -> CheckResult:
     try:
         root = ET.fromstring(resp.body)
     except ET.ParseError:
@@ -31,6 +35,43 @@ def check_newznab(url: str, api_key: str, timeout: float = 15) -> CheckResult:
     if root.tag != "caps":
         return CheckResult(False, "check.newznab.not_newznab", {"status": resp.status})
     return CheckResult(True, "check.newznab.ok", {"categories": len(root.findall("./categories/category"))})
+
+
+def _down() -> CheckResult:
+    return CheckResult(False, "check.newznab.down")
+
+
+def probe(url: str, api_key: str, timeout: float = 15) -> tuple[CheckResult, int | None, int | None]:
+    """Is it a Newznab indexer, does it take the key, which daily limits does it report?
+    caps first (many indexers answer it without checking the key), then one tiny search
+    (one API call) that does check the key and carries the limits. An indexer that does not
+    answer is "down", not a wrong address."""
+    try:
+        base = normalise_newznab_url(url)
+    except ValueError:
+        return CheckResult(False, "check.newznab.bad_url"), None, None
+    try:
+        resp = http_get(f"{base}/api?{urlencode({'t': 'caps', 'apikey': api_key})}", timeout=timeout)
+    except HttpError:
+        return _down(), None, None
+    if resp.status >= 500:
+        return _down(), None, None
+    caps = check_newznab_body(resp)
+    if not caps.ok:
+        return caps, None, None
+    try:
+        resp = http_get(f"{base}/api?{urlencode({'t': 'search', 'q': 'test', 'limit': 1, 'apikey': api_key})}",
+                        timeout=timeout)
+    except HttpError:
+        return caps, None, None  # caps answered: the key is checked again by Prowlarr
+    try:
+        root = ET.fromstring(resp.body)
+    except ET.ParseError:
+        return caps, None, None
+    if root.tag == "error" and root.get("code", "") in AUTH_ERROR_CODES:
+        return CheckResult(False, "check.newznab.bad_key"), None, None
+    api, grab = parse_limits(resp.body)
+    return caps, api, grab
 
 
 def _int_attr(el, name):

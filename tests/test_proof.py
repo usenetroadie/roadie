@@ -108,13 +108,6 @@ class ProofTest(unittest.TestCase):
             self.run_proof()
             self.assertEqual(self.outcome.note, i18n.t("proof.note_none"))
 
-    def test_german_causes_point_to_check_status(self):
-        i18n.set_language("de")
-        try:
-            self.assertIn("„Zustand prüfen“", i18n.t("proof.causes"))
-        finally:
-            i18n.set_language("en")
-
 
 if __name__ == "__main__":
     unittest.main()

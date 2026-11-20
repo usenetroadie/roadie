@@ -63,7 +63,7 @@ WAIT_SECONDS = 8
 
 
 def notifications(ctx: Context, sleep=time.sleep) -> Outcome | None:
-    topic = ctx.secrets.generate("ntfy_topic", 20)
+    topic = ctx.secrets.generate("ntfy_topic", 20, "plain")  # an existing topic stays as it is
     ctx.redact.add(topic)
     server = (ctx.answers.data.get("notify") or {}).get("ntfy_url") or notify.DEFAULT_SERVER
     ui = ctx.ui

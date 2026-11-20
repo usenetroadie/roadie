@@ -7,31 +7,17 @@ from roadie import i18n
 PEOPLE_MENU = {"people.add", "people.change", "people.remove", "people.url", "people.back"}
 
 # labels of other programs' pages (indexer account, AIOStreams), not of the wizard
-OUTSIDE_LABELS = {"API", "Profile", "Profil", "Custom"}
+OUTSIDE_LABELS = {"API", "Profile", "Profil", "Custom", "Add"}  # "Add": a button on the Authelia login page
 
 
 class I18nTest(unittest.TestCase):
     def tearDown(self):
         i18n.set_language("en")
 
-    def test_catalogs_have_same_keys(self):
-        self.assertEqual(set(i18n.load("en")), set(i18n.load("de")))
-
-    def test_placeholders_match_between_languages(self):
-        en, de = i18n.load("en"), i18n.load("de")
-        for key in en:
-            self.assertEqual(
-                set(re.findall(r"{(\w+)}", en[key])),
-                set(re.findall(r"{(\w+)}", de[key])),
-                key,
-            )
-
-    def test_translate_with_params(self):
-        i18n.set_language("de")
-        self.assertEqual(i18n.t("proof.note_no_catalogs", count=3), "3 Streams gefunden, aber keine Kataloge")
+    def test_only_english(self):
+        self.assertEqual(i18n.LANGUAGES, ("en",))
 
     def test_missing_key_falls_back_to_english(self):
-        i18n.set_language("de")
         i18n._catalogs["en"]["only.en"] = "english only"
         try:
             self.assertEqual(i18n.t("only.en"), "english only")
@@ -46,8 +32,6 @@ class I18nTest(unittest.TestCase):
                  " die ", " das ", " mit ", " bitte ", "Einstellungen", "Hilfe", "Dienste",
                  "wähle", "Schlüssel", "z. B."]
         for key, text in i18n.load("en").items():
-            if key == "q.language":  # "Language / Sprache" is bilingual on purpose
-                continue
             for word in tells:
                 self.assertNotIn(word, text.lower() if word.islower() else text, key)
 
@@ -56,7 +40,7 @@ class I18nTest(unittest.TestCase):
         "sudo roadie → 'Manage people'", "choose 'Restart services'"). Each target must be
         a real label in the same language, so renaming a label cannot leave stale hints."""
         quote = r"['„]([^'“]+)['“]"
-        for lang in ("en", "de"):
+        for lang in ("en",):
             cat = i18n.load(lang)
             help_titles = {v for k, v in cat.items() if k.startswith("help.") and k.endswith(".title")}
             menu = {v for k, v in cat.items()

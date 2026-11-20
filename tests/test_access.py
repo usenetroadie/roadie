@@ -116,9 +116,6 @@ class AccessTest(AccessBase):
 
     def test_players_text_says_keep_private(self):
         self.assertIn("private", i18n.t("access.players_text"))
-        i18n.set_language("de")
-        self.assertIn("privat", i18n.t("access.players_text"))
-        i18n.set_language("en")
 
     def test_person_without_config_has_no_dead_url(self):
         env = self.env(people=[{"id": "main", "name": "Tim", "mode": "main"},
@@ -168,7 +165,7 @@ class SummaryTest(AccessBase):
 
     def test_interactive_setup_shows_access(self):
         out = self.run_summary(interactive=True)
-        self.assertIn("PW-MAIN", out)
+        self.assertIn("https://aiostreams.", out)
         self.assertIn(i18n.t("summary.heading"), out)
 
     def test_feedback_hint_once(self):
@@ -186,6 +183,46 @@ class SummaryTest(AccessBase):
             outs.append(out.getvalue())
         self.assertIn("issues/new/choose", outs[0])
         self.assertNotIn("issues/new/choose", outs[1])  # only after the first complete setup
+
+    def test_summary_essentials_first(self):
+        out = self.run_summary(interactive=True)
+        flat = " ".join(out.replace("| ", "").split())
+        self.assertIn(i18n.t("access.t.players"), out)
+        self.assertIn(i18n.t("access.t.settings"), out)
+        self.assertNotIn(i18n.t("access.t.config"), out)  # UUIDs and config passwords: later, in "My access"
+        self.assertNotIn("PW-MAIN", out)
+        self.assertIn(" ".join(i18n.t("summary.details_later").split()), flat)
+
+    def test_summary_after_restore_says_nothing_changes(self):
+        from roadie.engine import Context
+        from roadie.phases import stack
+        from roadie.redact import Redactor
+        env = self.env()
+        env.state.answers["_restored"] = {"file": "roadie-backup-2026-11-20.tar.age", "at": "x"}
+        out = io.StringIO()
+        ctx = Context(paths=self.paths, state=env.state, secrets=env.secrets,
+                      ui=Prompter(inp=io.StringIO(""), out=out), redact=Redactor([]))
+        ctx.extra["interactive"] = True
+        stack.summary(ctx)
+        self.assertIn(" ".join(i18n.t("summary.restored").split()),
+                      " ".join(out.getvalue().replace("| ", "").split()))
+
+    def test_small_server_line(self):
+        from types import SimpleNamespace
+        out = self.run_summary(interactive=True, facts=SimpleNamespace(mem_mb=2048))
+        self.assertIn(" ".join(i18n.t("summary.small_server").split()), " ".join(out.replace("| ", "").split()))
+
+    def test_no_small_server_line_with_4_gb(self):
+        from types import SimpleNamespace
+        out = self.run_summary(interactive=True, facts=SimpleNamespace(mem_mb=4096))
+        self.assertNotIn(" ".join(i18n.t("summary.small_server").split()), " ".join(out.replace("| ", "").split()))
+
+    def test_first_login_hint(self):
+        hint = i18n.t("access.login_first_time")
+        for word in ("Authelia", "passkey", "code app", "sudo roadie code", "email"):
+            self.assertIn(word, hint)
+        out = self.run_summary(interactive=True)
+        self.assertIn(" ".join(hint.split())[:60], " ".join(out.replace("| ", "").split()))
 
     def test_summary_masks_login_password(self):
         out = self.run_summary(interactive=True)
@@ -211,7 +248,7 @@ class SummaryTest(AccessBase):
 
     def test_summary_lists_next_steps_last(self):
         out = self.run_summary(interactive=True)
-        self.assertGreater(out.index(i18n.t("help.next_steps.title")), out.index(i18n.t("access.t.backup")))
+        self.assertGreater(out.index(i18n.t("help.next_steps.title")), out.index(i18n.t("access.t.settings")))
 
     def test_non_interactive_and_update_show_no_passwords(self):
         for extra in ({"interactive": False}, {"interactive": True, "update": True}, {}):

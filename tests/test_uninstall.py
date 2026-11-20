@@ -100,10 +100,33 @@ class UninstallTest(UninstallBase):
         self.assertEqual(uninstall.run(self.env(), self.ui("  DELETE \n"), confirmed=False), 0)
         self.assertFalse((self.root / "etc/roadie").exists())
 
-    def test_german_word(self):
-        i18n.set_language("de")
-        self.assertNotEqual(uninstall.run(self.env(), self.ui("delete\n"), confirmed=False), 0)
-        self.assertEqual(uninstall.run(self.env(), self.ui("Löschen\n"), confirmed=False), 0)
+    def test_kept_reflects_ssh_state(self):
+        env = self.env()
+        self.assertIn(i18n.t("uninstall.kept.ssh_password"), uninstall.kept(env))
+        env.state.answers["_ssh_hardened"] = True
+        self.assertIn(i18n.t("uninstall.kept.ssh"), uninstall.kept(env))
+
+    def test_confirm_warns_addon_links(self):
+        uninstall.run(self.env(), self.ui("no\n"), confirmed=False)
+        text = " ".join(self.out.getvalue().split())
+        self.assertIn(" ".join(i18n.t("uninstall.addons_stop").split()), text)
+        self.assertIn("AIOMetadata", i18n.t("uninstall.plan.containers"))
+
+    def test_abort_says_nothing_deleted(self):
+        uninstall.run(self.env(), self.ui("no\n"), confirmed=False)
+        self.assertIn(i18n.t("uninstall.cancelled"), self.out.getvalue())
+        self.assertIn("Nothing was deleted", i18n.t("uninstall.cancelled"))
+
+    def test_interrupt_in_uninstall_has_its_own_words(self):
+        env = self.env()
+        code = cli._uninstall(env.paths, self.ui(""), False)  # input ends at the question, like Ctrl+C
+        self.assertNotEqual(code, 0)
+        self.assertIn(i18n.t("uninstall.interrupted"), " ".join(self.out.getvalue().split()))
+        self.assertNotIn(i18n.t("cli.interrupted"), self.out.getvalue())
+
+    def test_uninstall_shows_progress(self):
+        self.assertEqual(uninstall.run(self.env(), self.ui(), confirmed=True), 0)
+        self.assertIn(i18n.t("uninstall.working"), self.out.getvalue())
 
     def test_uninstall_keeps_access_and_backups(self):
         self.assertEqual(uninstall.run(self.env(), self.ui(), confirmed=True), 0)
@@ -286,8 +309,6 @@ class UninstallTest(UninstallBase):
         text = "\n".join(items)
         for word in ("80", "443", "fail2ban", "roadie"):
             self.assertIn(word, text)
-        i18n.set_language("de")
-        self.assertNotEqual(uninstall.plan(self.env()), items)
 
     def test_menu_has_uninstall_last(self):
         from roadie import menu

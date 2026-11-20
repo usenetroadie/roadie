@@ -11,6 +11,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from roadie import notify, system
+from roadie.checks import nntp
 from roadie.checks.http import HttpError, http_get
 from roadie.i18n import t
 from roadie.ops import selfupdate, statuspage
@@ -116,6 +117,36 @@ def collect_problems(env: Env, now: float | None = None) -> list[Problem]:
     return problems
 
 
+PROVIDER_CHECK_SECONDS = 3600  # one login per hour: the connections belong to streaming
+
+
+def provider_problems(env: Env, saved: dict, now: float) -> list[Problem]:
+    """Does each Usenet provider still take the login? Asked at most once an hour; in between
+    the last result stands (a problem must not look solved after 5 minutes)."""
+    last = saved.get("provider_check") or {}
+    if isinstance(last.get("at"), (int, float)) and 0 <= now - last["at"] < PROVIDER_CHECK_SECONDS:
+        return [Problem(**p) for p in last.get("problems", []) if isinstance(p, dict)]
+    try:
+        from roadie.answers import Answers
+        providers = (Answers.restore(env.state, env.secrets).data.get("usenet") or {}).get("providers") or []
+    except Exception:  # answers of a broken setup: nothing to check
+        providers = []
+    fails = dict(last.get("fails") or {})
+    found = []
+    for p in providers:
+        result = nntp.check_nntp(p["host"], p["port"], p["tls"], p["username"], p["password"])
+        if result.ok or result.key in ("check.nntp.refused", "check.nntp.busy"):  # busy streaming: fine
+            fails.pop(p["host"], None)
+            continue
+        fails[p["host"]] = fails.get(p["host"], 0) + 1
+        if fails[p["host"]] < 2:  # one failed check can be a blip: report the second one in a row
+            continue
+        key = "watch.provider_login" if result.key == "check.nntp.bad_login" else "watch.provider_down"
+        found.append(Problem(f"provider:{p['host']}", key, {"host": p["host"]}))
+    saved["provider_check"] = {"at": now, "problems": [p.__dict__ for p in found], "fails": fails}
+    return found
+
+
 def collect_events(env: Env, saved: dict, now: float) -> list[Message]:
     """One-off information: reboot, SSH logins, new roadie version. Updates `saved` in place."""
     events = []
@@ -152,12 +183,35 @@ def collect_events(env: Env, saved: dict, now: float) -> list[Message]:
     return events
 
 
+def downloaded_via_page(access_log: Path, name: str, seen: dict | None = None) -> bool:
+    """A download of the backup from the status page (Traefik access log; 206 = resumed, as
+    on iPhones). Reads only what is new since the last run: the log grows with every stream."""
+    seen = seen if seen is not None else {}
+    found = False
+    try:
+        with open(access_log, "rb") as f:
+            size = f.seek(0, 2)
+            pos = seen.get("log_pos", 0)
+            f.seek(pos if 0 <= pos <= size else 0)  # a smaller file: it started again
+            needle = f"GET /backup/{name} ".encode()
+            for raw in f:
+                if needle in raw and (b'" 200 ' in raw or b'" 206 ' in raw):
+                    found = True
+            seen["log_pos"] = f.tell()
+    except OSError:
+        return False
+    return found
+
+
 def backup_download_reminder(env: Env, saved: dict, now: float) -> Message | None:
     """Once per backup: a reminder when the newest one was not downloaded within 36 hours.
-    Only when sshd logs SFTP downloads (roadie turns that on where sshd allows it)."""
+    Counts SFTP downloads (when sshd logs them) and downloads from the status page."""
     from roadie.ops import backup
+    access_log = env.paths.stack_dir / "data/traefik/access.log"
     try:
-        if SFTP_LOG_LINE not in (env.paths.root / SSHD_DROPIN.lstrip("/")).read_text():
+        dropin = env.paths.root / SSHD_DROPIN.lstrip("/")
+        sftp_logged = dropin.exists() and SFTP_LOG_LINE in dropin.read_text()
+        if not sftp_logged and not access_log.exists():
             return None
         files = sorted(backup.backup_dir(env).glob("roadie-backup-*.tar.age"), key=lambda f: f.stat().st_mtime)
         newest = files[-1] if files else None
@@ -171,15 +225,18 @@ def backup_download_reminder(env: Env, saved: dict, now: float) -> Message | Non
         seen = {"file": newest.name, "downloaded": False, "reminded": False, "checked": info.st_mtime}
     if not seen["downloaded"]:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(seen["checked"]))
-        journal = system.run(["journalctl", "-t", "sftp-server", "--since", stamp, "-o", "cat", "--no-pager"],
-                             check=False)
-        seen["downloaded"] = sftp_downloads(journal).get(newest.name, 0) >= info.st_size * 0.99
+        if sftp_logged:
+            journal = system.run(["journalctl", "-t", "sftp-server", "--since", stamp, "-o", "cat", "--no-pager"],
+                                 check=False)
+            seen["downloaded"] = sftp_downloads(journal).get(newest.name, 0) >= info.st_size * 0.99
+        seen["downloaded"] = seen["downloaded"] or downloaded_via_page(access_log, newest.name, seen)
         seen["checked"] = now
     saved["backup_download"] = seen
     if seen["downloaded"] or seen["reminded"] or now - info.st_mtime < DOWNLOAD_REMIND_SECONDS:
         return None
     seen["reminded"] = True
-    return Message("info", "watch.backup_not_downloaded", {"file": newest.name, "mb": round(info.st_size / 1048576)})
+    key = "watch.backup_not_downloaded" if sftp_logged else "watch.backup_not_downloaded_page"
+    return Message("info", key, {"file": newest.name, "mb": round(info.st_size / 1048576)})
 
 
 def format_messages(messages: list[Message]) -> list[tuple[str, str, int]]:
@@ -187,8 +244,9 @@ def format_messages(messages: list[Message]) -> list[tuple[str, str, int]]:
     out = []
     for m in messages:
         text = t(m.key, **m.params)
-        if m.kind == "resolved":
-            out.append((t("watch.title.resolved"), text, 3))
+        if m.kind == "resolved":  # good news in its own words, not the old problem sentence
+            good = t(m.key + ".resolved", **m.params)
+            out.append((t("watch.title.resolved"), good if good != m.key + ".resolved" else t("watch.resolved"), 3))
         elif m.kind == "info":
             out.append((t("watch.title.info"), text, 4 if m.key == "watch.ssh_login_new" else 3))
         else:
@@ -208,6 +266,10 @@ def run(env: Env, dry: bool = False) -> int:
         fix_passkeys(env)
     saved = env.load_json("watch.json")
     problems = collect_problems(env, now)
+    try:  # optional: a provider check that breaks must not stop the watcher
+        problems += provider_problems(env, saved, now)
+    except Exception as exc:
+        print(f"provider check failed: {type(exc).__name__}", file=sys.stderr)
     unsent = [Message(**m) for m in saved.get("unsent", []) if isinstance(m, dict)]
     messages, saved["problems"] = decide(saved.get("problems", {}), problems, now)
     messages = unsent + messages + collect_events(env, saved, now)

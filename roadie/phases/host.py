@@ -17,7 +17,7 @@ from roadie.render import system as render_system
 PACKAGES = ["ufw", "fail2ban", "python3-systemd", "unattended-upgrades", "age", "curl", "ca-certificates", "gnupg",
             "sudo"]
 SWAPFILE = "/swapfile"
-SSH_WAIT_SECONDS = 600
+SSH_WAIT_SECONDS = 300
 MAX_TRUSTED_IPS = 5  # addresses the admin used for the wizard; fail2ban never bans them
 _RUN_SSHD = Path("/run/sshd")  # `sshd -t/-T` need it; missing until ssh ran once (socket activation)
 
@@ -184,6 +184,26 @@ def login_command(ctx: Context) -> str:
     return ssh_command(user, host, bool(ctx.state.answers.get("_ssh_key_created")))
 
 
+def wait_for_key_login(ui, user: str, command: str, seconds: int = SSH_WAIT_SECONDS) -> str | None:
+    """Show how to log in with the key and wait for that login (Enter = later)."""
+    since = time.strftime("%Y-%m-%d %H:%M:%S")
+    ui.heading(t("ssh.check.heading"))
+    ui.info(t("ssh.check.instructions"))
+    ui.copyable(command)
+    ui.info(t("ssh.check.instructions_after"))
+    ui.hint(t("ssh.check.ban_hint", user=user))
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        left = int(deadline - time.time())
+        ui.status(t("ssh.check.waiting", time=f"{left // 60}:{left % 60:02d}"))
+        if ui.enter_pressed(3):
+            return None
+        seen = key_login_seen(user, since)
+        if seen:
+            return seen
+    return None
+
+
 def ssh_hardening(ctx: Context) -> Outcome | None:
     """Password and root login are switched off only after a key login of the admin user
     has really been seen in the SSH log - nobody gets locked out."""
@@ -191,26 +211,12 @@ def ssh_hardening(ctx: Context) -> Outcome | None:
         _write_sshd_dropin(ctx)
         return None
     user = ctx.answers.data["admin_user"]
-    if ctx.extra.get("interactive"):
-        since = time.strftime("%Y-%m-%d %H:%M:%S")
-        ctx.ui.heading(t("ssh.check.heading"))
-        ctx.ui.info(t("ssh.check.instructions"))
-        ctx.ui.copyable(login_command(ctx))
-        ctx.ui.info(t("ssh.check.instructions_after"))
-        ctx.ui.hint(t("ssh.check.ban_hint", user=user))
-        deadline = time.time() + SSH_WAIT_SECONDS
-        seen = False
-        while time.time() < deadline and not seen:
-            left = int(deadline - time.time())
-            ctx.ui.status(t("ssh.check.waiting", time=f"{left // 60}:{left % 60:02d}"))
-            if ctx.ui.enter_pressed(3):
-                break
-            seen = key_login_seen(user, since)
+    if ctx.extra.get("interactive") and not ctx.extra.get("change"):  # "change settings" never waits here
+        seen = wait_for_key_login(ctx.ui, user, login_command(ctx))
     else:
         seen = key_login_seen(user, "today")
-    if not seen:  # Enter, timeout or no login today: password login stays on
-        ctx.ui.warn(t("ssh.check.not_seen", user=user))
-        return Outcome("skipped", open_key="open.ssh_hardening")
+    if not seen:  # Enter, timeout or no login today: password login stays on, the menu offers it later
+        return Outcome("ok", note=t("ssh.check.later"), open_key="open.ssh_hardening")
     if isinstance(seen, str) and trust_ip(ctx, seen):  # the address the admin logs in from
         system.write_files(_fail2ban_files(ctx), ctx.paths.stack_dir)
         system.run(["fail2ban-client", "reload"], check=False)

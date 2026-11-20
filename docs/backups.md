@@ -17,21 +17,43 @@ Keep it in your password manager.
 
 ## Download your backups
 
-Now and then copy the newest backup to your phone or computer, for example once a month.
+Now and then copy the newest backup to your phone or computer, for example once a month. The file
+is useless without your private backup key, so a cloud drive is a fine place for it.
 
-- **Termius:** connect to your server, open SFTP and download the newest file ending in `.tar.age`.
-- **Terminal on a computer:** `scp ADMIN@YOUR-ADDRESS:backups/*.tar.age .`
+### In the browser (easiest)
 
-roadie notices a complete download and sends a push message when the newest backup was not
-downloaded within 36 hours, once per backup. For this, sshd logs SFTP downloads. On Debian 12 its
-SSH version does not allow that next to the default settings, so there is no reminder there.
+Open your status page `https://status.<your address>` and log in. Under *Download your backup*
+tap the file name. On an iPhone choose *Save to Files*, on a computer it lands in Downloads.
+
+### With Termius on the phone
+
+1. In Termius open *Keychain*, tap **+** → *Key* and paste the private SSH key roadie showed you.
+2. Open your host, set the username to your admin user and choose that key instead of a password.
+3. Connect once. Then open *SFTP*, go to `backups` and download the newest file ending in `.tar.age`.
+
+### With a terminal on a computer
+
+Save the private SSH key as `~/.ssh/roadie` (`chmod 600 ~/.ssh/roadie`), then:
+
+```sh
+scp -i ~/.ssh/roadie ADMIN@YOUR-ADDRESS:backups/*.tar.age .
+```
+
+roadie notices a complete download (status page or SFTP) and sends a push message when the newest
+backup was not downloaded within 36 hours, once per backup. SFTP downloads are only seen where sshd
+can log them (not on Debian 12); downloads from the status page are always seen.
 
 ## Move to a new server
 
-1. Install roadie on the new server ([Quick start](../README.md#quick-start)).
-2. Copy the backup and your backup key file to it.
-3. Run `sudo roadie restore BACKUP-FILE --identity KEY-FILE`.
-4. Run `sudo roadie` → *Continue / check everything again*.
+1. Copy the backup file to the new server, into the home folder of the user you log in with
+   (or `/root`), for example with the SFTP view of Termius.
+2. Install roadie ([Quick start](../README.md#quick-start)). It finds the backup and asks
+   *Restore this backup?*. Say yes and paste your private backup key (it starts with
+   `AGE-SECRET-KEY-`). The key is only kept while the backup is unpacked.
+3. roadie then sets everything up again from the backup. No questions are asked.
+
+By hand instead: `sudo roadie restore BACKUP-FILE --identity KEY-FILE`, then `sudo roadie` →
+*Continue / check everything again*.
 
 Afterwards everything works as before, with the same addon addresses. Point your DuckDNS name at
 the new server (roadie does this itself once it runs there).

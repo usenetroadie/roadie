@@ -3,7 +3,7 @@
 import json
 from importlib import resources
 
-LANGUAGES = ("en", "de")
+LANGUAGES = ("en",)
 _catalogs: dict[str, dict[str, str]] = {}
 _current = "en"
 

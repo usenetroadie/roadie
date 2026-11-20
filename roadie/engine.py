@@ -77,7 +77,7 @@ def run_steps(steps: list[Step], ctx: Context) -> None:
         ctx.ui.step_end(outcome.status, outcome.note)
         for hint in outcome.hints:
             ctx.ui.hint(hint)
-        if outcome.status in ("skipped", "warn") and outcome.open_key:
+        if outcome.open_key:  # also a calm "ok, do it later"
             ctx.extra.setdefault("open_points", []).append((t(step.title_key), outcome.open_key))
         ctx.state.mark_done(step.id)
         ctx.state.save()

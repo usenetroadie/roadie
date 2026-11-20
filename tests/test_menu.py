@@ -99,7 +99,7 @@ class MenuTest(MenuBase):
 
     def test_injected_action_is_used(self):
         calls = []
-        items = [i.key for i in menu.ITEMS]
+        items = [i.key for i in menu.ITEMS if i.key != "ssh"]
         number = items.index("change") + 1
         menu.run(self.env, self.ui(f"{number}\n\n0\n"), actions={"change": lambda e, u: calls.append(1) or 0})
         self.assertEqual(calls, [1])
@@ -121,7 +121,7 @@ class MenuTest(MenuBase):
             secrets.set("new.secret", "NEW")
             return 0
         api = FakeApi()
-        keys = [i.key for i in menu.ITEMS]
+        keys = [i.key for i in menu.ITEMS if i.key != "ssh"]
         actions = {"change": change, "update": lambda e, u: 0,
                    "people": lambda env, ui: menu.people_menu(env, ui, lambda e: api)}
         text = f"{keys.index('change') + 1}\n\n{keys.index('people') + 1}\n1\nAnna\n1\n\n0\n"
@@ -138,7 +138,7 @@ class MenuTest(MenuBase):
     def test_failing_action_returns_to_menu_without_traceback(self):
         def boom(env, ui):
             raise RuntimeError("secret PW-MAIN leaked")
-        number = [i.key for i in menu.ITEMS].index("change") + 1
+        number = [i.key for i in menu.ITEMS if i.key != "ssh"].index("change") + 1
         menu.run(self.env, self.ui(f"{number}\n\n0\n"), actions={"change": boom})
         text = self.out.getvalue()
         self.assertNotIn("PW-MAIN", text)
@@ -194,7 +194,7 @@ class RestartTest(MenuBase):
         self.assertIn(i18n.t("restart.failed"), " ".join(self.out.getvalue().split()))
 
     def test_restart_comes_after_status(self):
-        keys = [i.key for i in menu.ITEMS]
+        keys = [i.key for i in menu.ITEMS if i.key != "ssh"]
         self.assertEqual(keys.index("restart"), keys.index("status") + 1)
 
 
@@ -298,14 +298,32 @@ class PeopleMenuTest(MenuBase):
         self.assertIn(i18n.t("people.none"), self.out.getvalue())
 
 
+class SshItemTest(MenuBase):
+    def test_menu_shows_ssh_item_until_hardened(self):
+        keys = [item.key for item, _ in menu.visible_items(self.env, {"ssh": lambda env, ui: 0})]
+        self.assertIn("ssh", keys)
+        self.env.state.answers["_ssh_hardened"] = True
+        keys = [item.key for item, _ in menu.visible_items(self.env, {"ssh": lambda env, ui: 0})]
+        self.assertNotIn("ssh", keys)
+
+
+class HelpBackTest(MenuBase):
+    def test_no_second_back_prompt_after_help(self):
+        number = [i.key for i, _ in menu.visible_items(self.env)].index("explain") + 1
+        back = len(explain.TOPICS) + 2  # the "Back" entry of the help list
+        ui = self.ui(f"{number}\n{back}\n0\n")
+        ui.tty = True
+        ui.inp.isatty = lambda: True  # the help list only shows on a terminal
+        menu.run(self.env, ui)
+        self.assertIn(i18n.t("explain.pick"), self.out.getvalue())
+        self.assertNotIn(i18n.t("menu.back"), self.out.getvalue())
+
+
 class HelpTest(MenuBase):
     def test_help_has_do_it_yourself_topic(self):
         self.assertIn("do_it_yourself", helppages.TOPICS)
         self.assertEqual(i18n.t("help.do_it_yourself.title"), "Adjust it yourself")
         self.assertEqual(i18n.t("help.backup_download.title"), "Download a backup")
-        i18n.set_language("de")
-        self.assertEqual(i18n.t("help.do_it_yourself.title"), "Selbst anpassen")
-        self.assertEqual(i18n.t("help.backup_download.title"), "Backup herunterladen")
 
     def test_help_shows_topic(self):
         self.assertEqual(explain.run(self.env, self.ui(""), "do_it_yourself"), 0)
@@ -315,7 +333,7 @@ class HelpTest(MenuBase):
 
     def test_do_it_yourself_and_more_catalogs_fit_a_phone_screen(self):
         for topic in ("do_it_yourself", "more_catalogs"):
-            for lang in ("de", "en"):
+            for lang in ("en",):
                 i18n.set_language(lang)
                 ui = self.ui("")
                 ui.width = 50
@@ -324,7 +342,7 @@ class HelpTest(MenuBase):
                 self.assertLessEqual(len(box), 22, (topic, lang))
 
     def test_more_catalogs_names_no_indexer(self):
-        for lang in ("de", "en"):
+        for lang in ("en",):
             i18n.set_language(lang)
             body = i18n.t("help.more_catalogs.body")
             self.assertIn("AIOMetadata", body)

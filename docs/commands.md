@@ -21,13 +21,11 @@
 | `sudo roadie uninstall` | remove everything roadie set up (asks first, offers a last backup) |
 | `roadie demo` | try the questions without changing anything |
 
-German shortcuts work as well: `zugang` (access), `personen` (people), `neustart` (restart),
-`hilfe` (help), `erklaeren` (explain, same as help), `deinstallieren` (uninstall).
-
 ## The menu
 
 After the setup, `sudo roadie` opens a menu: *Show my access details*, the login confirmation
-code, status, *Restart services*, *Manage people*, *Change settings*, backup, updates, and *Help and how your server works*.
+code, *Finish SSH setup* (until your key login worked), status, *Restart services*, *Manage people*,
+*Change settings*, backup, updates, and *Help and how your server works*.
 
 *Change settings* shows all your answers first and asks only the part you pick again, prefilled
 with the current values. The admin user stays; a new SSH key is added, old ones are kept.
@@ -35,7 +33,7 @@ with the current values. The admin user stays; a new SSH key is added, old ones 
 ## Status page and weekly report
 
 `https://status.<your address>` shows, behind the same login, whether everything runs, the last
-backup and available updates. Every Sunday morning a push message sums up the week. What runs when:
+backup, available updates, and offers the newest backup for download. Every Sunday morning a push message sums up the week. What runs when:
 `sudo roadie explain jobs`.
 
 ## Several people

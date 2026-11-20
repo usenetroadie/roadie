@@ -40,11 +40,22 @@ def lines(env: Env, motd: bool = False, cols: int | None = None) -> list[str]:
         out += _wrap(redact(t(p["key"], **p.get("params", {}))), "  ! ", "    ", cols)
         if t(p["key"] + ".fix") != p["key"] + ".fix":
             out += _wrap(t(p["key"] + ".fix"), "    → ", "      ", cols)
-    if not reported:
+    for name in env.state.answers.get("_indexers_missing") or []:
+        out += _wrap(t("status.indexer_missing", name=name), "  ! ", "    ", cols)
+    if not env.state.is_done("summary"):  # setup stopped half way: not "no problems"
+        out.append("  " + t("status.setup_unfinished"))
+    elif not reported and not env.state.answers.get("_indexers_missing"):
         out.append("  " + t("status.no_problems"))
     backup = env.load_json("backup.json")
-    out.append("  " + (t("status.backup", time=backup["time"].replace("T", " "), file=backup["file"])
-                       if backup else t("status.no_backup")))
+    restored = env.state.answers.get("_restored") or {}
+    if backup:
+        out.append("  " + t("status.backup", time=backup["time"].replace("T", " "), file=backup["file"]))
+    elif restored.get("file"):  # a new server from a backup: its next own backup comes on Sunday
+        out += _wrap(t("status.restored", file=restored["file"], time=restored.get("at", "")), "  ", "  ", cols)
+    else:
+        out.append("  " + t("status.no_backup"))
+    if not env.state.answers.get("_ssh_hardened"):
+        out += _wrap(t("status.ssh_not_tested"), "  ", "  ", cols)
     if motd:
         out.append("  " + t("status.menu_hint"))
     return out

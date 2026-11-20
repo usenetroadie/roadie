@@ -29,7 +29,7 @@ ALIASES = {"zugang": "access", "personen": "people", "help": "explain", "hilfe":
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="roadie", description=t("cli.description"))
     p.add_argument("--version", action="version", version=f"roadie {__version__}")
-    p.add_argument("--lang", choices=i18n.LANGUAGES, help=t("cli.opt.lang"))
+    p.add_argument("--lang", help=argparse.SUPPRESS)  # ignored: roadie 0.5 passes it after a self-update
     p.add_argument("--root", default="/", help=argparse.SUPPRESS)
     p.add_argument("--skip-self-update", action="store_true", help=argparse.SUPPRESS)  # set after a self-update
     sub = p.add_subparsers(dest="command",
@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None, gather=preflight.gather_facts, ui: Promp
          steps=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     lang = _pre_lang(argv)
-    i18n.set_language(lang if lang in i18n.LANGUAGES else "en")
+    i18n.set_language("en")
     args = _build_parser().parse_args(argv)
     args.command = ALIASES.get(args.command, args.command)
     args.argv = argv
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None, gather=preflight.gather_facts, ui: Promp
     if args.command in (None, "setup", "demo"):
         banner.show(ui)  # only on a terminal: the menu, the setup, the demo
     if args.command is None and State(paths.state_file).is_done("summary"):
-        return _menu(args, paths, ui, gather, lang is not None, steps or phases.steps)  # locks per action
+        return _menu(args, paths, ui, gather, steps or phases.steps)  # locks per action
     if args.command in LOCKED:
         wait = BACKUP_LOCK_WAIT if args.command == "backup" and args.quiet else 0
         return _locked(paths, ui, lambda: _dispatch(args, paths, ui, gather, lang, steps), wait)
@@ -111,11 +111,11 @@ def _locked(paths: Paths, ui: Prompter, run, wait: float = 0) -> int:
 
 def _dispatch(args, paths: Paths, ui: Prompter, gather, lang, steps) -> int:
     if args.command in (None, "setup"):
-        return _setup(args, paths, ui, gather, lang_given=lang is not None, steps=steps or phases.steps)
+        return _setup(args, paths, ui, gather, steps=steps or phases.steps)
     if args.command == "duckdns-update":
         return _duckdns_update(paths)
     if args.command == "demo":
-        return _demo(ui, lang_given=lang is not None)
+        return _demo(ui)
     if args.command == "restore":
         from roadie.ops import backup
         return backup.restore(paths, args.archive, args.identity, overwrite=args.overwrite)
@@ -124,7 +124,7 @@ def _dispatch(args, paths: Paths, ui: Prompter, gather, lang, steps) -> int:
     return _maintenance(args, paths, ui, gather, steps or phases.steps)
 
 
-def _menu(args, paths: Paths, ui: Prompter, gather, lang_given: bool, make_steps) -> int:
+def _menu(args, paths: Paths, ui: Prompter, gather, make_steps) -> int:
     from roadie import menu
     from roadie.ops import backup, common
     env = common.load_env(paths)
@@ -132,29 +132,47 @@ def _menu(args, paths: Paths, ui: Prompter, gather, lang_given: bool, make_steps
         ui.fail(t("cli.not_set_up"))
         return EXIT_INVALID
     actions = {
-        "change": lambda env, ui: _locked(paths, ui, lambda: _setup(args, paths, ui, gather, lang_given,
+        "change": lambda env, ui: _locked(paths, ui, lambda: _setup(args, paths, ui, gather,
                                                                     make_steps, change=True)),
         "backup": lambda env, ui: _locked(paths, ui, lambda: backup.run(env)),
         "update": lambda env, ui: _locked(paths, ui, lambda: _update(env, paths, ui, gather, make_steps, args)),
         "restart": lambda env, ui: _locked(paths, ui, lambda: menu.restart(env, ui)),
         "people": lambda env, ui: _locked(paths, ui, lambda: menu.people_menu(env, ui, menu.default_api)),
+        "ssh": lambda env, ui: _locked(paths, ui, lambda: _finish_ssh(paths, ui, gather)),
     }
     return menu.run(env, ui, actions, reload=lambda: common.load_env(paths))
+
+
+def _finish_ssh(paths: Paths, ui: Prompter, gather) -> int:
+    """Menu: test the key login now and switch password login off once it worked."""
+    from roadie.phases import host
+    state, secrets = State(paths.state_file), SecretStore(paths.secrets_file)
+    answers = Answers.restore(state, secrets)
+    ctx = Context(paths=paths, state=state, secrets=secrets, ui=ui,
+                  redact=Redactor(answers.secret_values() + secrets.values()), answers=answers)
+    ctx.extra["interactive"] = True
+    phases.prepare(ctx, gather(paths))
+    outcome = host.ssh_hardening(ctx)
+    state.save()
+    if outcome is not None:
+        ui.info(outcome.note or "")
+    return EXIT_OK
 
 
 def _uninstall(paths: Paths, ui: Prompter, confirmed: bool) -> int:
     """Works also after a broken or half-finished setup (no answers saved yet)."""
     from roadie.ops import common, uninstall
     env = common.load_env(paths) or common.Env(paths, State(paths.state_file), SecretStore(paths.secrets_file))
-    return _guarded(ui, Redactor(env.secrets.values()), lambda: uninstall.run(env, ui, confirmed))
+    return _guarded(ui, Redactor(env.secrets.values()), lambda: uninstall.run(env, ui, confirmed),
+                    interrupted_key="uninstall.interrupted")
 
 
-def _guarded(ui: Prompter, redact: Redactor, run) -> int:
+def _guarded(ui: Prompter, redact: Redactor, run, interrupted_key: str = "cli.interrupted") -> int:
     """Never show a traceback: it may contain secrets."""
     try:
         return run()
     except (KeyboardInterrupt, EOFError):
-        ui.warn(t("cli.interrupted"))
+        ui.warn(t(interrupted_key))
         return EXIT_INTERRUPTED
     except Exception as exc:
         ui.fail(t("cli.unexpected", message=redact(f"{type(exc).__name__}: {exc}")[:600]))
@@ -193,8 +211,6 @@ def _maintenance(args, paths: Paths, ui: Prompter, gather, make_steps) -> int:
     if env is None:
         ui.fail(t("cli.not_set_up"))
         return EXIT_INVALID
-    if args.lang:  # chosen for this run: wins over the language of the setup
-        i18n.set_language(args.lang)
     return _guarded(ui, Redactor(env.secrets.values()), lambda: _command(args, env, paths, ui, gather, make_steps))
 
 
@@ -243,11 +259,8 @@ class _DemoChecks:
         return lambda *args: CheckResult(True, "demo.check_ok")
 
 
-def _demo(ui: Prompter, lang_given: bool = False) -> int:
-    if lang_given:
-        ui.heading(t("demo.banner"))
-    else:  # the language is chosen only in the first question
-        ui.heading("\n".join(i18n.load(lang)["demo.banner"] for lang in i18n.LANGUAGES))
+def _demo(ui: Prompter) -> int:
+    ui.heading(t("demo.banner"))
     try:
         data = questions.ask_all(ui, _DemoChecks())
         answers = Answers.from_dict(data)
@@ -280,14 +293,12 @@ def _duckdns_update(paths: Paths) -> int:
     return EXIT_OK if check_duckdns(sub, token).ok else EXIT_FAILED
 
 
-def _load_answers(path: str, ui: Prompter, lang_given: bool) -> Answers | None:
+def _load_answers(path: str, ui: Prompter) -> Answers | None:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         ui.fail(t("cli.answers_unreadable", file=path))
         return None
-    if not lang_given and data.get("language") in i18n.LANGUAGES:
-        i18n.set_language(data["language"])
     try:
         return Answers.from_dict(data)
     except AnswersInvalid as e:
@@ -297,17 +308,47 @@ def _load_answers(path: str, ui: Prompter, lang_given: bool) -> Answers | None:
         return None
 
 
+def _restore_found(paths: Paths, state: State, secrets: SecretStore, ui: Prompter) -> bool:
+    """A new server with an uploaded roadie backup: offer to restore it before any question."""
+    from roadie.ops import backup
+    found = backup.find_uploaded(paths)
+    if not found or not ui.confirm(t("cli.restore_found", file=found.name), default=True):
+        return False
+    ui.info(t("cli.restore_key_help"))
+    key = ui.ask_secret(t("cli.restore_key"))
+    if backup.restore_with_key(paths, str(found), key, then_continue=True) != 0:
+        return False
+    fresh_state, fresh_secrets = State(paths.state_file), SecretStore(paths.secrets_file)
+    state.done, state.answers = fresh_state.done, fresh_state.answers  # the restored ones from now on
+    secrets.__dict__.update(fresh_secrets.__dict__)
+    return True
+
+
 def _interactive_answers(state: State, secrets: SecretStore, ui: Prompter, test_mode: bool = False,
-                         change: bool = False, language: str | None = None) -> Answers | None:
+                         change: bool = False, paths: Paths | None = None) -> Answers | None:
+    from roadie import drafts
+    if not state.answers and paths is not None and not drafts.load(secrets) \
+            and _restore_found(paths, state, secrets, ui):
+        return Answers.restore(state, secrets)
     if state.answers and not change:
         choice = ui.choose(t("cli.menu"), [("continue", t("cli.menu.continue")),
                                            ("change", t("cli.menu.change"))], default="continue")
         if choice == "continue":
             return Answers.restore(state, secrets)
+    keep = lambda data, done: drafts.save(secrets, data, done)  # noqa: E731
     if state.answers:  # change settings: review first, one part at a time, prefilled
+        ui.info(t("change.what_happens"))
         data = questions.change_settings(ui, Answers.restore(state, secrets).to_dict(include_secrets=True))
+    elif (draft := drafts.load(secrets)) is not None:
+        choice = ui.choose(t("cli.draft"), [("continue", t("cli.draft.continue")),
+                                            ("new", t("cli.draft.new"))], default="continue")
+        if choice == "new":
+            drafts.clear(secrets)
+            data = questions.ask_all(ui, on_part=keep)
+        else:
+            data = questions.ask_all(ui, start=draft[0], done=draft[1], on_part=keep)
     else:
-        data = questions.ask_all(ui, language=language)
+        data = questions.ask_all(ui, on_part=keep)
     if test_mode:
         data["test_mode"] = True
     try:
@@ -318,34 +359,27 @@ def _interactive_answers(state: State, secrets: SecretStore, ui: Prompter, test_
         return None
 
 
-def _setup(args, paths: Paths, ui: Prompter, gather, lang_given: bool, steps, change: bool = False) -> int:
+def _setup(args, paths: Paths, ui: Prompter, gather, steps, change: bool = False) -> int:
     dry_run = getattr(args, "dry_run", False)
     answers_file = getattr(args, "answers", None)
     answers = None
     if answers_file:
-        answers = _load_answers(answers_file, ui, lang_given)
+        answers = _load_answers(answers_file, ui)
         if answers is None:
             return EXIT_INVALID
     redact = Redactor(answers.secret_values() if answers else ())
     return _guarded(ui, redact, lambda: _run_setup(answers, paths, ui, gather, redact, dry_run, steps,
-                                                   test_mode=getattr(args, "test_mode", False), change=change,
-                                                   ask_language=not lang_given))
+                                                   test_mode=getattr(args, "test_mode", False), change=change))
 
 
 def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, redact: Redactor,
                dry_run: bool, make_steps, test_mode: bool = False, change: bool = False,
-               update: bool = False, ask_language: bool = False) -> int:
+               update: bool = False) -> int:
     state, secrets = State(paths.state_file), SecretStore(paths.secrets_file)
-    if answers is None and state.answers.get("language") in i18n.LANGUAGES:
-        i18n.set_language(state.answers["language"])
     old_user = state.answers.get("admin_user")
     if answers is not None and old_user and answers.data.get("admin_user") != old_user:
         ui.fail(t("cli.admin_user_changed", old=old_user, new=answers.data.get("admin_user")))
         return EXIT_INVALID  # the admin account keeps SSH and sudo; it is never switched
-    language = None
-    if answers is None and not state.answers and ask_language:  # first interactive setup:
-        language = questions.ask_language(ui)  # warnings of the server check already in this language
-
     ui.heading(t("phase.preflight"))
     facts = gather(paths)
     known = answers.data if answers else state.answers
@@ -363,7 +397,7 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
 
     interactive = answers is None
     if answers is None:
-        answers = _interactive_answers(state, secrets, ui, test_mode, change, language)
+        answers = _interactive_answers(state, secrets, ui, test_mode, change, paths)
         if answers is None:
             return EXIT_INVALID
     for value in answers.secret_values() + secrets.values():
@@ -380,11 +414,14 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
         ui.fail(t("preflight.root"))  # the real steps change the system: root on the real system only
         return EXIT_INVALID
     answers.store(state, secrets)
+    from roadie import drafts
+    drafts.clear(secrets)  # the answers are stored for good now
     state.mark_done("preflight")
     state.save()
     ctx = Context(paths=paths, state=state, secrets=secrets, ui=ui, redact=redact, answers=answers)
     ctx.extra["interactive"] = interactive and not update
     ctx.extra["update"] = update  # an update never shows passwords (summary)
+    ctx.extra["change"] = change  # no SSH waiting in "change settings"
     phases.prepare(ctx, facts)
     try:
         run_steps(steps, ctx)
@@ -402,7 +439,8 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
     if not open_points:
         ui.ok(t("cli.done"))
         return EXIT_OK
-    ui.warn(t("cli.done_open", count=len(open_points)))
+    ui.ok(t("cli.done"))
+    ui.info(t("cli.done_later"))
     for title, key in open_points:
-        ui.hint(f"{title}: {t(key)}")
+        ui.hint(f"- {t(key)}")
     return EXIT_OK

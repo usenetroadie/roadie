@@ -81,10 +81,12 @@ def run(env: Env, ui: Prompter, topic: str | None = None) -> int:
     if topic is None:
         options = [(name, title(name)) for name in TOPICS]
         options += [("all", t("explain.all")), ("back", t("explain.back"))]
-        topic = ui.choose(t("explain.pick"), options)
-        if topic == "back":
-            return 0
-        return run(env, ui, topic)
+        while True:  # after a page, Enter leads back to this list, not out of the help
+            topic = ui.choose(t("explain.pick"), options)
+            if topic == "back":
+                return 0
+            run(env, ui, topic)
+            ui.ask(t("explain.back_to_list"), default="", validate=lambda v: None)
     show(env, ui, topic)
     ui.hint(t("explain.more"))
     return 0

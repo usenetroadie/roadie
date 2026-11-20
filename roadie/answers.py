@@ -215,8 +215,8 @@ def _check_people(c: _Checker, people) -> None:
 
 def _check(data: dict) -> _Checker:
     c = _Checker(data)
-    if c.get("language") not in (None, "en", "de"):
-        c.err("language", t("answers.err.one_of", options="en, de"))
+    if data.get("language") not in (None, "en", "de"):  # optional; "de" from roadie 0.5 and earlier
+        c.err("language", t("answers.err.one_of", options="en"))
 
     user = c.get("admin_user")
     problem = admin_user_problem(user) if user is not None else None
@@ -250,6 +250,9 @@ def _check(data: dict) -> _Checker:
             c.err(f"{path}.port", t("answers.err.range", min=1, max=65535))
         if not isinstance(p.get("connections"), int) or not 1 <= p["connections"] <= 100:
             c.err(f"{path}.connections", t("answers.err.range", min=1, max=100))
+        plan = p.get("plan_connections")  # missing in answers of roadie 0.5 and earlier
+        if plan is not None and (not isinstance(plan, int) or not 1 <= plan <= 100):
+            c.err(f"{path}.plan_connections", t("answers.err.range", min=1, max=100))
         if p.get("role") not in ("primary", "backup"):
             c.err(f"{path}.role", t("answers.err.one_of", options="primary, backup"))
         for key in ("username", "password"):
@@ -274,8 +277,9 @@ def _check(data: dict) -> _Checker:
             ix["url"] = normalise_newznab_url(ix.get("url", ""))
         except ValueError as e:
             c.err(f"{path}.url", str(e))
-        if not isinstance(ix.get("fallback", False), bool):
-            c.err(f"{path}.fallback", t("answers.err.bool"))
+        for flag in ("fallback", "unchecked"):  # unchecked: kept although it did not answer
+            if not isinstance(ix.get(flag, False), bool):
+                c.err(f"{path}.{flag}", t("answers.err.bool"))
         for key in ("daily_api_limit", "daily_grab_limit"):
             v = ix.get(key)
             if v is not None and (not isinstance(v, int) or v < 1):

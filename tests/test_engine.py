@@ -148,7 +148,7 @@ class SshCheckTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
-    def run_check(self, created=False, seen=False):
+    def run_check(self, created=False, seen=False, change=False, waited=None):
         from unittest import mock
         from roadie.answers import Answers
         from roadie.phases import host
@@ -164,7 +164,15 @@ class SshCheckTest(unittest.TestCase):
                       redact=Redactor(), answers=Answers({"admin_user": "streamadmin",
                                                           "duckdns": {"subdomain": "example"}}))
         ctx.extra["interactive"] = True
-        with mock.patch.object(host, "key_login_seen", return_value=seen):
+        ctx.extra["change"] = change
+        real_wait = host.wait_for_key_login
+
+        def spy(*a, **k):
+            if waited is not None:
+                waited.append(True)
+            return real_wait(*a, **k)
+        with mock.patch.object(host, "key_login_seen", return_value=seen), \
+                mock.patch.object(host, "wait_for_key_login", side_effect=spy):
             outcome = host.ssh_hardening(ctx)
         return outcome, out.getvalue()
 
@@ -176,9 +184,23 @@ class SshCheckTest(unittest.TestCase):
         _, out = self.run_check(created=True)
         self.assertIn("ssh -i ~/.ssh/roadie streamadmin@example.duckdns.org\n", out)
 
-    def test_skipped_check_is_open_point(self):
+    def test_skip_is_calm(self):
+        from roadie import i18n
         outcome, _ = self.run_check()
-        self.assertEqual((outcome.status, outcome.open_key), ("skipped", "open.ssh_hardening"))
+        self.assertEqual((outcome.status, outcome.open_key), ("ok", "open.ssh_hardening"))
+        self.assertIn("sudo roadie", outcome.note)
+        self.assertEqual(outcome.note, i18n.t("ssh.check.later"))
+
+    def test_change_settings_does_not_wait(self):
+        waited = []
+        self.run_check(change=True, waited=waited)
+        self.assertEqual(waited, [])
+        self.run_check(waited=waited)
+        self.assertEqual(waited, [True])
+
+    def test_countdown_line_short(self):
+        from roadie import i18n
+        self.assertLessEqual(len(i18n.t("ssh.check.waiting", time="10:00")), 40)
 
     def test_already_hardened_is_ok(self):
         from roadie.answers import Answers

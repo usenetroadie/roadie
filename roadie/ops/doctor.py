@@ -116,7 +116,12 @@ def provider_lines(providers: list[dict]) -> list[Line]:
     out = []
     for p in providers:
         result = nntp.check_nntp(p["host"], p["port"], p["tls"], p["username"], p["password"])
-        out.append((OK if result.ok else WARN, f"{p['host']}: {t(result.key, **result.params)}"))
+        if result.key in ("check.nntp.refused", "check.nntp.busy"):  # every connection busy streaming
+            out.append((OK, f"{p['host']}: {t('check.nntp.busy')}"))
+        elif result.ok or result.key == "check.nntp.bad_login":
+            out.append((OK if result.ok else WARN, f"{p['host']}: {t(result.key, **result.params)}"))
+        else:  # it does not answer: the login is probably fine, the provider is away
+            out.append((WARN, f"{p['host']}: {t('doctor.provider_down')}"))
     return out
 
 

@@ -1,6 +1,7 @@
 """Encrypted weekly backups with age. Only the public key lives on the server; the private
 key stays with the user, so a stolen backup or server cannot be decrypted."""
 
+import contextlib
 import datetime
 import hashlib
 import os
@@ -22,7 +23,9 @@ HAS_TAR_FILTER = hasattr(tarfile, "data_filter")  # Python 3.12, and 3.11 from 3
 # the program itself is not backed up: a restore must never replace a newer version
 EXCLUDES = ["opt/roadie/app", "opt/roadie/app.prev", "opt/roadie/app.new",
             "opt/roadie/stack/data/aiostreams/cache", "opt/roadie/stack/data/aiometadata-redis",
-            "opt/roadie/stack/data/traefik/access.log"]
+            "opt/roadie/stack/data/traefik/access.log",
+            "opt/roadie/stack/data/status/backup"]  # the copy for the status page (never a backup in a backup)
+PUBLISHED = "data/status/backup"  # below the stack folder: served by the status page, behind the login
 INCLUDES = ["opt/roadie", "etc/roadie"]
 
 
@@ -93,14 +96,18 @@ def run(env: Env, quiet: bool = False) -> int:
         print(t("backup.failed"), str(target_dir))
         return 1
     target_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    close_folder(target_dir)  # an existing 0755 folder too: the published hard link is 0644
     existing = {p.name for p in target_dir.iterdir()}
     target = target_dir / file_name(datetime.datetime.now(), existing)
     running = [s["Service"] for s in env.services() if s.get("State") == "running" and s["Service"] in APP_SERVICES]
     env.save_json(BACKUP_MARKER, {"since": time.time()})  # the watcher does not report the stopped apps
+    from roadie.ui import Prompter
+    progress = contextlib.nullcontext() if quiet else Prompter().working(t("backup.working"))
     try:
-        if running:
-            env.compose("stop", *running)
-        encrypt_tar(target, key, env.paths.root)
+        with progress:
+            if running:
+                env.compose("stop", *running)
+            encrypt_tar(target, key, env.paths.root)
     except Exception as exc:
         env.push(t("backup.title"), t("backup.failed"), 4)
         print(t("backup.failed"), Redactor(env.secrets.values())(f"{type(exc).__name__}: {exc}")[:400])
@@ -110,6 +117,7 @@ def run(env: Env, quiet: bool = False) -> int:
             env.compose("start", *running, check=False)
         (env.var_dir / BACKUP_MARKER).unlink(missing_ok=True)
     write_checksum(target)
+    publish_latest(env, target)
     for old in prune([p.name for p in target_dir.iterdir()]):
         (target_dir / old).unlink(missing_ok=True)
         (target_dir / (old + ".sha256")).unlink(missing_ok=True)
@@ -123,6 +131,52 @@ def run(env: Env, quiet: bool = False) -> int:
     if not quiet:
         print(message)
     return 0
+
+
+def close_folder(folder: Path) -> None:
+    """Only root and the admin user see the backups (the files are 0644 for the status page)."""
+    try:
+        folder.chmod(0o700)
+    except OSError:
+        pass
+
+
+def publish_latest(env: Env, archive: Path) -> None:
+    """The newest backup for the status page (download in the browser, behind the login).
+    The file is useless without the private backup key. A hard link costs no space; across
+    file systems a copy. Never fails the backup."""
+    folder = env.paths.stack_dir / PUBLISHED
+    if archive.is_symlink() or not archive.is_file():  # only roadie's own regular file
+        return
+    try:
+        folder.mkdir(mode=0o755, parents=True, exist_ok=True)
+        folder.chmod(0o755)
+        target = folder / archive.name
+        if not target.exists():
+            tmp = folder / (archive.name + ".tmp")
+            tmp.unlink(missing_ok=True)
+            try:
+                os.link(archive, tmp)
+            except OSError:
+                import shutil
+                shutil.copyfile(archive, tmp)
+            tmp.chmod(0o644)  # the web server runs as nobody; the home folder stays closed (0700)
+            tmp.replace(target)
+        for other in folder.iterdir():
+            if other.name != archive.name:
+                other.unlink(missing_ok=True)
+    except OSError as exc:
+        print(t("backup.publish_failed"), type(exc).__name__)
+
+
+def published(env: Env) -> Path | None:
+    """The backup the status page offers, if any."""
+    folder = env.paths.stack_dir / PUBLISHED
+    try:
+        files = [p for p in folder.iterdir() if p.name.endswith(".tar.age") and p.is_file()]
+    except OSError:
+        return None
+    return max(files, key=lambda p: p.name) if files else None
 
 
 class UnsafeBackup(Exception):
@@ -211,7 +265,38 @@ def _extract(identity: str, archive: str, root: Path) -> None:
                     tar.extract(member, path=str(root), numeric_owner=True)
 
 
-def restore(paths, archive: str, identity: str, overwrite: bool = False) -> int:
+def find_uploaded(paths) -> Path | None:
+    """The newest roadie backup a user uploaded to this server (home folders and /root)."""
+    places = [paths.root / "root", *sorted((paths.root / "home").glob("*"))]
+    found = []
+    for place in places:
+        try:
+            found += [p for p in place.glob("roadie-backup-*.tar.age") if p.is_file()]
+        except OSError:
+            continue
+    return max(found, key=lambda p: p.stat().st_mtime) if found else None
+
+
+def restore_with_key(paths, archive: str, key_text: str, overwrite: bool = False,
+                     then_continue: bool = False) -> int:
+    """restore() with the private key pasted as text: it lives in a 0600 file only while
+    the backup is unpacked and is removed in every case."""
+    import tempfile
+    run_dir = "/run" if os.access("/run", os.W_OK) else None  # tmpfs: gone at the latest with a reboot
+    fd, name = tempfile.mkstemp(prefix="roadie-key-", dir=run_dir)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(key_text.strip() + "\n")
+        os.chmod(name, 0o600)
+        return restore(paths, archive, name, overwrite=overwrite, then_continue=then_continue)
+    finally:
+        try:
+            os.unlink(name)
+        except OSError:
+            pass
+
+
+def restore(paths, archive: str, identity: str, overwrite: bool = False, then_continue: bool = False) -> int:
     """Decrypt and unpack a backup onto this (fresh) server, then let the wizard rebuild
     everything from the restored answers and secrets."""
     import shutil
@@ -223,10 +308,11 @@ def restore(paths, archive: str, identity: str, overwrite: bool = False) -> int:
         print(t("backup.restore_exists"))
         return 2
     if not shutil.which("age"):  # a fresh server does not have it yet
-        print(t("backup.installing_age"))
+        from roadie.ui import Prompter
         try:
-            system.run(["apt-get", "update", "-q"])
-            system.run(["apt-get", "install", "-y", "-q", "age"])
+            with Prompter().working(t("backup.installing_age")):
+                system.run(["apt-get", "update", "-q"])
+                system.run(["apt-get", "install", "-y", "-q", "age"])
         except (system.CommandFailed, OSError):
             print(t("backup.restore_failed"))
             return 1
@@ -242,6 +328,8 @@ def restore(paths, archive: str, identity: str, overwrite: bool = False) -> int:
     state = State(paths.state_file)
     state.done = []  # this machine has to be set up again from the restored answers
     state.answers.pop("_ssh_hardened", None)
+    state.answers["_restored"] = {"file": Path(archive).name, "at": time.strftime("%Y-%m-%d %H:%M")}
     state.save()
-    print(t("backup.restore_done"))
+    # the wizard offered the restore itself and goes on at once: no "now run sudo roadie"
+    print(t("backup.restore_continuing" if then_continue else "backup.restore_done"))
     return 0

@@ -247,7 +247,11 @@ def _plain(text: str) -> str:
     (nothing from outside may move the cursor or colour the terminal), first sentence only."""
     text = "".join(c for c in " ".join(text.split()) if c.isprintable()).replace("`", "").replace("*", "")
     text = text.split(". ", 1)[0].rstrip(".")
-    return text if len(text) <= NEWS_CHARS else text[:NEWS_CHARS - 1].rstrip() + "…"
+    if len(text) <= NEWS_CHARS:
+        return text
+    cut = text[:NEWS_CHARS - 1]
+    cut = cut.rsplit(" ", 1)[0] if " " in cut else cut  # at a word, never in the middle of one
+    return cut.rstrip(" ,;:") + "…"
 
 
 def changelog_news(text: str, current: str, tag: str) -> list[str]:

@@ -22,6 +22,7 @@ SCHEMA = {"implementation": "Newznab", "name": "Generic Newznab",
 class FakeProwlarr:
     def __init__(self):
         self.indexers, self.calls, self.next_id, self.tags = {}, [], 1, []
+        self.failing = set()  # names Prowlarr refuses (its own test of the indexer fails)
 
     def __call__(self, base, key, method, path, body=None):
         self.calls.append((method, path))
@@ -41,6 +42,10 @@ class FakeProwlarr:
                     if f["name"] == "apiKey":
                         f["value"] = "********"
             return out
+        if method in ("POST", "PUT") and body.get("name") in self.failing:
+            raise RuntimeError('400: [{"errorMessage": "Query successful, but no results in the configured '
+                               'categories were returned from your indexer. This may be an issue with the '
+                               'indexer or your indexer category settings. See the FAQ"}]')
         if method == "POST":
             body = {**body, "id": self.next_id}
             self.indexers[self.next_id], self.next_id = body, self.next_id + 1
@@ -77,7 +82,7 @@ class ProwlarrIndexersTest(unittest.TestCase):
         self.ctx.answers = SimpleNamespace(data={"indexers": [dict(ix) for ix in indexers]})
         self.fake.calls.clear()
         self.restarts.clear()
-        stack.prowlarr_indexers(self.ctx)
+        return stack.prowlarr_indexers(self.ctx)
 
     def writes(self):
         return [c for c in self.fake.calls if c[0] != "GET"]
@@ -132,6 +137,61 @@ class ProwlarrIndexersTest(unittest.TestCase):
         self.run_step(dict(ix, fallback=False))
         self.assertEqual(self.writes(), [])
         self.assertEqual(self.fake.tags, [])
+
+
+
+A = {"name": "A", "url": "https://a.example.com", "api_key": "KA"}
+B = {"name": "B", "url": "https://b.example.com", "api_key": "KB"}
+
+
+class TolerantTest(ProwlarrIndexersTest):
+    def test_one_indexer_fails_others_ok(self):
+        self.fake.failing = {"A"}
+        outcome = self.run_step(A, B)
+        self.assertEqual(outcome.status, "warn")
+        self.assertEqual(self.ctx.state.answers["_indexers_missing"], ["A"])
+        self.assertEqual([i["name"] for i in self.fake.indexers.values()], ["B"])
+
+    def test_all_indexers_fail_raises_plain(self):
+        from roadie.engine import StepFailed
+        self.fake.failing = {"A", "B"}
+        with self.assertRaises(StepFailed) as e:
+            self.run_step(A, B)
+        self.assertNotIn("FAQ", e.exception.message)
+        self.assertNotIn("category settings", e.exception.message)
+
+    def test_missing_indexer_retried(self):
+        self.fake.failing = {"A"}
+        self.run_step(A, B)
+        self.fake.failing = set()
+        outcome = self.run_step(A, B)
+        self.assertIsNone(outcome)
+        self.assertNotIn("_indexers_missing", self.ctx.state.answers)
+        self.assertEqual(sorted(i["name"] for i in self.fake.indexers.values()), ["A", "B"])
+
+    def test_failed_update_keeps_existing_indexer(self):
+        self.run_step(A, B)
+        self.fake.failing = {"A"}
+        self.run_step({**A, "api_key": "NEW"}, B)
+        self.assertIn("A", [i["name"] for i in self.fake.indexers.values()])  # not deleted
+
+
+class PlainTextTest(unittest.TestCase):
+    def test_prowlarr_problem_no_results(self):
+        text = stack.prowlarr_problem("Query successful, but no results in the configured categories were "
+                                      "returned from your indexer. See the FAQ")
+        self.assertNotIn("FAQ", text)
+        self.assertIn("no results", text.lower())
+
+    def test_prowlarr_problem_timeout_and_key(self):
+        self.assertIn("answer", stack.prowlarr_problem("Unable to connect to indexer: timeout").lower())
+        self.assertIn("key", stack.prowlarr_problem("Unauthorized: invalid API Key").lower())
+
+    def test_pull_problem_detects_registry(self):
+        out = ("Error response from daemon: Get \"https://registry-1.docker.io/v2/\": dial tcp "
+               "127.0.0.1:443: connect: connection refused")
+        self.assertIsNotNone(stack.pull_problem(out))
+        self.assertIsNone(stack.pull_problem("some other compose error"))
 
 
 if __name__ == "__main__":
