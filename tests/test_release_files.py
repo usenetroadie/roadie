@@ -12,6 +12,11 @@ class ReleaseFilesTest(unittest.TestCase):
     def test_wrapper_never_imports_from_current_folder(self):
         self.assertIn('exec python3 -P -m roadie "$@"', (ROOT / "install.sh").read_text())
 
+    def test_installer_refuses_the_same_systems_as_preflight(self):
+        from roadie.preflight import SYSTEMS
+        line = re.search(r"^\s+(\"[^\n]+\"\)) ;;$", (ROOT / "install.sh").read_text(), re.M).group(1)
+        self.assertEqual(line, "|".join(f'"{os_id} {version}"' for os_id, version in SYSTEMS) + ")")
+
     def test_signing_needs_the_release_environment(self):
         text = (WORKFLOWS / "release.yml").read_text()
         self.assertRegex(text, r"\n    environment: release\b")

@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.6.1 – 2026-11-22
+
+- On an unsupported system (for example Ubuntu 22.04) the installer stopped with a confusing
+  Python error ("Unknown option: -P"). It now says right away which systems roadie needs and
+  installs nothing.
+
 ## 0.6.0 – 2026-11-20
 
 - roadie speaks English only now. Servers set up in German keep working, the texts are English
