@@ -380,7 +380,7 @@ publishes ports – and only on IPv4 (`0.0.0.0`), see the note at the end of thi
 name: "stack"
 services:
   traefik:
-    image: "traefik:v3.7.18"
+    image: "traefik:v3.8.0"
     restart: "always"
     mem_limit: "256m"
     logging:
@@ -463,7 +463,7 @@ services:
     volumes:
       - "./data/aiostreams:/app/data"
   prowlarr:
-    image: "ghcr.io/hotio/prowlarr:release-2.7.0.5723"
+    image: "ghcr.io/hotio/prowlarr:release-3.1.0.5799"
     restart: "always"
     mem_limit: "512m"
     logging:
@@ -493,7 +493,7 @@ services:
     volumes:
       - "./data/prowlarr:/config"
   aiometadata:
-    image: "ghcr.io/cedya77/aiometadata:3.9.0"
+    image: "ghcr.io/cedya77/aiometadata:4.1.0"
     restart: "always"
     mem_limit: "768m"
     logging:
@@ -526,7 +526,7 @@ services:
       aiometadata-redis:
         condition: "service_healthy"
   aiometadata-redis:
-    image: "redis:8.10.3-alpine"
+    image: "redis:8.12.0-alpine"
     restart: "always"
     mem_limit: "256m"
     logging:
