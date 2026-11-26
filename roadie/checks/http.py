@@ -7,9 +7,10 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from roadie import __version__
-
-USER_AGENT = f"roadie/{__version__}"
+# Indexers, TMDB and DuckDNS see the same browser as AIOStreams' "chrome" header preset,
+# so no third party learns that roadie (or a streaming setup) is asking.
+USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36")
 
 
 @dataclass

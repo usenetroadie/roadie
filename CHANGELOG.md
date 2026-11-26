@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.6.2 – 2026-11-26
+
+- When roadie checks your indexers, TMDB key or DuckDNS, it now looks like a normal browser
+  (the same one AIOStreams uses for NZB downloads). Before, indexers listed "roadie/0.6.1" as an
+  app on your profile page.
+
 ## 0.6.1 – 2026-11-22
 
 - On an unsupported system (for example Ubuntu 22.04) the installer stopped with a confusing

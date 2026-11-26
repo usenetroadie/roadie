@@ -34,6 +34,12 @@ class NewznabTest(unittest.TestCase):
         self.assertFalse(r.ok)
         self.assertEqual(r.key, "check.newznab.bad_key")
 
+    def test_indexer_sees_a_browser_not_roadie(self):
+        newznab.check_newznab(self.srv.url, "good")
+        agent = self.srv.requests[-1][2]["User-Agent"]
+        self.assertTrue(agent.startswith("Mozilla/5.0"), agent)
+        self.assertNotIn("roadie", agent.lower())
+
     def test_newznab_other_error(self):
         r = newznab.check_newznab(self.srv.url + "/other", "good")
         self.assertEqual((r.key, r.params.get("code")), ("check.newznab.error", "910"))
