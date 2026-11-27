@@ -41,6 +41,7 @@ jobs:
           sudo systemctl stop docker.socket docker.service containerd || true
           sudo apt-get purge -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin moby-* || true
           sudo rm -rf /var/lib/docker /etc/docker /usr/bin/docker /usr/libexec/docker
+          sudo ss -Htlnp '( sport = :80 or sport = :443 )' || true  # the wizard needs both ports free
       - name: TMDB key for the own AIOMetadata (repository secret; forks run without it)
         env:
           TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
@@ -79,16 +80,19 @@ jobs:
         run: |
           # The snap store is flaky; Incus 6.0 from apt is no way out (Docker does not start in it).
           # So the snaps are downloaded once a week and installed from the Actions cache.
-          cd ~ && mkdir -p lxd-snaps && cd lxd-snaps
-          if ! ls lxd_*.snap >/dev/null 2>&1; then
-            for try in 1 2 3 4 5 6; do snap download lxd && break; sleep 60; done
+          mkdir -p ~/lxd-snaps
+          (  # in a subshell: the repository copy below must run from the checkout
+            cd ~/lxd-snaps
+            if ! ls lxd_*.snap >/dev/null 2>&1; then
+              for try in 1 2 3 4 5 6; do snap download lxd && break; sleep 60; done
+              base="$(unsquashfs -cat lxd_*.snap meta/snap.yaml | awk '/^base:/ {print $2}')"
+              for try in 1 2 3 4 5 6; do snap download "$base" && break; sleep 60; done
+            fi
+            for f in *.assert; do sudo snap ack "$f"; done
             base="$(unsquashfs -cat lxd_*.snap meta/snap.yaml | awk '/^base:/ {print $2}')"
-            for try in 1 2 3 4 5 6; do snap download "$base" && break; sleep 60; done
-          fi
-          for f in *.assert; do sudo snap ack "$f"; done
-          base="$(unsquashfs -cat lxd_*.snap meta/snap.yaml | awk '/^base:/ {print $2}')"
-          snap list "$base" >/dev/null 2>&1 || sudo snap install ./"$base"_*.snap
-          sudo snap install ./lxd_*.snap
+            snap list "$base" >/dev/null 2>&1 || sudo snap install ./"$base"_*.snap
+            sudo snap install ./lxd_*.snap
+          )
           sudo lxd init --auto
           sudo iptables -P FORWARD ACCEPT  # the runner's Docker would drop the container's traffic
           sudo lxc launch "images:${{ matrix.image }}" srv -c security.nesting=true
