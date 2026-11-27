@@ -29,7 +29,8 @@ class ReleaseFilesTest(unittest.TestCase):
             self.assertTrue(uses, wf.name)
             for action in uses:
                 self.assertRegex(action, r"@[0-9a-f]{40}$", f"{wf.name}: {action}")
-            self.assertEqual(text.count("persist-credentials: false"), len(uses), wf.name)
+            checkouts = [u for u in uses if u.startswith("actions/checkout@")]  # the only one that stores a token
+            self.assertEqual(text.count("persist-credentials: false"), len(checkouts), wf.name)
 
     def test_one_line_installer_trusts_the_release_key_only(self):
         from roadie.ops import selfupdate
