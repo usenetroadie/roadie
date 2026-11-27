@@ -18,6 +18,12 @@ from roadie.render import build_render_config, load_versions
 from roadie.secretstore import SecretStore
 from roadie.state import State
 
+try:  # own-rules.yml needs PyYAML (python3-yaml); minimal test images lack it
+    import yaml  # noqa: F401
+    HAVE_YAML = True
+except ImportError:
+    HAVE_YAML = False
+
 EXAMPLE = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
 
 
@@ -52,6 +58,8 @@ class StackAutheliaFilesTest(unittest.TestCase):
 
     def files(self):
         return self.stack / "config/authelia"
+
+    @unittest.skipUnless(HAVE_YAML, "needs python3-yaml")
 
     def test_own_rules_land_in_configuration(self):
         self.files().mkdir(parents=True)
@@ -140,6 +148,8 @@ class StackAutheliaFilesTest(unittest.TestCase):
             result = stack.stack_healthy(self.ctx)
         return result, calls
 
+    @unittest.skipUnless(HAVE_YAML, "needs python3-yaml")
+
     def test_authelia_started_again_without_own_rules(self):
         before = self.ctx.state.answers.get("_config_hashes")
         ok, calls = self._fallback_run(True)
@@ -154,6 +164,8 @@ class StackAutheliaFilesTest(unittest.TestCase):
         # the next run sees a different authelia config again and recreates it with the rules
         self.assertNotEqual(self.ctx.state.answers["_config_hashes"]["authelia"],
                             self.ctx.extra["config_hashes"]["authelia"])
+
+    @unittest.skipUnless(HAVE_YAML, "needs python3-yaml")
 
     def test_rejected_rules_stay_left_out_until_the_file_changes(self):
         import hashlib
@@ -173,6 +185,8 @@ class StackAutheliaFilesTest(unittest.TestCase):
         with mock.patch.object(stack, "_unhealthy", lambda ctx: []):
             self.assertTrue(stack.stack_healthy(self.ctx))
         self.assertNotIn("_own_rules_rejected", self.ctx.state.answers)
+
+    @unittest.skipUnless(HAVE_YAML, "needs python3-yaml")
 
     def test_still_unhealthy_without_own_rules_fails(self):
         ok, calls = self._fallback_run(False)

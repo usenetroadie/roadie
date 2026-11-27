@@ -9,6 +9,12 @@ from roadie.answers import Answers
 from roadie.render import build_render_config, load_versions
 from roadie.render.authelia import AIOSTREAMS_PLAYER_PATHS, METADATA_IMAGE_PATHS, METADATA_PLAYER_PATHS, PROTECTED_PATHS, config_dict, read_own_rules, render_authelia
 
+try:  # own-rules.yml needs PyYAML (python3-yaml); minimal test images lack it
+    import yaml  # noqa: F401
+    HAVE_YAML = True
+except ImportError:
+    HAVE_YAML = False
+
 EXAMPLE = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
 SECRETS = {"authelia_jwt_secret": "J" * 64, "authelia_session_secret": "S" * 64, "authelia_storage_key": "K" * 64}
 HASH = "$argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHQ$aGFzaGhhc2g"
@@ -203,6 +209,8 @@ class OwnRulesTest(unittest.TestCase):
 
     def test_missing_file_is_fine(self):
         self.assertEqual(read_own_rules(Path("/nonexistent/own-rules.yml")), ([], None))
+
+    @unittest.skipUnless(HAVE_YAML, "needs python3-yaml")
 
     def test_good_file_read(self):
         rules, reason = self.read("- domain: [a.example.org]\n  policy: bypass\n  resources: ['^/x']\n"
