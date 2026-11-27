@@ -22,6 +22,7 @@ class FakeApi:
     def __init__(self, fail_delete=False, fail_create=False, password_changed=False):
         self.users, self.deleted, self.fail_delete, self.fail_create = {}, [], fail_delete, fail_create
         self.password_changed = password_changed  # DELETE refused, but the config still works
+        self.updated = []
 
     def starter_template(self):
         return {"presets": [], "sortCriteria": {"global": []}}
@@ -38,6 +39,7 @@ class FakeApi:
 
     def update_user(self, uuid, password, config):
         self.users[uuid] = config
+        self.updated.append(uuid)
 
     def manifest_ok(self, uuid, encrypted):
         return self.password_changed
@@ -211,6 +213,28 @@ class PeopleMenuTest(MenuBase):
         uuid = secrets.get(f"person.{people[1]['id']}.uuid")
         self.assertEqual(api.users[uuid]["parentConfig"]["uuid"], "UUID-MAIN")
         self.assertIn(f"/stremio/{uuid}/ENC-{uuid}/manifest.json", self.out.getvalue())
+
+    def test_people_add_leaves_the_others_alone(self):
+        api = FakeApi()
+        menu.people_menu(self.env, self.ui("1\nAnna\n1\n"), lambda env: api)
+        anna = SecretStore(self.paths.secrets_file).get("person.anna.uuid")
+        api.users[anna]["presets"] = []  # Anna deleted the wizard's addons on the website
+        menu.people_menu(self.env, self.ui("1\nBen\n1\n"), lambda env: api)
+        self.assertEqual(api.updated, [])
+        self.assertEqual(api.users[anna]["presets"], [])
+        self.assertTrue(SecretStore(self.paths.secrets_file).get("person.ben.uuid"))
+
+    def test_people_change_writes_only_person_fields(self):
+        api = FakeApi()
+        menu.people_menu(self.env, self.ui("1\nAnna\n1\n"), lambda env: api)
+        anna = SecretStore(self.paths.secrets_file).get("person.anna.uuid")
+        api.users[anna]["presets"] = []
+        api.users[anna]["formatter"] = {"id": "annas"}
+        api.users[anna]["preferredLanguages"] = ["French"]  # a person field: roadie's answer wins
+        menu.people_menu(self.env, self.ui("2\n1\n1\n"), lambda env: api)  # change -> Anna -> inherit
+        self.assertEqual(api.updated, [anna])
+        self.assertEqual((api.users[anna]["presets"], api.users[anna]["formatter"]), ([], {"id": "annas"}))
+        self.assertNotEqual(api.users[anna].get("preferredLanguages"), ["French"])
 
     def test_people_keep_the_own_aiometadata(self):
         """The people menu builds the same config as the setup: with the own AIOMetadata

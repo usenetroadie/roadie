@@ -45,7 +45,7 @@ roadie asks for these during the setup and checks each one right away:
 |---|---|
 | A web address | **either** a free DuckDNS subdomain + token from [duckdns.org](https://www.duckdns.org) (sign in, enter a name, *add domain*; the token is at the top of the page) **or** your own domain – see below |
 | Usenet provider login | your provider account (username, password). A second provider on a **different backbone** is a good backup – roadie warns if both are on the same network |
-| Usenet indexer | your indexer account: its API address and API key |
+| Usenet indexer | your indexer account: its API address and API key (leave the key empty if the indexer needs none) |
 | A password manager | for the passwords, keys and the backup key roadie creates for you |
 | ntfy app (optional) | free app for push messages; roadie shows you the topic to subscribe to |
 | TMDB API key (optional, recommended) | free at [themoviedb.org](https://www.themoviedb.org/settings/api) – use the short **API key** (32 characters), not the long read access token. Improves title matching, and roadie also sets up your own AIOMetadata for catalogs and details |

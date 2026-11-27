@@ -1,15 +1,17 @@
 """Stack steps: domain, Docker, config files, containers, indexers, AIOStreams config."""
 
 import hashlib
+import importlib
 import json
 import re
+import subprocess
 import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
-from roadie import system
+from roadie import guard, system
 from roadie.aiostreams import metadata, people
 from roadie.aiostreams.api import AioClient
 from roadie.aiostreams.builder import FALLBACK_TAG, MAIN_TAG, build_user_config, has_fallback
@@ -148,7 +150,7 @@ def _secrets(ctx: Context) -> dict:
 
 
 # Files a running container reads only at start; `compose up -d` does not notice when a
-# mounted one changes. Traefik's routes.yml is left out: Traefik watches it live.
+# mounted one changes. Traefik's dynamic/ folder is left out: Traefik watches it live.
 RESTART_ON_CHANGE = (("config/authelia/", "authelia"), ("secrets/authelia/", "authelia"),
                      ("env/authelia.env", "authelia"), ("config/traefik/traefik.yml", "traefik"),
                      ("env/aiostreams.env", "aiostreams"), ("env/prowlarr.env", "prowlarr"),
@@ -169,6 +171,57 @@ def _fingerprint(value: str) -> str:
     return hashlib.sha256(("roadie:" + value).encode()).hexdigest()[:16]
 
 
+OWN_RULES = "config/authelia/own-rules.yml"
+REJECTED = "_own_rules_rejected"  # sha256 of an own-rules.yml Authelia did not start with
+
+
+def _own_rules(ctx: Context) -> list[dict]:
+    """The user's own Authelia rules; python3-yaml is fetched once if an older install lacks it."""
+    path = ctx.paths.stack_dir / OWN_RULES
+    if path.is_file():
+        try:
+            import yaml  # noqa: F401
+        except ImportError:  # the packages step only runs on a first setup
+            try:
+                system.run(["apt-get", "install", "-y", "-q", "python3-yaml"])
+            except (system.CommandFailed, OSError, subprocess.SubprocessError):
+                pass  # read_own_rules then reports python3-yaml as missing
+            importlib.invalidate_caches()
+    rejected = ctx.state.answers.get(REJECTED)
+    if rejected and path.is_file() and guard._sha(path.read_bytes()) == rejected:
+        ctx.ui.warn(t("authelia.own_rules_still_left_out"))  # Authelia did not start with this file
+        ctx.extra["own_rules_used"] = False
+        return []
+    rules, reason = authelia.read_own_rules(path)
+    if reason:
+        ctx.ui.warn(t("authelia.own_rules_bad", reason=reason))
+    ctx.extra["own_rules_used"] = bool(rules)
+    return rules
+
+
+def _retire_old_routes(ctx: Context, files) -> None:
+    """Older roadie wrote config/traefik/routes.yml; Traefik now reads the dynamic/ folder, so the
+    old file would be ignored. Unchanged: removed. Edited: renamed to a .bak copy (kept for the user)."""
+    old = ctx.paths.stack_dir / traefik.OLD_DYNAMIC_FILE
+    if not old.is_file():
+        return
+    new = next((f.content for f in files if f.path == traefik.DYNAMIC_FILE), None)
+    if new is None:
+        return
+
+    def body(text: str) -> list[str]:
+        return [line for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    written = ctx.state.answers.setdefault("_written", {})
+    text = old.read_bytes()
+    if body(text.decode("utf-8", "replace")) == body(new) or guard._sha(text) == written.get(traefik.OLD_DYNAMIC_FILE):
+        old.unlink()
+    else:
+        copy = guard._copy_path(old)
+        old.rename(copy)
+        ctx.extra.setdefault("mine_copies", []).append((traefik.OLD_DYNAMIC_FILE, str(copy)))
+    written.pop(traefik.OLD_DYNAMIC_FILE, None)
+
+
 def stack_files(ctx: Context) -> None:
     cfg, secrets, data = ctx.extra["render"], _secrets(ctx), ctx.answers.data
     for value in secrets.values():
@@ -179,7 +232,7 @@ def stack_files(ctx: Context) -> None:
         ctx.secrets.set("authelia_hash", system.authelia_hash(cfg.images["authelia"], password))
         ctx.secrets.set("authelia_hash_for", _fingerprint(password))
     files = (compose.render_compose(cfg) + traefik.render_traefik(cfg)
-             + authelia.render_authelia(cfg, secrets, ctx.secrets.get("authelia_hash"))
+             + authelia.render_authelia(cfg, secrets, ctx.secrets.get("authelia_hash"), _own_rules(ctx))
              + envfiles.render_env(cfg, secrets, data["usenet"]["providers"], data.get("tmdb_api_key")))
     stack = ctx.paths.stack_dir
     for sub in ("data/traefik", "data/authelia", "data/aiostreams", "data/prowlarr"):
@@ -187,7 +240,11 @@ def stack_files(ctx: Context) -> None:
     statuspage.write(Env(ctx.paths, ctx.state, ctx.secrets))  # its web server wants a file to serve
     stack.chmod(0o700)  # containers write files 0644 (one-time codes, databases): root only
     system.run(["chown", "-R", "1000:1000", str(stack / "data/prowlarr")])
-    system.write_files(files, stack)
+    # users.yml holds the user's password reset and extra users: rewritten only when the login changed
+    # (the hash stays in config_hashes: it only changes with the password, so no needless restart)
+    keep_users = (stack / "config/authelia/users.yml").is_file() and not {"*", "auth"} & ctx.extra.get("changed", {"*"})
+    guard.write_guarded(ctx, [f for f in files if not (keep_users and f.path == "config/authelia/users.yml")], stack)
+    _retire_old_routes(ctx, files)  # only now: if writing failed, the old routes keep working
     if not cfg.metadata:  # taken down again: its env file holds the TMDB key. The data folder
         (stack / "env/aiometadata.env").unlink(missing_ok=True)  # stays, in case it comes back
     ctx.extra["config_hashes"] = config_hashes(files)
@@ -195,6 +252,12 @@ def stack_files(ctx: Context) -> None:
 
 def _compose(ctx: Context, *args: str, check: bool = True) -> str:
     return system.run(["docker", "compose", *args], cwd=str(ctx.paths.stack_dir), check=check, timeout=1800)
+
+
+def _override_problem(e: system.CommandFailed) -> None:
+    """Compose names the file when the user's own compose.override.yaml cannot be read."""
+    if "compose.override.yaml" in e.output:
+        raise StepFailed("stack_up", t("stack.override_broken")) from None
 
 
 def stack_up(ctx: Context) -> None:
@@ -206,8 +269,13 @@ def stack_up(ctx: Context) -> None:
         problem = pull_problem(e.output)
         if problem:
             raise StepFailed("stack_up", problem) from None
+        _override_problem(e)
         raise
-    _compose(ctx, "up", "-d", "--remove-orphans")
+    try:
+        _compose(ctx, "up", "-d", "--remove-orphans")
+    except system.CommandFailed as e:
+        _override_problem(e)
+        raise
     if new is None:
         return
     old = ctx.state.answers.get("_config_hashes") or {}
@@ -218,23 +286,73 @@ def stack_up(ctx: Context) -> None:
     ctx.state.save()
 
 
+def _own_services(ctx: Context) -> set[str]:
+    """roadie's services: all of them have a health check. Ones the user added in
+    compose.override.yaml are left out, they may have none."""
+    if "render" in ctx.extra:
+        return set(compose.compose_dict(ctx.extra["render"])["services"])
+    return set(Env(ctx.paths, ctx.state, ctx.secrets).stack_services())
+
+
 def _unhealthy(ctx: Context) -> list[str]:
-    bad = []
+    own, bad = _own_services(ctx), []
     for line in _compose(ctx, "ps", "-a", "--format", "json").splitlines():
         if line.strip().startswith("{"):
             c = json.loads(line)
-            if c.get("State") != "running" or c.get("Health") not in ("healthy", ""):
-                bad.append(c.get("Service", "?"))
+            name = c.get("Service", "?")
+            if own and name not in own:
+                continue
+            # right after a (re)create Health is "" for a moment, also for one about to crash
+            if c.get("State") != "running" or c.get("Health") not in (("healthy",) if own else ("healthy", "")):
+                bad.append(name)
     return bad
 
 
-def stack_healthy(ctx: Context) -> bool:
+def _wait_healthy(ctx: Context) -> list[str]:
+    """The services still not healthy after up to 7 minutes ([] = all fine)."""
     deadline = time.time() + 420
     while time.time() < deadline:
         if not _unhealthy(ctx):
-            return True
+            return []
         time.sleep(5)
-    ctx.ui.fail(t("stack.unhealthy", services=", ".join(_unhealthy(ctx))))
+    return _unhealthy(ctx)
+
+
+def _without_own_rules(ctx: Context) -> bool:
+    """Start Authelia again with roadie's rules only. The user's own-rules.yml stays as it is;
+    the next run tries it again. False when this run has nothing to render from."""
+    if "render" not in ctx.extra or not ctx.secrets.get("authelia_hash"):
+        return False
+    files = authelia.render_authelia(ctx.extra["render"], _secrets(ctx), ctx.secrets.get("authelia_hash"))
+    guard.write_guarded(ctx, [f for f in files if f.path == "config/authelia/configuration.yml"],
+                        ctx.paths.stack_dir)
+    _compose(ctx, "up", "-d", "--no-deps", "--force-recreate", "authelia")
+    ctx.extra["own_rules_used"] = False
+    hashes = ctx.state.answers.get("_config_hashes")
+    if hashes is not None:  # what runs now: the next run recreates Authelia with the rules again
+        hashes["authelia"] = config_hashes(files)["authelia"]
+        ctx.state.save()
+    return True
+
+
+def stack_healthy(ctx: Context) -> bool:
+    bad = _wait_healthy(ctx)
+    if not bad:
+        if ctx.extra.get("own_rules_used") and ctx.state.answers.pop(REJECTED, None):
+            ctx.state.save()  # a changed file that works: nothing rejected any more
+        return True
+    if "authelia" in bad and ctx.extra.get("own_rules_used") and _without_own_rules(ctx):
+        bad = _wait_healthy(ctx)
+        if not bad:
+            ctx.ui.warn(t("authelia.own_rules_left_out"))
+            rules = ctx.paths.stack_dir / OWN_RULES
+            if rules.is_file():  # left out until the file changes: no broken Authelia every run
+                ctx.state.answers[REJECTED] = guard._sha(rules.read_bytes())
+                ctx.state.save()
+            return True
+    ctx.ui.fail(t("stack.unhealthy", services=", ".join(bad)))
+    if "authelia" in bad and ctx.extra.get("own_rules_used"):
+        ctx.ui.hint(t("authelia.own_rules_suspect"))
     return False
 
 
@@ -314,6 +432,8 @@ def prowlarr_indexers(ctx: Context) -> Outcome | None:
         if label not in tags:
             tags[label] = _prowlarr(base, key, "POST", "/api/v1/tag", {"label": label})["id"]
     ours = {tags[label] for label in (MAIN_TAG, FALLBACK_TAG) if label in tags}
+    rewrite = bool({"*", "indexers"} & ctx.extra.get("changed", {"*"}))
+    claimed = {current[ix["name"]]["id"] for ix in indexers if ix["name"] in current}  # matched by name
     for ix in indexers:
         values = {"baseUrl": ix["url"], "apiPath": "/api", "apiKey": ix["api_key"],
                   "baseSettings.queryLimit": ix.get("daily_api_limit"),
@@ -323,6 +443,15 @@ def prowlarr_indexers(ctx: Context) -> Outcome | None:
         wanted[ix["name"]] = hashlib.sha256(json.dumps({**values, **({"tag": tag} if tag else {})},
                                                        sort_keys=True).encode()).hexdigest()
         old = current.get(ix["name"])
+        if not old:  # the user may have renamed it in Prowlarr: same address, other name
+            # (not one the wizard applied under a name that is gone now: that is a rename by the answers)
+            old = next((c for c in current.values() if c["id"] not in claimed and c["name"] not in applied and any(
+                f["name"] == "baseUrl" and f.get("value") == ix["url"] for f in c.get("fields") or [])), None)
+            if old:
+                claimed.add(old["id"])
+        if not old and ix["name"] in applied and not rewrite:
+            wanted[ix["name"]] = applied[ix["name"]]  # the user deleted it: stays deleted
+            continue
         if old and applied.get(ix["name"]) == wanted[ix["name"]]:
             continue
         if old:
@@ -341,9 +470,9 @@ def prowlarr_indexers(ctx: Context) -> Outcome | None:
             _prowlarr(base, key, method, path, entry)
         except RuntimeError as e:  # this one is tried again at the next run; the others go on
             failed.append((ix["name"], prowlarr_problem(_prowlarr_reason(str(e)))))
-            if ix["name"] in applied:
+            if old and ix["name"] in applied:
                 wanted[ix["name"]] = applied[ix["name"]]  # keep the working old one
-            else:
+            else:  # not in Prowlarr: counts as never applied, so the next run tries again
                 del wanted[ix["name"]]
             continue
         changed = True
@@ -351,7 +480,7 @@ def prowlarr_indexers(ctx: Context) -> Outcome | None:
         name, reason = failed[0]  # before removing anything: never leave Prowlarr without an indexer
         raise StepFailed("prowlarr_indexers", t("prowlarr.indexer_failed", name=name, reason=reason))
     for name in set(applied) - set(wanted):
-        if name in current:
+        if name in current and current[name]["id"] not in claimed:
             _prowlarr(base, key, "DELETE", f"/api/v1/indexer/{current[name]['id']}")
             changed = True
     ctx.state.answers["_prowlarr_indexers"] = wanted
@@ -392,8 +521,11 @@ def aiostreams_config(ctx: Context) -> None:
     config = build_user_config(ctx.answers, api.starter_template(), playback, _metadata_preset(ctx))
     password = ctx.secrets.generate("aiostreams_config_password", 24)
     uuid = ctx.secrets.get("aiostreams_config_uuid")
-    if uuid:  # keep what the user changed on the website outside the wizard's sections
-        people.update_keeping_own(api, uuid, password, config)
+    # an update leaves the config alone; "change settings" writes only what the changed answers feed
+    changed = ctx.extra.get("changed", {"*"})  # other entry points: everything, as before
+    sections, flags = people.config_parts(changed)
+    if uuid:  # with nothing changed only a TMDB/AIOMetadata swap is written; the user's own changes stay
+        people.update_keeping_own(api, uuid, password, config, sections, flags["readd"], flags["write"])
     else:
         uuid, encrypted = api.create_user(config, password)
         ctx.secrets.set("aiostreams_config_uuid", uuid)
@@ -401,7 +533,7 @@ def aiostreams_config(ctx: Context) -> None:
     for person, result in people.remove_dropped(api, ctx.secrets, ctx.state, ctx.answers.data):
         ctx.ui.warn(t(people.REMOVE_FAILED_TEXT[result], name=person["name"]))
     try:
-        people.sync(api, ctx.secrets, ctx.answers.data, config)
+        people.sync(api, ctx.secrets, ctx.answers.data, config, changed)
     finally:  # also the secrets of people created before a failure
         for person in people.people_of(ctx.answers.data):
             for name in people.secret_names(person["id"]):

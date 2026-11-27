@@ -196,8 +196,9 @@ def _show_url(env: Env, ui: Prompter, person: dict) -> None:
     ui.copyable(AioClient.addon_url(f"https://aiostreams.{env.domain}", uuid, enc))
 
 
-def _sync(env: Env, ui: Prompter, api_factory) -> bool:
-    """Write every person config to AIOStreams (creates missing ones)."""
+def _sync(env: Env, ui: Prompter, api_factory, changed: set[str]) -> bool:
+    """Create missing person configs; with "people" in `changed` also write the person fields of
+    the existing ones. Everything else the users changed on the website stays."""
     ui.info(t("people.saving"))
     try:
         api = api_factory(env)
@@ -205,7 +206,7 @@ def _sync(env: Env, ui: Prompter, api_factory) -> bool:
         uuid = env.metadata_uuid  # the same catalogs as the setup gives them
         base = build_user_config(Answers.restore(env.state, env.secrets), api.starter_template(), playback,
                                  metadata.preset(uuid) if uuid else None)
-        people.sync(api, env.secrets, env.answers, base)
+        people.sync(api, env.secrets, env.answers, base, changed)
     except (AioError, OSError, system.CommandFailed):
         ui.fail(t("people.sync_failed"))
         return False
@@ -245,7 +246,7 @@ def _people_action(env: Env, ui: Prompter, api_factory: Callable[[Env], AioClien
         _ask_mode(ui, person)
         env.answers["people"] = [*persons, person]
         env.state.save()
-        if not _sync(env, ui, api_factory):
+        if not _sync(env, ui, api_factory, set()):  # only the new person is written
             return 1
         _show_url(env, ui, person)
         return 0
@@ -257,7 +258,7 @@ def _people_action(env: Env, ui: Prompter, api_factory: Callable[[Env], AioClien
         _ask_mode(ui, person)
         env.answers["people"] = persons
         env.state.save()
-        return 0 if _sync(env, ui, api_factory) else 1
+        return 0 if _sync(env, ui, api_factory, {"people"}) else 1
 
     if choice == "remove":
         person = _choose_person(ui, others)

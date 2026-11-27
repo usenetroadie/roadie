@@ -360,7 +360,7 @@ lives, so it survives updates.
 Everything lives in `/opt/stack`, readable only by root, because it holds passwords:
 
 ```sh
-sudo mkdir -p /opt/stack/{config/traefik,config/authelia,env,secrets/authelia}
+sudo mkdir -p /opt/stack/{config/traefik/dynamic,config/authelia,env,secrets/authelia}
 sudo mkdir -p /opt/stack/data/{traefik,authelia,aiostreams,prowlarr,aiometadata,aiometadata-redis}
 sudo chown 1000:1000 /opt/stack/data/prowlarr
 sudo chmod 700 /opt/stack
@@ -617,7 +617,7 @@ entryPoints:
     address: "127.0.0.1:8082"
 providers:
   file:
-    filename: "/etc/traefik/routes.yml"
+    directory: "/etc/traefik/dynamic"
     watch: true
 certificatesResolvers:
   letsencrypt:
@@ -634,7 +634,7 @@ certificatesResolvers:
 
 Which name goes where, the login check and security headers:
 
-<!-- file: config/traefik/routes.yml -->
+<!-- file: config/traefik/dynamic/roadie.yml -->
 ```yaml
 http:
   routers:
@@ -710,15 +710,15 @@ http:
 
 **Why a file instead of Docker labels?** Many guides let Traefik read its routes from Docker
 itself, which needs access to Docker's control socket. Whoever controls that socket controls the
-whole server. With a file, Traefik needs no such access. It notices changes to `routes.yml` by
+whole server. With a file, Traefik needs no such access. It notices changes to the files in `config/traefik/dynamic/` by
 itself.
 
 ### 13. Authelia – the login
 
 Authelia asks for your password plus a second factor – a passkey (Face ID, fingerprint) or a code
-app – before Traefik opens a settings page. Your player apps cannot log in, so the paths they need
-are open – only for reading (`GET`, `HEAD`, `OPTIONS`), and the configuration pages are excluded
-first.
+app – before Traefik opens a settings page. Your player apps cannot log in, so the exact addon and
+playback paths they need are open – only for reading (`GET`, `HEAD`, `OPTIONS`), and the
+configuration pages are excluded first.
 
 <!-- file: config/authelia/configuration.yml -->
 ```yaml
@@ -754,6 +754,7 @@ access_control:
       resources:
         - "^/stremio/configure"
         - "^/stremio/[^/]+/[^/]+/configure"
+        - "^/stremio/[^/]+/[^/]+/v/[^/]+/configure"
       policy: "two_factor"
     - domain:
         - "aiostreams.example.com"
@@ -762,8 +763,30 @@ access_control:
         - "HEAD"
         - "OPTIONS"
       resources:
-        - "^/stremio/"
-        - "^/api/v1/(proxy|debrid|usenet|posters)/"
+        - "^/stremio/manifest\\.json([?][^/]*)?$"
+        - "^/stremio/[^/?.][^/?]*/[^/?.][^/?]*(/v/[^/?.][^/?]*)?/(manifest\\.json|(catalog|subtitles)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)*\\.json|(meta|stream|addon_catalog)/[^/?.][^/?]*/[^/?.][^/?]*\\.json)([?][^/]*)?$"
+        - "^/api/v1/usenet/stream/[^/?.][^/?]*(/[^/?.][^/?]*)*([?][^/]*)?$"
+        - "^/api/v1/debrid/playback(/[^/?.][^/?]*)+([?][^/]*)?$"
+        - "^/api/v1/proxy/[^/?.][^/?]{31,}(/[^/?.][^/?]*)*/?([?][^/]*)?$"
+        - "^/api/v1/posters/[^/?.][^/?]*([?][^/]*)?$"
+        - "^/static/[A-Za-z0-9_-]+\\.mp4$"
+      policy: "bypass"
+    - domain:
+        - "aiostreams.example.com"
+      resources:
+        - "^/jellyfin([/?]|$)"
+      policy: "bypass"
+    - domain:
+        - "metadata.example.com"
+      methods:
+        - "GET"
+        - "HEAD"
+        - "OPTIONS"
+      resources:
+        - "^/(poster|logo|background)/"
+        - "^/poster-cache/"
+        - "^/api/image/(blur|banner-to-background)"
+        - "^/stremio/[^/?.][^/?]*/(manifest\\.json|(catalog|subtitles)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)*\\.json|(meta|stream)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)?\\.json|watch_state/pull\\.json|rating)([?][^/]*)?$"
       policy: "bypass"
     - domain:
         - "aiostreams.example.com"

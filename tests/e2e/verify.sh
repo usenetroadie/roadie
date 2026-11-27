@@ -29,7 +29,8 @@ check "configure page needs login"          302 "$(code "https://$aio/stremio/co
 check "user config page needs login"        302 "$(code "https://$aio${path%manifest.json}configure")"
 # encoded paths (Traefik lets them through for AIOStreams' file names) must not skip the login
 for p in "/stremio/x/y/%63onfigure" "/stremio%2Fconfigure" "/stremio/%2E%2E/configure" \
-         "/api/v1/proxy/..%2Fuser" "/stremio/..%2F..%2Fapi%2Fv1%2Fuser"; do
+         "/api/v1/proxy/..%2Fuser" "/stremio/..%2F..%2Fapi%2Fv1%2Fuser" \
+         "/stremio/x/y/manifest.json%3F/configure"; do
   check "encoded path $p needs login" 302 "$(code "https://$aio$p")"
 done
 check "API needs login"                     401 "$(code -H 'Accept: application/json' -X POST "https://$aio/api/v1/user")"

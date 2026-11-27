@@ -1,4 +1,5 @@
 import base64
+import copy
 import json
 import tempfile
 import unittest
@@ -193,6 +194,162 @@ class PeopleTest(unittest.TestCase):
         config = self.aio.users["u-main"]["config"]
         self.assertEqual(config["formatter"], {"id": "mine"})
         self.assertEqual(config["preferredLanguages"], content_fields(example["content"])["preferredLanguages"])
+
+    def _main_step(self, changed, main_config, extra_people=(), meta=False):
+        """Run the AIOStreams setup step on an existing main config with ctx.extra["changed"]."""
+        import io
+        from unittest import mock
+        from roadie.aiostreams.api import STARTER_TEMPLATE
+        from roadie.answers import Answers
+        from roadie.engine import Context
+        from roadie.paths import Paths
+        from roadie.phases import stack
+        from roadie.redact import Redactor
+        from roadie.ui import Prompter
+        example = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
+        example["people"] = people(*extra_people)
+        template = {"presets": [], "sortCriteria": {"global": []}, "formatter": {"id": "template"}}
+        self.aio.srv.routes["GET /api/v1/templates"] = lambda q, h: ok(
+            [{"metadata": {"id": STARTER_TEMPLATE}, "config": template}])
+        self.aio.users["u-main"] = {"password": "main-pw", "config": copy.deepcopy(main_config)}
+        paths = Paths(Path(self.tmp.name))
+        ctx = Context(paths=paths, state=State(paths.state_file), secrets=self.secrets,
+                      ui=Prompter(inp=io.StringIO(""), out=io.StringIO()), redact=Redactor([]),
+                      answers=Answers.from_dict(example))
+        if changed is not None:
+            ctx.extra["changed"] = changed
+        from roadie.aiostreams import metadata
+        with mock.patch.object(stack, "_container_url", return_value=self.aio.srv.url), \
+                mock.patch.object(stack, "_metadata_preset", return_value=metadata.preset("META") if meta else None):
+            stack.aiostreams_config(ctx)
+        return ctx, self.aio.users["u-main"]["config"]
+
+    def test_update_without_changes_puts_nothing(self):
+        lisa = {"id": "lisa", "name": "Lisa", "mode": "own", "content": OWN_CONTENT}
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE)  # Lisa exists: u-1
+        self.aio.users["u-1"]["config"]["preferredLanguages"] = ["French"]  # her own edit on the website
+        mine = {"formatter": {"id": "mine"}, "preferredLanguages": ["French"], "presets": []}
+        ctx, config = self._main_step(set(), mine, [lisa])
+        self.assertEqual(self.aio.puts, [])
+        self.assertEqual(self.aio.posts, 1)
+        self.assertEqual(config, mine)
+        self.assertEqual(self.aio.users["u-1"]["config"]["preferredLanguages"], ["French"])
+        self.assertIn("aio_api", ctx.extra)
+
+    def test_only_languages_written(self):
+        services = [{"id": "aiostreams", "enabled": True, "credentials": {"aiostreamsAuth": "mine:pw"}}]
+        mine = {"formatter": {"id": "mine"}, "preferredLanguages": ["French"], "services": services,
+                "presets": [{"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": False, "options": {}}]}
+        _, config = self._main_step({"content"}, mine)
+        self.assertEqual(self.aio.puts, ["u-main"])
+        self.assertEqual(config["services"], services)
+        self.assertEqual(config["formatter"], {"id": "mine"})
+        self.assertNotEqual(config["preferredLanguages"], ["French"])
+        self.assertEqual([p["instanceId"] for p in config["presets"]], ["roadieprowlarr"])  # no deleted addon back
+        self.assertFalse(config["presets"][0]["enabled"])
+
+    def _tmdb_main(self):
+        from roadie.aiostreams.builder import _ADDON_SUFFIX
+        tmdb = {"type": "tmdb-addon", "instanceId": "roadietmdb", "enabled": False, "options": {"language": "x"}}
+        mine = {"type": "custom", "instanceId": "f3a", "enabled": True, "options": {}}
+        prowlarr = {"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True, "options": {}}
+        rows = [{"id": f"roadietmdb{_ADDON_SUFFIX}.tmdb.trending", "type": "movie", "enabled": False},
+                {"id": "f3a1234.top", "type": "movie", "enabled": True}]
+        return {"formatter": {"id": "mine"}, "preferredLanguages": ["French"], "services": [{"id": "mine"}],
+                "presets": [mine, tmdb, prowlarr], "catalogModifications": rows}
+
+    def test_metadata_swapped_in_on_content_change(self):
+        _, config = self._main_step({"content"}, self._tmdb_main(), meta=True)
+        self.assertEqual([p["instanceId"] for p in config["presets"]], ["f3a", "roadiemetadata", "roadieprowlarr"])
+        self.assertFalse(config["presets"][1]["enabled"])
+        self.assertEqual([r["id"] for r in config["catalogModifications"]][0], "f3a1234.top")  # tmdb rows go
+        self.assertFalse(any(r["id"].startswith("roadietmdb") for r in config["catalogModifications"]))
+
+    def test_metadata_newly_active_swaps_only_the_slot(self):
+        main = self._tmdb_main()
+        _, config = self._main_step(set(), main, meta=True)
+        self.assertEqual(self.aio.puts, ["u-main"])
+        self.assertEqual([p["instanceId"] for p in config["presets"]], ["f3a", "roadiemetadata", "roadieprowlarr"])
+        self.assertFalse(config["presets"][1]["enabled"])
+        self.assertEqual(config["presets"][2], main["presets"][2])  # prowlarr not rewritten
+        for key in ("formatter", "preferredLanguages", "services"):
+            self.assertEqual(config[key], main[key])
+        self.assertNotIn("resultLimits", config)
+        self.assertEqual(config["catalogModifications"], main["catalogModifications"][1:])
+
+    def test_slot_swap_does_not_bring_back_other_rows(self):
+        from roadie.aiostreams.builder import _ADDON_SUFFIX
+        main = self._tmdb_main()
+        main["presets"].append({"type": "custom", "instanceId": "roadiestreaming", "enabled": True, "options": {}})
+        _, config = self._main_step(set(), main, meta=True)
+        self.assertFalse(any(r["id"].startswith("roadiestreaming") for r in config["catalogModifications"]))
+        self.assertEqual(config["catalogModifications"], main["catalogModifications"][1:])
+
+    def test_metadata_newly_active_after_user_deleted_tmdb(self):
+        main = self._tmdb_main()
+        main["presets"] = [p for p in main["presets"] if p["instanceId"] != "roadietmdb"]
+        _, config = self._main_step(set(), main, meta=True)
+        self.assertEqual(self.aio.puts, [])
+        self.assertEqual(config, main)
+
+    def test_metadata_gone_swaps_back(self):
+        from roadie.aiostreams import metadata
+        main = self._tmdb_main()
+        main["presets"][1] = dict(metadata.preset("META"), enabled=False)
+        main["catalogModifications"] = main["catalogModifications"][1:]
+        _, config = self._main_step(set(), main, meta=False)
+        self.assertEqual([p["instanceId"] for p in config["presets"]], ["f3a", "roadietmdb", "roadieprowlarr"])
+        self.assertFalse(config["presets"][1]["enabled"])
+        self.assertTrue(any(r["id"].startswith("roadietmdb") for r in config["catalogModifications"]))
+
+    def test_missing_changed_means_everything(self):
+        """Other entry points (no ctx.extra["changed"]) keep the old behaviour."""
+        _, config = self._main_step(None, {"formatter": {"id": "mine"}})
+        self.assertIn("roadiestreaming", [p["instanceId"] for p in config["presets"]])
+
+    def test_new_person_created_on_people_change(self):
+        lisa = {"id": "lisa", "name": "Lisa", "mode": "inherit"}
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE)
+        self.aio.users["u-1"]["config"]["formatter"] = {"id": "lisas"}
+        self.aio.users["u-1"]["config"]["services"] = [{"id": "hers"}]
+        ben = {"id": "ben", "name": "Ben", "mode": "own", "content": OWN_CONTENT}
+        lisa_own = dict(lisa, mode="own", content=OWN_CONTENT)
+        P.sync(self.api, self.secrets, {"people": people(lisa_own, ben)}, BASE, changed={"people"})
+        self.assertEqual(self.aio.posts, 2)
+        self.assertTrue(self.secrets.get("person.ben.uuid"))
+        lisa_cfg = self.aio.users["u-1"]["config"]
+        self.assertEqual(lisa_cfg["preferredLanguages"], content_fields(OWN_CONTENT)["preferredLanguages"])
+        self.assertEqual(lisa_cfg["services"], [{"id": "hers"}])  # not a person field: stays
+        self.assertEqual(lisa_cfg["formatter"], {"id": "lisas"})
+        self.assertIn("mergeStrategies", lisa_cfg["parentConfig"])
+
+    def test_parent_config_kept_unless_people_changed(self):
+        lisa = {"id": "lisa", "name": "Lisa", "mode": "inherit"}
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE)
+        mine = {"uuid": "u-main", "password": self.aio.users["u-1"]["config"]["parentConfig"]["password"],
+                "mergeStrategies": {"fieldOverrides": {"formatter": "override"}}}
+        self.aio.users["u-1"]["config"]["parentConfig"] = copy.deepcopy(mine)  # set on the website
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, {**BASE, "preferredLanguages": ["X"]},
+               changed={"content"})
+        self.assertEqual(self.aio.users["u-1"]["config"]["parentConfig"], mine)
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE, changed={"people"})
+        self.assertNotIn("mergeStrategies", self.aio.users["u-1"]["config"]["parentConfig"])
+
+    def test_missing_parent_config_set_again(self):
+        lisa = {"id": "lisa", "name": "Lisa", "mode": "inherit"}
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE)
+        del self.aio.users["u-1"]["config"]["parentConfig"]
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE, changed={"content"})
+        self.assertEqual(self.aio.users["u-1"]["config"]["parentConfig"]["uuid"], "u-main")
+
+    def test_new_person_created_even_without_changes(self):
+        """A resumed first setup has no changed answers, but missing configs are still created."""
+        lisa = {"id": "lisa", "name": "Lisa", "mode": "inherit"}
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, BASE, changed=set())
+        self.assertEqual(self.aio.posts, 1)
+        self.assertTrue(self.secrets.get("person.lisa.uuid"))
+        P.sync(self.api, self.secrets, {"people": people(lisa)}, {**BASE, "preferredLanguages": ["X"]}, changed=set())
+        self.assertEqual(self.aio.puts, [])
 
     def test_update_keeping_own_drops_removed_section_keys(self):
         self.aio.users["u-9"] = {"password": "pw", "config": {"tmdbApiKey": "old", "formatter": {"id": "f"}}}

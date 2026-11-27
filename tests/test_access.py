@@ -31,6 +31,7 @@ class AccessBase(unittest.TestCase):
         secrets = SecretStore(self.paths.secrets_file)
         secrets.set("answer.auth.password", "LOGINPW")
         secrets.set("ntfy_topic", "TOPIC123")
+        secrets.set("aiostreams_admin_password", "ADMINPW")
         secrets.set("aiostreams_config_uuid", "UUID-MAIN")
         secrets.set("aiostreams_config_password", "PW-MAIN")
         secrets.set("aiostreams_config_encrypted", "ENC-MAIN")
@@ -50,7 +51,7 @@ class AccessTest(AccessBase):
     def test_sections_order_and_titles(self):
         secs = sections(self.env(backup={"time": "2026-11-14T03:00:00", "file": "/var/backups/roadie/x.tar.age"}))
         self.assertEqual(self.titles(secs), [i18n.t(f"access.t.{k}") for k in
-                                              ("server", "players", "settings", "config", "prowlarr", "push", "backup")])
+                                              ("server", "players", "settings", "config", "dashboard", "prowlarr", "push", "backup")])
         flat = "\n".join(l for _, ls in secs for l in ls)
         self.assertIn("\0ssh tim@example.duckdns.org", flat)
         self.assertIn("https://prowlarr.example.duckdns.org", flat)
@@ -58,6 +59,17 @@ class AccessTest(AccessBase):
         self.assertIn("TOPIC123", flat)
         self.assertIn("/var/backups/roadie/x.tar.age", flat)
         self.assertIn("2026-11-14 03:00:00", flat)
+
+    def test_dashboard_login_in_full_view_only(self):
+        env = self.env()
+        flat = "\n".join(l for _, ls in sections(env) for l in ls)
+        self.assertIn(i18n.t("access.dashboard_text"), flat)
+        self.assertIn("\0https://aiostreams.example.duckdns.org/dashboard", flat)
+        self.assertIn("\0admin", flat)
+        self.assertIn("\0ADMINPW", flat)
+        small = "\n".join(l for _, ls in sections(env, essentials_only=True) for l in ls)
+        self.assertNotIn("ADMINPW", small)
+        self.assertIn("ADMINPW", env.secrets.values())  # so the Redactor hides it in logs
 
     def test_backup_folder_is_admin_home(self):
         from unittest import mock

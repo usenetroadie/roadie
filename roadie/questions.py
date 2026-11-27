@@ -81,9 +81,9 @@ def _current(data: dict, key: str):
     return copy.deepcopy(data.get(key)) if data.get(PREFILL) else None
 
 
-def _ask_secret(ui: Prompter, label: str, old: str | None = None, validate=None) -> str:
+def _ask_secret(ui: Prompter, label: str, old: str | None = None, validate=None, optional: bool = False) -> str:
     """Hidden input; with a current value Enter keeps it (the value is never shown)."""
-    value = ui.ask_secret(label, validate, keep=bool(old))
+    value = ui.ask_secret(label, validate, keep=bool(old), optional=optional)
     return old if value is None else value
 
 
@@ -288,7 +288,8 @@ def ask_indexers(ui: Prompter, data: dict, checks) -> None:
             if raw.strip().rstrip("/").lower().endswith("/api"):
                 ui.info(t("q.indexers.api_removed"))
             same = url == prev.get("url")  # never send an old key to another address
-            return url, _ask_secret(ui, t("q.indexers.key"), prev.get("api_key") if same else None)
+            return url, _ask_secret(ui, t("q.indexers.key"), prev.get("api_key") if same else None,
+                                          optional=True)
 
         while True:
             url, key = ask()

@@ -8,7 +8,7 @@
 |---|---|
 | `sudo roadie` | set up, continue, or (after the setup) open the menu |
 | `sudo roadie status` | short status (also shown at every SSH login) |
-| `sudo roadie access` | all addresses and logins you need again |
+| `sudo roadie access` | all addresses and logins you need again, including the AIOStreams dashboard |
 | `sudo roadie code` | the login confirmation code (for passkey or code app setup) |
 | `sudo roadie people` | manage people (each gets their own addon address) |
 | `sudo roadie doctor` | test every Usenet provider and indexer on its own, plus the last 7 days in numbers |

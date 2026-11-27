@@ -1,5 +1,6 @@
 """Host steps: packages, swap, admin user, firewall, fail2ban, updates, SSH hardening."""
 
+import hashlib
 import ipaddress
 import os
 import re
@@ -7,7 +8,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from roadie import system
+from roadie import guard, system
 from roadie.engine import Context, Outcome, Step
 from roadie.i18n import t
 from roadie.paths import atomic_write
@@ -15,7 +16,7 @@ from roadie.render import system as render_system
 
 # sudo and python3-systemd: not always there on Debian (fail2ban's systemd backend needs the latter)
 PACKAGES = ["ufw", "fail2ban", "python3-systemd", "unattended-upgrades", "age", "curl", "ca-certificates", "gnupg",
-            "sudo"]
+            "sudo", "python3-yaml"]
 SWAPFILE = "/swapfile"
 SSH_WAIT_SECONDS = 300
 MAX_TRUSTED_IPS = 5  # addresses the admin used for the wizard; fail2ban never bans them
@@ -147,7 +148,7 @@ def fail2ban(ctx: Context) -> None:
     ctx.paths.stack_dir.chmod(0o700)  # containers write files 0644 (codes, databases): root only
     log.touch()
     trust_ip(ctx, client_ip())
-    system.write_files(_fail2ban_files(ctx), ctx.paths.stack_dir)
+    guard.write_guarded(ctx, _fail2ban_files(ctx), ctx.paths.stack_dir)
     system.run(["systemctl", "enable", "fail2ban"], check=False)
     system.run(["systemctl", "restart", "fail2ban"])
 
@@ -161,7 +162,7 @@ def fail2ban_ok(ctx: Context) -> bool:
 
 
 def auto_updates(ctx: Context) -> None:
-    system.write_files([render_system.unattended_upgrades(ctx.extra["render"])], ctx.paths.stack_dir)
+    guard.write_guarded(ctx, [render_system.unattended_upgrades(ctx.extra["render"])], ctx.paths.stack_dir)
 
 
 def key_login_seen(user: str, since: str) -> str | None:
@@ -218,7 +219,7 @@ def ssh_hardening(ctx: Context) -> Outcome | None:
     if not seen:  # Enter, timeout or no login today: password login stays on, the menu offers it later
         return Outcome("ok", note=t("ssh.check.later"), open_key="open.ssh_hardening")
     if isinstance(seen, str) and trust_ip(ctx, seen):  # the address the admin logs in from
-        system.write_files(_fail2ban_files(ctx), ctx.paths.stack_dir)
+        guard.write_guarded(ctx, _fail2ban_files(ctx), ctx.paths.stack_dir)
         system.run(["fail2ban-client", "reload"], check=False)
     _write_sshd_dropin(ctx)
     ctx.state.answers["_ssh_hardened"] = True
@@ -230,14 +231,19 @@ def _write_sshd_dropin(ctx: Context) -> None:
     does not accept is put back as it was (or removed), so logins keep working."""
     _RUN_SSHD.mkdir(mode=0o755, exist_ok=True)
     dropin = render_system.sshd_dropin(ctx.extra["render"], sftp_log=sftp_override_works())
-    target = Path(dropin.path)
+    target = guard.target(ctx, dropin, ctx.paths.stack_dir)
     try:
         old = target.read_text()
     except OSError:
         old = None
+    written = ctx.state.answers.setdefault("_written", {})
     if old == dropin.content:
+        written[dropin.path] = hashlib.sha256(old.encode()).hexdigest()
         return
-    system.write_files([dropin], ctx.paths.stack_dir)
+    record = written.get(dropin.path)
+    copies = ctx.extra.setdefault("mine_copies", [])
+    before = len(copies)
+    guard.write_guarded(ctx, [dropin], ctx.paths.stack_dir)  # a hand-edited file is copied first
     try:
         system.run(["sshd", "-t"])
     except system.CommandFailed:
@@ -245,6 +251,13 @@ def _write_sshd_dropin(ctx: Context) -> None:
             target.unlink()
         else:
             atomic_write(target, old, 0o644)
+        if record is None:  # the old file is back: so is what roadie knew about it
+            written.pop(dropin.path, None)
+        else:
+            written[dropin.path] = record
+        for _, copy in copies[before:]:  # nothing was replaced after all: no copy to report
+            Path(copy).unlink(missing_ok=True)
+        del copies[before:]
         raise
     # Ubuntu 24.04 starts sshd on demand (ssh.socket): when it is not running, the next login reads the new file
     system.run(["systemctl", "try-reload-or-restart", "ssh"])

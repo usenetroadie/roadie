@@ -2,6 +2,35 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.6.3 – 2026-11-27
+
+- Indexers that need no API key (for example AnimeTosho) work now. Leave the key empty. To remove a
+  stored key later, type `-` at the key question.
+- With your own AIOMetadata, rating posters (RPDB with the poster proxy) and the image cache now
+  show up in the app. Those images come through your metadata address, which was completely
+  behind the login, so Nuvio and Stremio could not load them. Only the images are open now,
+  the settings pages still need the login.
+- Updates keep your changes. An update no longer writes the AIOStreams configuration, so addons you
+  deleted or disabled stay that way. "Change settings" writes only the part you changed. Prowlarr
+  indexers you deleted are not added back by an update, and a password you changed on the login
+  page stays.
+- When roadie has to replace a generated file that you edited, it keeps your version next to it as
+  `<name>.mine-<date>.bak` and lists the copies at the end of the run.
+- There are places roadie never touches: `compose.override.yaml`, your own files in
+  `config/traefik/dynamic/`, `config/authelia/own-rules.yml`, `/etc/ssh/sshd_config.d/50-own.conf`,
+  `/etc/fail2ban/jail.local` and your own file in `/etc/apt/apt.conf.d/`. See "Your own changes" in
+  the advanced docs. A broken override file or rules file is named instead of failing silently.
+- The AIOStreams Jellyfin API (`/jellyfin`) can be reached by Jellyfin apps and the AIOStreams
+  desktop app without the roadie login. AIOStreams asks for the configuration UUID and password.
+- `sudo roadie access` shows the login for the AIOStreams dashboard (`/dashboard`) now. It was
+  created before, but never listed.
+- With your own AIOMetadata, apps can install a configuration directly with
+  `https://metadata.<your address>/stremio/<uuid>/manifest.json`, for example one per person. The
+  addon routes are open. The settings pages still need the login.
+- Better filters in later versions arrive through "Change settings", not through an update.
+- Only the exact AIOStreams addon and playback paths are open without the login now. Before,
+  everything below `/stremio/` and some API folders was open.
+
 ## 0.6.2 – 2026-11-26
 
 - When roadie checks your indexers, TMDB key or DuckDNS, it now looks like a normal browser

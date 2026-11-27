@@ -154,18 +154,97 @@ class BuilderTest(unittest.TestCase):
         mine = {"type": "custom", "instanceId": "f3a", "enabled": True, "options": {"name": "AIOMetadata"}}
         old_tmdb = {"type": "tmdb-addon", "instanceId": "roadietmdb", "enabled": True, "options": {"language": "en-US"}}
         new = build()["presets"]
-        merged = merge_presets([mine, old_tmdb], new)
-        self.assertEqual(merged, new + [mine])
+        by_id = {p["instanceId"]: p for p in new}
+        self.assertEqual(merge_presets([mine, old_tmdb], new), [mine, by_id["roadietmdb"]])
+        readd = {"roadieprowlarr"}
+        self.assertEqual(merge_presets([mine, old_tmdb], new, readd),
+                         [by_id["roadieprowlarr"], mine, by_id["roadietmdb"]])
 
     def test_wizard_preset_replaced(self):
-        old = [{"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": False, "options": {}},
+        old = [{"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True, "options": {}},
                {"type": "tmdb-addon", "instanceId": "roadietmdb", "enabled": True, "options": {"language": "en-US"}}]
         new = build()["presets"]
         merged = merge_presets(old, new)
-        self.assertEqual(merged, new)  # prowlarr and tmdb replaced by the new ones
+        self.assertEqual(merged, new[:2])  # prowlarr and tmdb replaced by the new ones, nothing added
         self.assertEqual(WIZARD_PRESETS, ("roadieprowlarr", "roadieprowlarrfallback", "roadietmdb", "roadiestreaming",
                                           "roadiecollections", "roadiemetadata"))
         self.assertNotIn("presets", SECTIONS["streams"])
+
+    def test_deleted_roadie_addon_stays_deleted(self):
+        new = build()["presets"]
+        current = [p for p in new if p["instanceId"] != "roadiestreaming"]
+        merged = merge_presets(current, new)
+        self.assertNotIn("roadiestreaming", [p["instanceId"] for p in merged])
+        self.assertEqual(merged, current)
+
+    def test_disabled_roadie_addon_stays_disabled(self):
+        new = build()["presets"]
+        current = [dict(p, enabled=p["instanceId"] != "roadiecollections") for p in new]
+        merged = {p["instanceId"]: p for p in merge_presets(current, new, set(WIZARD_PRESETS))}
+        self.assertFalse(merged["roadiecollections"]["enabled"])
+        self.assertTrue(merged["roadieprowlarr"]["enabled"])
+
+    def test_prowlarr_preset_readded_when_indexers_changed(self):
+        from roadie.aiostreams.builder import FALLBACK_PRESET, presets_for
+        new = build()["presets"]
+        current = [p for p in new if p["instanceId"] != "roadieprowlarr"]
+        flags = presets_for({"indexers"})
+        self.assertTrue(flags["write"])
+        self.assertEqual(flags["readd"], {"roadieprowlarr", FALLBACK_PRESET})
+        merged = merge_presets(current, new, flags["readd"])
+        self.assertEqual(merged[0]["instanceId"], "roadieprowlarr")
+        self.assertEqual(merged[1:], current)
+
+    def test_user_presets_keep_order(self):
+        new = build()["presets"]
+        a = {"type": "custom", "instanceId": "aaa", "enabled": True, "options": {}}
+        b = {"type": "custom", "instanceId": "bbb", "enabled": False, "options": {}}
+        current = [a, new[2], b, new[0]]  # the user sorted wizard and own addons on the website
+        merged = merge_presets(current, new)
+        self.assertEqual([p["instanceId"] for p in merged], ["aaa", new[2]["instanceId"], "bbb", "roadieprowlarr"])
+        self.assertEqual(merged[2], b)
+
+    def test_tmdb_slot_swapped_in_place(self):
+        """AIOMetadata replaces the simple TMDB addon at the same place, with the user's enabled."""
+        from roadie.aiostreams import metadata
+        mine = {"type": "custom", "instanceId": "aaa", "enabled": True, "options": {}}
+        old_tmdb = {"type": "tmdb-addon", "instanceId": "roadietmdb", "enabled": False, "options": {}}
+        new = [metadata.preset("META") if p["instanceId"] == "roadietmdb" else p for p in build()["presets"]]
+        merged = merge_presets([mine, old_tmdb], new)
+        self.assertEqual([p["instanceId"] for p in merged], ["aaa", "roadiemetadata"])
+        self.assertFalse(merged[1]["enabled"])
+        # and back: with readd nothing is doubled
+        back = merge_presets(merged, build()["presets"], {"roadietmdb", "roadiemetadata"})
+        self.assertEqual([p["instanceId"] for p in back], ["aaa", "roadietmdb"])
+        self.assertFalse(back[1]["enabled"])
+        # deleted both: nothing comes back without readd
+        self.assertEqual(merge_presets([mine], new), [mine])
+
+    def test_row_addon(self):
+        from roadie.aiostreams.builder import row_addon
+        rows = build()["catalogModifications"]
+        self.assertEqual(row_addon(rows[0]), "roadietmdb")
+        self.assertEqual(row_addon({"id": "f3a1234.top"}), "f3a")
+
+    def test_sections_for_changed_answers(self):
+        from roadie.aiostreams.builder import sections_for
+        self.assertEqual(sections_for({"*"}), list(SECTIONS))
+        self.assertEqual(sections_for(set()), [])
+        self.assertEqual(sections_for({"content"}), ["languages", "quality", "ranking"])
+        self.assertEqual(sections_for({"indexers"}), ["streams"])
+        self.assertEqual(sections_for({"tmdb_api_key"}), ["metadata"])
+        self.assertEqual(sections_for({"usenet", "auth", "people"}), [])
+        self.assertEqual(sections_for({"tmdb_api_key", "indexers"}), ["streams", "metadata"])
+
+    def test_presets_for_changed_answers(self):
+        from roadie.aiostreams.builder import FALLBACK_PRESET, presets_for
+        catalogs = {"roadietmdb", "roadiestreaming", "roadiecollections", "roadiemetadata"}
+        self.assertEqual(presets_for(set()), {"write": False, "readd": set()})
+        self.assertEqual(presets_for({"usenet"}), {"write": False, "readd": set()})
+        self.assertEqual(presets_for({"content"}), {"write": True, "readd": set()})
+        self.assertEqual(presets_for({"catalogs"}), {"write": True, "readd": catalogs})
+        self.assertEqual(presets_for({"tmdb_api_key"}), {"write": True, "readd": catalogs})
+        self.assertEqual(presets_for({"*"}), {"write": True, "readd": catalogs | {"roadieprowlarr", FALLBACK_PRESET}})
 
     def test_fallback_indexers_are_asked_only_when_the_main_ones_find_too_little(self):
         ixs = [{"name": "A", "url": "https://a.example.com", "api_key": "k"},

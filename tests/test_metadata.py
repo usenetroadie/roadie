@@ -11,7 +11,7 @@ from roadie.aiostreams import metadata as M
 from roadie.aiostreams.builder import build_user_config
 from roadie.answers import Answers
 from roadie.render import build_render_config, load_versions, wants_metadata
-from roadie.render.authelia import config_dict
+from roadie.render.authelia import METADATA_IMAGE_PATHS, METADATA_PLAYER_PATHS, config_dict
 from roadie.render.compose import compose_dict
 from roadie.render.envfiles import render_env
 from roadie.render.traefik import dynamic_dict
@@ -74,7 +74,8 @@ class RenderTest(unittest.TestCase):
         rules = config_dict(cfg())["access_control"]["rules"]
         protected = [r for r in rules if r.get("policy") == "two_factor" and "metadata.example.duckdns.org" in r["domain"]]
         self.assertTrue(protected)
-        self.assertFalse(any("metadata.example.duckdns.org" in r["domain"] for r in rules if r.get("policy") == "bypass"))
+        open_rules = [r for r in rules if r.get("policy") == "bypass" and "metadata.example.duckdns.org" in r["domain"]]
+        self.assertEqual([r["resources"] for r in open_rules], [METADATA_IMAGE_PATHS + METADATA_PLAYER_PATHS])  # images and player routes
 
 
 class PresetTest(unittest.TestCase):

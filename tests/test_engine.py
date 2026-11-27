@@ -261,7 +261,7 @@ class HostStepsTest(unittest.TestCase):
         written = []
         ctx = mock.Mock()
         ctx.extra = {"render": mock.Mock(reboot_time="04:30")}
-        with mock.patch.object(host.system, "write_files", side_effect=lambda files, base: written.extend(files)):
+        with mock.patch.object(host.guard, "write_guarded", side_effect=lambda ctx, files, base: written.extend(files)):
             host.auto_updates(ctx)
         self.assertIn('Automatic-Reboot-Time "04:30"', written[0].content)
 
@@ -329,7 +329,7 @@ class HostSafetyTest(unittest.TestCase):
         ctx.state.answers["_ssh_ports"] = [2222]
         written = []
         with mock.patch.object(host, "client_ip", return_value="203.0.113.10"), \
-                mock.patch.object(host.system, "write_files", side_effect=lambda files, base: written.extend(files)), \
+                mock.patch.object(host.guard, "write_guarded", side_effect=lambda ctx, files, base: written.extend(files)), \
                 mock.patch.object(host.system, "run", return_value=""):
             host.fail2ban(ctx)
         jail = next(f.content for f in written if f.path.endswith("jail.d/roadie.conf"))

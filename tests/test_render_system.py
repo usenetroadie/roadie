@@ -174,7 +174,8 @@ class SshdDropinRewriteTest(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.host = host
-        self.ctx = SimpleNamespace(extra={"render": cfg()}, paths=SimpleNamespace(stack_dir=Path(tmp.name)))
+        self.ctx = SimpleNamespace(extra={"render": cfg()}, state=SimpleNamespace(answers={}),
+                                   paths=SimpleNamespace(stack_dir=Path(tmp.name), root=Path("/")))
 
     def test_new_line_is_written_and_sshd_reloaded_once(self):
         self.file.write_text(S.sshd_dropin(cfg()).content)  # written by an older roadie
@@ -200,3 +201,32 @@ class SshdDropinRewriteTest(unittest.TestCase):
         with self.assertRaises(system.CommandFailed):
             self.host._write_sshd_dropin(self.ctx)
         self.assertEqual(self.file.read_text(), old)
+        self.assertNotIn(str(self.file), self.ctx.state.answers["_written"])  # the old file is back
+
+    def test_rollback_drops_the_copy(self):
+        from roadie import system
+        edited = S.sshd_dropin(cfg()).content + "AllowUsers someone\n"
+        self.file.write_text(edited)
+        self.sshd_ok = False
+        for _ in range(2):
+            with self.assertRaises(system.CommandFailed):
+                self.host._write_sshd_dropin(self.ctx)
+        self.assertEqual(self.file.read_text(), edited)
+        self.assertEqual(self.ctx.extra["mine_copies"], [])
+        self.assertEqual(sorted(p.name for p in self.file.parent.iterdir() if ".mine-" in p.name), [])
+
+    def test_unchanged_file_is_recorded(self):
+        import hashlib
+        content = S.sshd_dropin(cfg(), sftp_log=True).content
+        self.file.write_text(content)
+        self.host._write_sshd_dropin(self.ctx)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.ctx.state.answers["_written"][str(self.file)],
+                         hashlib.sha256(content.encode()).hexdigest())
+
+    def test_hand_edited_file_is_kept_as_copy(self):
+        self.file.write_text(S.sshd_dropin(cfg()).content + "AllowUsers someone\n")
+        self.host._write_sshd_dropin(self.ctx)
+        [(path, copy)] = self.ctx.extra["mine_copies"]
+        self.assertIn("AllowUsers someone", Path(copy).read_text())
+        self.assertIn(S.SFTP_LOG_LINE, self.file.read_text())

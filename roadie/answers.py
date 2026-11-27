@@ -271,8 +271,11 @@ def _check(data: dict) -> _Checker:
             c.err(f"{path}.name", t("answers.err.missing"))
         elif names.index(names[i]) != i:
             c.err(f"{path}.name", t("answers.err.duplicate"))
-        if not ix.get("api_key"):
+        key = ix.get("api_key")  # empty is fine: some indexers need no key
+        if key is None:
             c.err(f"{path}.api_key", t("answers.err.missing"))
+        elif not isinstance(key, str):
+            c.err(f"{path}.api_key", t("answers.err.string"))
         try:
             ix["url"] = normalise_newznab_url(ix.get("url", ""))
         except ValueError as e:
@@ -394,7 +397,8 @@ class Answers:
     def restore(cls, state, secrets) -> "Answers":
         answers = cls(copy.deepcopy(state.answers))
         for node, key, name in answers._secret_slots(include_empty=True):
-            node[key] = secrets.get(name)
+            value = secrets.get(name)
+            node[key] = "" if value is None and node[key] == "" else value  # an empty key is not stored
         return answers
 
     def secret_values(self) -> list[str]:

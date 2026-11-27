@@ -68,4 +68,4 @@ class TraefikTest(unittest.TestCase):
 
     def test_files(self):
         paths = {f.path for f in render_traefik(cfg())}
-        self.assertEqual(paths, {"config/traefik/traefik.yml", "config/traefik/routes.yml"})
+        self.assertEqual(paths, {"config/traefik/traefik.yml", "config/traefik/dynamic/roadie.yml"})

@@ -126,15 +126,23 @@ def backup_key(ctx: Context) -> None:
     ctx.state.save()
 
 
+UNIT_DIR = Path("/etc/systemd/system")
+TIMERS = ("roadie-watch.timer", "roadie-backup.timer", "roadie-report.timer")
+
+
 def maintenance(ctx: Context) -> None:
+    # a timer the user stopped stays stopped: an update only enables the ones new on this server
+    everything = "*" in ctx.extra.get("changed", {"*"})
+    enable = [n for n in TIMERS if everything or not (UNIT_DIR / n).exists()]
     for name, content in UNITS.items():
-        atomic_write(Path("/etc/systemd/system") / name, content, 0o644)
+        atomic_write(UNIT_DIR / name, content, 0o644)
     atomic_write(Path("/etc/update-motd.d/60-roadie"), MOTD, 0o755)
     quiet_ubuntu_motd(ctx.paths.root)
     (ctx.paths.root / "var/lib/roadie").mkdir(mode=0o700, parents=True, exist_ok=True)
     system.run(["systemctl", "daemon-reload"])
-    system.run(["systemctl", "enable", "--now", "roadie-watch.timer", "roadie-backup.timer",
-                "roadie-report.timer"])
+    if enable:
+        system.run(["systemctl", "enable", "--now", *enable])
+    ctx.extra["timers_enabled"] = enable
 
 
 def steps() -> list[Step]:
@@ -142,5 +150,6 @@ def steps() -> list[Step]:
         Step("notifications", "step.notifications", notifications),
         Step("backup_key", "step.backup_key", backup_key, always=True),
         Step("maintenance", "step.maintenance", maintenance, always=True,
-             verify=lambda c: system.ok(["systemctl", "is-active", "--quiet", "roadie-watch.timer"])),
+             verify=lambda c: "roadie-watch.timer" not in c.extra.get("timers_enabled", TIMERS)
+             or system.ok(["systemctl", "is-active", "--quiet", "roadie-watch.timer"])),
     ]

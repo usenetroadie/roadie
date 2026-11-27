@@ -9,7 +9,9 @@ import time
 from pathlib import Path
 
 from roadie import __version__, banner, i18n, phases, preflight, questions
+from roadie.render import traefik
 from roadie.answers import Answers, AnswersInvalid
+from roadie.changes import changed_parts
 from roadie.engine import Context, StepFailed, run_steps
 from roadie.i18n import t
 from roadie.paths import Busy, Paths, exclusive
@@ -372,6 +374,24 @@ def _setup(args, paths: Paths, ui: Prompter, gather, steps, change: bool = False
                                                    test_mode=getattr(args, "test_mode", False), change=change))
 
 
+def _show_mine_copies(ui: Prompter, ctx: Context) -> None:
+    """Files roadie replaced although they differed from what it wrote: name the kept copies."""
+    copies = ctx.extra.get("mine_copies") or []
+    if not copies:
+        return
+    unsure = ctx.extra.get("unsure_copies") or set()
+    for key, group in (("guard.copies", [c for _, c in copies if c not in unsure]),
+                       ("guard.copies_unsure", [c for _, c in copies if c in unsure])):
+        if group:
+            ui.warn(t(key))
+            for copy in group:
+                ui.info(f"  {copy}")
+    for path, copy in copies:
+        if path == traefik.OLD_DYNAMIC_FILE:  # the copy is not loaded: say where own routes go now
+            ui.warn(t("guard.old_routes", copy=copy))
+    ui.hint(t("guard.where"))
+
+
 def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, redact: Redactor,
                dry_run: bool, make_steps, test_mode: bool = False, change: bool = False,
                update: bool = False) -> int:
@@ -413,7 +433,18 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
     if make_steps is phases.steps and (os.geteuid() != 0 or paths.root != Path("/")):
         ui.fail(t("preflight.root"))  # the real steps change the system: root on the real system only
         return EXIT_INVALID
+    previous = None
+    if any(not k.startswith("_") for k in state.answers):  # a setup exists: compare with it
+        try:
+            previous = Answers.restore(state, secrets).to_dict(include_secrets=True)
+        except Exception:  # unreadable old answers: deliberately rewrite everything,
+            previous = None  # the guard keeps copies of hand-edited files
+    changed = changed_parts(previous, answers.to_dict(include_secrets=True))
+    changed |= set(state.answers.get("_pending_changed") or [])  # a failed run did not apply these yet
+    if "*" in changed:
+        changed = {"*"}
     answers.store(state, secrets)
+    state.answers["_pending_changed"] = sorted(changed)  # cleared once all steps went through
     from roadie import drafts
     drafts.clear(secrets)  # the answers are stored for good now
     state.mark_done("preflight")
@@ -421,6 +452,7 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
     ctx = Context(paths=paths, state=state, secrets=secrets, ui=ui, redact=redact, answers=answers)
     ctx.extra["interactive"] = interactive and not update
     ctx.extra["update"] = update  # an update never shows passwords (summary)
+    ctx.extra["changed"] = changed
     ctx.extra["change"] = change  # no SSH waiting in "change settings"
     phases.prepare(ctx, facts)
     try:
@@ -432,9 +464,12 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
         state.save()
         ui.fail(t("cli.step_failed", step=e.step_id, message=e.message))
         ui.hint(t("cli.report_hint"))
+        _show_mine_copies(ui, ctx)  # a copy made before the failing step still matters
         return EXIT_FAILED
-    if state.answers.pop("_last_failure", None) is not None:
+    failure = state.answers.pop("_last_failure", None)
+    if state.answers.pop("_pending_changed", None) is not None or failure is not None:
         state.save()
+    _show_mine_copies(ui, ctx)
     open_points = ctx.extra.get("open_points") or []
     if not open_points:
         ui.ok(t("cli.done"))

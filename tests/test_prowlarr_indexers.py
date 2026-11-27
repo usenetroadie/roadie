@@ -78,7 +78,9 @@ class ProwlarrIndexersTest(unittest.TestCase):
             setattr(stack, name, fn)
             self.addCleanup(setattr, stack, name, original)
 
-    def run_step(self, *indexers):
+    def run_step(self, *indexers, changed=None):
+        if changed is not None:
+            self.ctx.extra["changed"] = changed
         self.ctx.answers = SimpleNamespace(data={"indexers": [dict(ix) for ix in indexers]})
         self.fake.calls.clear()
         self.restarts.clear()
@@ -95,6 +97,18 @@ class ProwlarrIndexersTest(unittest.TestCase):
         self.run_step(ix)
         self.assertEqual(self.writes(), [])
         self.assertEqual(self.restarts, [])
+
+    def test_indexer_without_key_gets_empty_api_key(self):
+        self.run_step({"name": "A", "url": "https://a.example.com", "api_key": ""})
+        self.assertEqual(self.fake.value("A", "apiKey"), "")
+        self.run_step({"name": "A", "url": "https://a.example.com", "api_key": ""})
+        self.assertEqual(self.writes(), [])
+
+    def test_key_removed_is_put_with_empty_api_key(self):
+        self.run_step({"name": "A", "url": "https://a.example.com", "api_key": "k1"})
+        self.run_step({"name": "A", "url": "https://a.example.com", "api_key": ""}, changed={"indexers"})
+        self.assertEqual(self.writes(), [("PUT", "/api/v1/indexer/1")])
+        self.assertEqual(self.fake.value("A", "apiKey"), "")
 
     def test_changed_key_and_limit_are_updated(self):
         self.run_step({"name": "A", "url": "https://a.example.com", "api_key": "k1"})
@@ -174,6 +188,52 @@ class TolerantTest(ProwlarrIndexersTest):
         self.fake.failing = {"A"}
         self.run_step({**A, "api_key": "NEW"}, B)
         self.assertIn("A", [i["name"] for i in self.fake.indexers.values()])  # not deleted
+
+    def test_deleted_indexer_not_readded_on_update(self):
+        self.run_step(A, B)
+        del self.fake.indexers[1]  # the user deleted A in Prowlarr
+        self.run_step(A, B, changed=set())
+        self.assertEqual(self.writes(), [])
+        self.assertEqual([i["name"] for i in self.fake.indexers.values()], ["B"])
+        self.assertIn("A", self.ctx.state.answers["_prowlarr_indexers"])
+        self.run_step(A, B, changed=set())  # and it stays that way
+        self.assertEqual(self.writes(), [])
+
+    def test_deleted_indexer_readded_on_change(self):
+        self.run_step(A, B)
+        del self.fake.indexers[1]
+        self.run_step(A, B, changed={"indexers"})
+        self.assertEqual(self.writes(), [("POST", "/api/v1/indexer")])
+        self.assertEqual(sorted(i["name"] for i in self.fake.indexers.values()), ["A", "B"])
+
+    def test_failed_readd_retried_on_next_update(self):
+        self.run_step(A, B)
+        del self.fake.indexers[1]
+        self.fake.failing = {"A"}
+        self.run_step({**A, "api_key": "NEW"}, B, changed={"indexers"})  # re-add fails
+        self.assertNotIn("A", self.ctx.state.answers["_prowlarr_indexers"])
+        self.fake.failing = set()
+        self.run_step({**A, "api_key": "NEW"}, B, changed=set())
+        self.assertEqual(sorted(i["name"] for i in self.fake.indexers.values()), ["A", "B"])
+
+    def test_never_applied_indexer_created_on_resume(self):
+        self.run_step(A, changed=set())  # resumed first setup: nothing applied yet
+        self.assertEqual(self.writes(), [("POST", "/api/v1/indexer")])
+
+    def test_renamed_indexer_updated_not_duplicated(self):
+        self.run_step(A)
+        self.fake.indexers[1]["name"] = "My NZB"  # the user renamed it
+        self.run_step({**A, "api_key": "NEW"}, changed={"indexers"})
+        self.assertEqual(self.writes(), [("PUT", "/api/v1/indexer/1")])
+        self.assertEqual(self.fake.indexers[1]["name"], "My NZB")
+        self.assertEqual(self.fake.value("My NZB", "apiKey"), "NEW")
+
+    def test_renamed_indexer_not_deleted_when_unchanged_or_dropped_name(self):
+        self.run_step(A)
+        self.fake.indexers[1]["name"] = "My NZB"
+        self.run_step(A, changed=set())
+        self.assertEqual(self.writes(), [])
+        self.assertIn(1, self.fake.indexers)
 
 
 class PlainTextTest(unittest.TestCase):

@@ -579,10 +579,15 @@ class ChangeSettingsTest(unittest.TestCase):
     def test_change_indexer_url_needs_new_key(self):
         stored = stored_answers()
         lines = ["2", part_no("usenet"), "", "", "", "", "", "https://other.example.com/api"] + [""] * 6 + ["1"]
-        data, out, _ = change(lines, copy.deepcopy(stored), ["", "", "NEWKEY"])  # pw kept, empty key refused
+        data, out, _ = change(lines, copy.deepcopy(stored), ["", "NEWKEY"])  # pw kept, new key typed
         self.assertEqual(data["indexers"][0]["url"], "https://other.example.com")
         self.assertEqual(data["indexers"][0]["api_key"], "NEWKEY")
-        self.assertIn(i18n.t("ui.required"), out)
+
+    def test_change_indexer_url_does_not_keep_old_key(self):
+        stored = stored_answers()
+        lines = ["2", part_no("usenet"), "", "", "", "", "", "https://other.example.com/api"] + [""] * 6 + ["1"]
+        data, out, _ = change(lines, copy.deepcopy(stored), ["", ""])  # empty = no key, the old one is not sent along
+        self.assertEqual(data["indexers"][0]["api_key"], "")
 
     def test_change_indexer_limit_zero_removes_it(self):
         stored = stored_answers()

@@ -357,6 +357,22 @@ class FinalLineTest(unittest.TestCase):
         self.run_setup(None)
         self.assertNotIn("_last_failure", State(state_file).answers)
 
+    def test_kept_copies_named_at_the_end_also_after_a_failure(self):
+        from roadie.engine import Step, StepFailed
+
+        def copy_made(ctx, fail):
+            ctx.extra.setdefault("mine_copies", []).append(("config/a.yml", "/opt/x/config/a.yml.mine-20261126"))
+            if fail:
+                raise StepFailed("stack_files", "broken")
+        for fail in (False, True):
+            code, out = self.run_setup(None, Step("stack_files", "step.stack_files", lambda c: copy_made(c, fail), always=True))
+            self.assertEqual(code, 1 if fail else 0)
+            self.assertIn(i18n.t("guard.copies"), out)
+            self.assertIn("/opt/x/config/a.yml.mine-20261126", out)
+            self.assertIn("docs/advanced.md#your-own-changes", out)
+        code, out = self.run_setup(None)
+        self.assertNotIn(i18n.t("guard.copies"), out)
+
     def test_skipped_step_listed_as_open(self):
         from roadie.engine import Outcome
         code, out = self.run_setup(Outcome("skipped", open_key="open.ssh_hardening"))

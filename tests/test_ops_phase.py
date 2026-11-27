@@ -141,5 +141,35 @@ class OfferClearTest(unittest.TestCase):
         self.assertFalse(any("PRIVATE KEY" in str(e[1]) for e in ui.events if e[0] == "info"))
 
 
+
+class MaintenanceTimersTest(unittest.TestCase):
+    def run_maintenance(self, changed, existing=()):
+        ctx = make_ctx(FakeUi())
+        if changed is not None:
+            ctx.extra["changed"] = changed
+        unit_dir = ctx.paths.root / "units"
+        unit_dir.mkdir()
+        for name in existing:
+            (unit_dir / name).write_text("old")
+        calls = []
+        with mock.patch.object(ops, "UNIT_DIR", unit_dir), \
+                mock.patch.object(ops, "atomic_write", lambda path, *a: None), \
+                mock.patch.object(ops, "quiet_ubuntu_motd", lambda root: None), \
+                mock.patch.object(ops.system, "run", lambda cmd: calls.append(cmd) or ""):
+            ops.maintenance(ctx)
+        return [c[3:] for c in calls if c[:3] == ["systemctl", "enable", "--now"]]
+
+    def test_update_leaves_existing_timers_as_set(self):
+        self.assertEqual(self.run_maintenance(set(), existing=ops.UNITS), [])
+
+    def test_new_timer_enabled_on_update(self):
+        existing = [n for n in ops.UNITS if n != "roadie-report.timer"]
+        self.assertEqual(self.run_maintenance(set(), existing=existing), [["roadie-report.timer"]])
+
+    def test_full_run_enables_all(self):
+        self.assertEqual(self.run_maintenance({"*"}, existing=ops.UNITS),
+                         [["roadie-watch.timer", "roadie-backup.timer", "roadie-report.timer"]])
+        self.assertEqual(len(self.run_maintenance(None, existing=ops.UNITS)[0]), 3)
+
 if __name__ == "__main__":
     unittest.main()

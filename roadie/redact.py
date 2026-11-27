@@ -18,7 +18,7 @@ class Redactor:
             self.add(s)
 
     def add(self, value: str | None) -> None:
-        if value and len(value) >= 4:
+        if value and len(value) >= 4:  # never "" or tiny values: they would mangle all output
             self._secrets.add(value)
 
     def __call__(self, text: str) -> str:

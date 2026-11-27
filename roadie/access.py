@@ -6,6 +6,7 @@ from roadie.i18n import t
 from roadie.ops import backup as backup_ops
 from roadie.ops.common import Env
 from roadie.paths import atomic_write
+from roadie.render.envfiles import ADMIN
 from roadie.ui import Prompter
 
 COPY = "\0"  # marks a line the renderer prints with Prompter.copyable
@@ -85,6 +86,12 @@ def sections(env: Env, mask_login_password: bool = False, essentials_only: bool 
         lines += _pair(t("access.config_uuid"), env.secrets.get(uuid_name))
         lines += _pair(t("access.config_password"), env.secrets.get(password_name))
     out.append((t("access.t.config"), lines))
+
+    if aio:
+        lines = [t("access.dashboard_text"), COPY + f"{aio}/dashboard"]
+        lines += _pair(t("access.login_name"), ADMIN)
+        lines += _pair(t("access.login_password"), env.secrets.get("aiostreams_admin_password"))
+        out.append((t("access.t.dashboard"), lines))
 
     if domain:
         out.append((t("access.t.prowlarr"), [t("access.prowlarr_text"), COPY + f"https://prowlarr.{env.domain}"]))

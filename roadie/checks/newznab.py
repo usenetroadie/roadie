@@ -10,13 +10,18 @@ from roadie.checks.http import HttpError, http_get
 AUTH_ERROR_CODES = {"100", "101", "102"}
 
 
+def _query(api_key: str, **params) -> str:
+    """Query string; an empty key is left out (some indexers need none)."""
+    return urlencode({**params, **({"apikey": api_key} if api_key else {})})
+
+
 def check_newznab(url: str, api_key: str, timeout: float = 15) -> CheckResult:
     try:
         base = normalise_newznab_url(url)
     except ValueError:
         return CheckResult(False, "check.newznab.bad_url")
     try:
-        resp = http_get(f"{base}/api?{urlencode({'t': 'caps', 'apikey': api_key})}", timeout=timeout)
+        resp = http_get(f"{base}/api?{_query(api_key, t='caps')}", timeout=timeout)
     except HttpError as e:
         return network_failure(e)
     return check_newznab_body(resp)
@@ -51,7 +56,7 @@ def probe(url: str, api_key: str, timeout: float = 15) -> tuple[CheckResult, int
     except ValueError:
         return CheckResult(False, "check.newznab.bad_url"), None, None
     try:
-        resp = http_get(f"{base}/api?{urlencode({'t': 'caps', 'apikey': api_key})}", timeout=timeout)
+        resp = http_get(f"{base}/api?{_query(api_key, t='caps')}", timeout=timeout)
     except HttpError:
         return _down(), None, None
     if resp.status >= 500:
@@ -60,7 +65,7 @@ def probe(url: str, api_key: str, timeout: float = 15) -> tuple[CheckResult, int
     if not caps.ok:
         return caps, None, None
     try:
-        resp = http_get(f"{base}/api?{urlencode({'t': 'search', 'q': 'test', 'limit': 1, 'apikey': api_key})}",
+        resp = http_get(f"{base}/api?{_query(api_key, t='search', q='test', limit=1)}",
                         timeout=timeout)
     except HttpError:
         return caps, None, None  # caps answered: the key is checked again by Prowlarr
@@ -96,7 +101,7 @@ def detect_limits(url: str, api_key: str, timeout: float = 15) -> tuple[int | No
     """One tiny search (costs one API call); (None, None) when the indexer does not tell."""
     try:
         base = normalise_newznab_url(url)
-        resp = http_get(f"{base}/api?{urlencode({'t': 'search', 'q': 'test', 'limit': 1, 'apikey': api_key})}",
+        resp = http_get(f"{base}/api?{_query(api_key, t='search', q='test', limit=1)}",
                         timeout=timeout)
     except (ValueError, HttpError):
         return None, None

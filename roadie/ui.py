@@ -345,13 +345,21 @@ class Prompter:
                 return value
             self.fail(error)
 
-    def ask_secret(self, label: str, validate: Validator | None = None, keep: bool = False) -> str | None:
-        """`keep`: there is a current value; empty input returns None = keep it (never shown)."""
-        note = t("ui.hidden") + (", " + t("ui.keep_secret") if keep else "")
+    def ask_secret(self, label: str, validate: Validator | None = None, keep: bool = False,
+                   optional: bool = False) -> str | None:
+        """`keep`: there is a current value; empty input returns None = keep it (never shown).
+        `optional`: empty is an answer ("") and, with a current value, "-" removes it."""
+        note = t("ui.hidden")
+        if keep:
+            note += ", " + t("ui.keep_secret") + (", " + t("ui.remove_secret") if optional else "")
+        elif optional:
+            note += ", " + t("ui.optional_secret")
         while True:
             value = self.secret_reader(f"{label} ({note}): ").strip()
             if keep and not value:
                 return None
+            if optional:
+                return "" if value == "-" else value
             error = validate(value) if validate else (None if value else t("ui.required"))
             if error is None:
                 return value

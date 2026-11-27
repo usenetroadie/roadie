@@ -159,9 +159,40 @@ def _owned(preset: dict) -> bool:
     return iid in WIZARD_PRESETS
 
 
-def merge_presets(current: list[dict], new: list[dict]) -> list[dict]:
-    """The wizard's presets from `new`, then every preset the user added (kept as is)."""
-    return copy.deepcopy(list(new) + [p for p in current if not _owned(p)])
+# The simple TMDB addon and the own AIOMetadata are one place in the addon list: one replaces the other.
+TMDB_SLOT = ("roadietmdb", "roadiemetadata")
+
+
+def tmdb_slot(presets: list[dict]) -> str | None:
+    """Which of TMDB_SLOT a preset list holds (None: neither)."""
+    return next((p.get("instanceId") for p in presets if p.get("instanceId") in TMDB_SLOT), None)
+
+
+def merge_presets(current: list[dict], new: list[dict], readd: set[str] = frozenset()) -> list[dict]:
+    """Update the wizard's presets that are still in `current`, in place and with the user's
+    `enabled`; a wizard preset not in `new` goes (the TMDB_SLOT presets replace each other at the
+    same place). Presets the user added stay as they are. A wizard preset missing from `current`
+    (deleted on the website) only comes back, at the front, when its instanceId is in `readd`."""
+    wanted = {p["instanceId"]: p for p in new}
+    have = {p.get("instanceId") for p in current}
+    if have & set(TMDB_SLOT):
+        have |= set(TMDB_SLOT)
+    merged = [p for p in new if p["instanceId"] in readd and p["instanceId"] not in have]
+    for p in current:
+        iid = p.get("instanceId")
+        if not _owned(p):
+            merged.append(p)
+            continue
+        if iid not in wanted and iid in TMDB_SLOT:
+            iid = next(i for i in TMDB_SLOT if i != iid)
+        if iid in wanted:
+            merged.append({**wanted[iid], **({"enabled": p["enabled"]} if "enabled" in p else {})})
+    return copy.deepcopy(merged)
+
+
+def row_addon(row: dict) -> str:
+    """The instanceId of the addon a catalog row belongs to (row id "<instanceId><4 hex>.<catalog>")."""
+    return row["id"].split(".", 1)[0][:-len(_ADDON_SUFFIX)]
 
 
 def merge_catalog_mods(current: list[dict], new: list[dict]) -> list[dict]:
@@ -209,6 +240,33 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
     cfg["rankedRegexPatterns"] = copy.deepcopy(RANKED_REGEX)
     cfg["precacheNextEpisode"] = True
     return cfg
+
+
+# Which config sections each answer part feeds ("change settings" writes only these).
+_ANSWER_SECTIONS = {"content": ["languages", "quality", "ranking"], "indexers": ["streams"],
+                    "tmdb_api_key": ["metadata"]}
+CATALOG_PRESETS = {"roadietmdb", "roadiestreaming", "roadiecollections", "roadiemetadata"}
+
+
+def sections_for(changed: set[str]) -> list[str]:
+    """The SECTIONS to write for the changed answer parts ("*" = all), in SECTIONS order."""
+    if "*" in changed:
+        return list(SECTIONS)
+    wanted = {s for part in changed for s in _ANSWER_SECTIONS.get(part, [])}
+    return [s for s in SECTIONS if s in wanted]
+
+
+def presets_for(changed: set[str]) -> dict:
+    """Whether presets, catalog rows and groups are written, and which deleted wizard presets
+    come back: Prowlarr when the indexers changed (no streams without it), the catalog addons
+    when the catalogs or the TMDB key changed."""
+    every = "*" in changed
+    readd = set()
+    if every or "indexers" in changed:
+        readd |= {"roadieprowlarr", FALLBACK_PRESET}
+    if every or changed & {"tmdb_api_key", "catalogs"}:
+        readd |= CATALOG_PRESETS
+    return {"write": every or bool(changed & {"indexers", "tmdb_api_key", "content", "catalogs"}), "readd": readd}
 
 
 def merge_sections(current: dict, new: dict, sections: list[str]) -> dict:

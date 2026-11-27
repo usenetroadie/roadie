@@ -18,7 +18,7 @@ from roadie.state import State
 def files(authelia="a", routes="r", aio="x"):
     return [RenderedFile("compose.yaml", "services: {}\n"),
             RenderedFile("config/traefik/traefik.yml", "static\n"),
-            RenderedFile("config/traefik/routes.yml", routes),
+            RenderedFile("config/traefik/dynamic/roadie.yml", routes),
             RenderedFile("config/authelia/configuration.yml", authelia),
             RenderedFile("secrets/authelia/JWT_SECRET", "s", 0o600),
             RenderedFile("env/authelia.env", "A=1\n", 0o600),
@@ -185,3 +185,45 @@ class DockerSourceTest(unittest.TestCase):
                     ('ID=ubuntu\nVERSION_CODENAME=noble\n', "amd64 evil")):
             with self.assertRaises(ValueError):
                 docker_source(*bad)
+
+
+class UnhealthyTest(unittest.TestCase):
+    """Only roadie's own services count, and they count as fine only when their health check says so."""
+
+    def bad(self, rows, services="traefik:\n  authelia:\n"):
+        import json
+        from unittest import mock
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        paths = Paths(root=Path(tmp.name))
+        paths.stack_dir.mkdir(parents=True)
+        (paths.stack_dir / "compose.yaml").write_text(f"name: roadie\nservices:\n  {services}networks:\n  roadie: {{}}\n")
+        ctx = Context(paths=paths, state=State(paths.state_file), secrets=SecretStore(paths.secrets_file),
+                      ui=None, redact=Redactor())
+        out = "\n".join(json.dumps({"Service": s, "State": st, "Health": h}) for s, st, h in rows)
+        with mock.patch.object(stack, "_compose", lambda ctx, *a, **kw: out):
+            return stack._unhealthy(ctx)
+
+    def test_just_recreated_without_health_yet_is_not_healthy(self):
+        self.assertEqual(self.bad([("traefik", "running", "healthy"), ("authelia", "running", "")]), ["authelia"])
+
+    def test_restarting_and_starting_are_not_healthy(self):
+        self.assertEqual(self.bad([("traefik", "running", "starting"), ("authelia", "restarting", "")]),
+                         ["traefik", "authelia"])
+
+    def test_own_service_from_override_ignored(self):
+        self.assertEqual(self.bad([("traefik", "running", "healthy"), ("authelia", "running", "healthy"),
+                                   ("whoami", "running", ""), ("other", "exited", "")]), [])
+
+    def test_render_config_names_the_services(self):
+        from unittest import mock
+        with mock.patch.object(stack.compose, "compose_dict", lambda cfg: {"services": {"traefik": {}}}):
+            import json
+            tmp = tempfile.TemporaryDirectory()
+            self.addCleanup(tmp.cleanup)
+            paths = Paths(root=Path(tmp.name))
+            ctx = Context(paths=paths, state=State(paths.state_file), secrets=SecretStore(paths.secrets_file),
+                          ui=None, redact=Redactor(), extra={"render": object()})
+            out = json.dumps({"Service": "authelia", "State": "exited", "Health": ""})
+            with mock.patch.object(stack, "_compose", lambda ctx, *a, **kw: out):
+                self.assertEqual(stack._unhealthy(ctx), [])

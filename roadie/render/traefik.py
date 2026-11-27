@@ -4,6 +4,9 @@ from roadie.render import HEADER, RenderConfig, RenderedFile
 from roadie.render.yaml import dump
 
 RESOLVER = "letsencrypt"
+# roadie owns only this file; the folder is Traefik's, so own routes go in further files next to it
+DYNAMIC_FILE = "config/traefik/dynamic/roadie.yml"
+OLD_DYNAMIC_FILE = "config/traefik/routes.yml"  # before roadie used a folder
 # AIOStreams puts encoded data (file names, config) into URL paths; Traefik >= 3.6 rejects
 # these by default. The null character stays blocked. Not narrowed (security audit L10): release
 # file names in playback URLs can hold any of these characters, and the bypass is only for
@@ -31,7 +34,7 @@ def _static_dict(cfg: RenderConfig) -> dict:
                 "middlewares": ["security-headers@file"], "encodedCharacters": ENCODED}},
             "ping": {"address": "127.0.0.1:8082"},
         },
-        "providers": {"file": {"filename": "/etc/traefik/routes.yml", "watch": True}},
+        "providers": {"file": {"directory": "/etc/traefik/dynamic", "watch": True}},
         "certificatesResolvers": {RESOLVER: {"acme": {"storage": "/data/acme.json", "tlsChallenge": {}}}},
     }
 
@@ -57,7 +60,7 @@ def dynamic_dict(cfg: RenderConfig) -> dict:
         "prowlarr": {"loadBalancer": {"servers": [{"url": "http://prowlarr:9696"}]}},
         "status": {"loadBalancer": {"servers": [{"url": "http://status:8080"}]}},
     }
-    if cfg.metadata:  # AIOMetadata's settings page; players never need it (posters come from TMDB)
+    if cfg.metadata:  # AIOMetadata: settings page behind the login, players only load images from it
         routers["metadata"] = _router(cfg, "metadata", "metadata")
         services["metadata"] = {"loadBalancer": {"servers": [{"url": "http://aiometadata:3232"}]}}
     middlewares = {
@@ -77,5 +80,5 @@ def dynamic_dict(cfg: RenderConfig) -> dict:
 def render_traefik(cfg: RenderConfig) -> list[RenderedFile]:
     return [
         RenderedFile("config/traefik/traefik.yml", dump(static_dict(cfg), header=HEADER)),
-        RenderedFile("config/traefik/routes.yml", dump(dynamic_dict(cfg), header=HEADER)),
+        RenderedFile(DYNAMIC_FILE, dump(dynamic_dict(cfg), header=HEADER)),
     ]
