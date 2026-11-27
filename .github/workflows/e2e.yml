@@ -20,48 +20,20 @@ permissions:
   contents: read
 
 jobs:
-  runner:
-    name: ubuntu 24.04 ${{ matrix.arch }} (${{ matrix.mode }})
+  server:
+    # Every system runs as a fresh server in an LXD container on the runner: the runner's own
+    # services (Docker, GitHub's outbound proxy on 127.0.0.2:443) cannot get in the way.
+    name: ${{ matrix.image }} ${{ matrix.arch }} (${{ matrix.mode }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - {runner: ubuntu-24.04, arch: x86_64, mode: duckdns}
-          - {runner: ubuntu-24.04, arch: x86_64, mode: upgrade}  # latest release -> this commit
-          - {runner: ubuntu-24.04-arm, arch: arm64, mode: domain}
+          - {runner: ubuntu-24.04, arch: x86_64, image: ubuntu/24.04, mode: duckdns}
+          - {runner: ubuntu-24.04, arch: x86_64, image: ubuntu/24.04, mode: upgrade}  # latest release -> this commit
+          - {runner: ubuntu-24.04-arm, arch: arm64, image: ubuntu/24.04, mode: domain}
+          - {runner: ubuntu-24.04, arch: x86_64, image: debian/12, mode: duckdns}
+          - {runner: ubuntu-24.04, arch: x86_64, image: debian/13, mode: domain}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
-        with:
-          ref: ${{ inputs.ref }}
-          persist-credentials: false
-      - name: Prepare a "fresh" server (runners ship Docker; the wizard expects none)
-        run: |
-          sudo systemctl stop docker.socket docker.service containerd || true
-          sudo apt-get purge -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin moby-* || true
-          sudo rm -rf /var/lib/docker /etc/docker /usr/bin/docker /usr/libexec/docker
-          sudo ss -Htlnp '( sport = :80 or sport = :443 )' || true  # the wizard needs both ports free
-      - name: TMDB key for the own AIOMetadata (repository secret; forks run without it)
-        env:
-          TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
-        run: |
-          if [ -n "$TMDB_KEY" ]; then umask 077; printf %s "$TMDB_KEY" | sudo tee /root/tmdb-key >/dev/null; fi
-      - name: Setup, checks, second run, backup
-        run: sudo bash tests/e2e/run.sh ${{ matrix.mode }}
-      - name: Problem report (redacted) on failure
-        if: failure()
-        run: sudo roadie diagnose || true
-
-  debian:
-    name: ${{ matrix.image }} (${{ matrix.mode }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {image: debian/12, mode: duckdns}
-          - {image: debian/13, mode: domain}
-    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
@@ -76,7 +48,7 @@ jobs:
         with:
           path: ~/lxd-snaps
           key: lxd-snaps-${{ runner.arch }}-${{ steps.week.outputs.week }}
-      - name: Fresh Debian server in an LXD container
+      - name: Fresh server in an LXD container
         run: |
           # The snap store is flaky; Incus 6.0 from apt is no way out (Docker does not start in it).
           # So the snaps are downloaded once a week and installed from the Actions cache.
@@ -95,9 +67,9 @@ jobs:
           )
           sudo lxd init --auto
           sudo iptables -P FORWARD ACCEPT  # the runner's Docker would drop the container's traffic
-          sudo lxc launch "images:${{ matrix.image }}" srv -c security.nesting=true
-          for i in $(seq 1 60); do sudo lxc exec srv -- getent hosts deb.debian.org >/dev/null && break; sleep 2; done
-          # what a Debian cloud image has and the minimal container image lacks
+          for try in 1 2 3; do sudo lxc launch "images:${{ matrix.image }}" srv -c security.nesting=true && break; sleep 30; done
+          for i in $(seq 1 60); do sudo lxc exec srv -- getent hosts github.com >/dev/null && break; sleep 2; done
+          # what a cloud image has and the minimal container image lacks
           sudo lxc exec srv -- bash -c 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3 curl ca-certificates openssh-server'
           tar -cf - --exclude=.git . | sudo lxc exec srv -- bash -c 'mkdir -p /root/roadie && tar -xf - -C /root/roadie'
       - name: TMDB key for the own AIOMetadata (repository secret; forks run without it)
