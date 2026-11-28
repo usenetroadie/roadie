@@ -43,6 +43,15 @@ roadie notices a complete download (status page or SFTP) and sends a push messag
 backup was not downloaded within 36 hours, once per backup. SFTP downloads are only seen where sshd
 can log them (not on Debian 12); downloads from the status page are always seen.
 
+## Go back to an older backup
+
+On the same server, for example after a change you want to undo: `sudo roadie` → *Restore a
+backup*. Pick the backup, paste your private backup key (it starts with `AGE-SECRET-KEY-`), read
+the warning and type `restore`. roadie checks the key before it changes anything, makes a backup
+of the current state first (so you can go back again), stops the services, puts the backup in
+place and starts everything again from it. SSH stays as it is. Everything since that backup is
+lost: settings, people, the AIOStreams and Prowlarr data.
+
 ## Move to a new server
 
 1. Copy the backup file to the new server, into the home folder of the user you log in with

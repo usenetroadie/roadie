@@ -6,6 +6,7 @@ import datetime
 import hashlib
 import os
 import posixpath
+import shutil
 import subprocess
 import tarfile
 import time
@@ -86,7 +87,9 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def run(env: Env, quiet: bool = False) -> int:
+def run(env: Env, quiet: bool = False, prune_old: bool = True) -> int:
+    """Encrypted backup of roadie's folders. `prune_old=False` keeps every older backup (the
+    safety backup before a restore must not delete the one being restored)."""
     key = recipient(env)
     if not key:
         print(t("backup.no_key"))
@@ -118,7 +121,7 @@ def run(env: Env, quiet: bool = False) -> int:
         (env.var_dir / BACKUP_MARKER).unlink(missing_ok=True)
     write_checksum(target)
     publish_latest(env, target)
-    for old in prune([p.name for p in target_dir.iterdir()]):
+    for old in prune([p.name for p in target_dir.iterdir()]) if prune_old else []:
         (target_dir / old).unlink(missing_ok=True)
         (target_dir / (old + ".sha256")).unlink(missing_ok=True)
     user = env.answers.get("admin_user")
@@ -277,18 +280,18 @@ def find_uploaded(paths) -> Path | None:
     return max(found, key=lambda p: p.stat().st_mtime) if found else None
 
 
-def restore_with_key(paths, archive: str, key_text: str, overwrite: bool = False,
-                     then_continue: bool = False) -> int:
-    """restore() with the private key pasted as text: it lives in a 0600 file only while
-    the backup is unpacked and is removed in every case."""
+@contextlib.contextmanager
+def _key_file(key_text: str):
+    """The pasted private key in a 0600 file, removed in every case (in /run: gone at the
+    latest with a reboot)."""
     import tempfile
-    run_dir = "/run" if os.access("/run", os.W_OK) else None  # tmpfs: gone at the latest with a reboot
+    run_dir = "/run" if os.access("/run", os.W_OK) else None
     fd, name = tempfile.mkstemp(prefix="roadie-key-", dir=run_dir)
     try:
         with os.fdopen(fd, "w") as f:
             f.write(key_text.strip() + "\n")
         os.chmod(name, 0o600)
-        return restore(paths, archive, name, overwrite=overwrite, then_continue=then_continue)
+        yield name
     finally:
         try:
             os.unlink(name)
@@ -296,11 +299,65 @@ def restore_with_key(paths, archive: str, key_text: str, overwrite: bool = False
             pass
 
 
-def restore(paths, archive: str, identity: str, overwrite: bool = False, then_continue: bool = False) -> int:
+def restore_with_key(paths, archive: str, key_text: str, overwrite: bool = False,
+                     then_continue: bool = False, same_server: bool = False) -> int:
+    """restore() with the private key pasted as text."""
+    with _key_file(key_text) as name:
+        return restore(paths, archive, name, overwrite=overwrite, then_continue=then_continue,
+                       same_server=same_server)
+
+
+def archives(env: Env) -> list[Path]:
+    """roadie backups on this server (the backup folder and uploaded ones), newest first."""
+    found = {p.resolve(): p for p in backup_dir(env).glob("roadie-backup-*.tar.age") if p.is_file()}
+    uploaded = find_uploaded(env.paths)
+    if uploaded:
+        found.setdefault(uploaded.resolve(), uploaded)
+    return sorted(found.values(), key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def key_opens(archive: str, key_text: str, root: Path) -> bool:
+    """Whether the key decrypts the backup and its content is safe to restore (nothing written)."""
+    if not shutil.which("age"):
+        return False
+    try:
+        with _key_file(key_text) as name:
+            _check_members(name, archive, root)
+        return True
+    except (UnsafeBackup, tarfile.TarError, OSError, EOFError, RuntimeError):
+        return False
+
+
+def restore_running(env: Env, archive: Path, key_text: str) -> int:
+    """Restore a backup onto this running server: a copy of it first (the safety backup below
+    may prune the original), a backup of the current state, all services stopped, then the
+    files back. The caller runs the setup steps afterwards, which start everything again."""
+    import tempfile
+    work = Path(tempfile.mkdtemp(prefix="roadie-restore-", dir="/run" if os.access("/run", os.W_OK) else None))
+    try:
+        copy = work / archive.name
+        shutil.copy2(archive, copy)
+        if run(env, quiet=True, prune_old=False) != 0:  # the state before the restore, in case it was the wrong one
+            print(t("restore.safety_failed"))
+            return 1
+        env.save_json(BACKUP_MARKER, {"since": time.time()})  # the watcher does not report the stopped apps
+        try:
+            env.compose("stop", check=False)
+            return restore_with_key(env.paths, str(copy), key_text, overwrite=True, then_continue=True,
+                                    same_server=True)
+        finally:
+            (env.var_dir / BACKUP_MARKER).unlink(missing_ok=True)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def restore(paths, archive: str, identity: str, overwrite: bool = False, then_continue: bool = False,
+            same_server: bool = False) -> int:
     """Decrypt and unpack a backup onto this (fresh) server, then let the wizard rebuild
-    everything from the restored answers and secrets."""
-    import shutil
+    everything from the restored answers and secrets. On the `same_server` SSH stays as it is
+    now (no new key test)."""
     from roadie.state import State
+    before = State(paths.state_file) if same_server else None  # this server is set up already
     if not Path(archive).is_file() or not Path(identity).is_file():
         print(t("backup.restore_missing"))
         return 2
@@ -328,6 +385,10 @@ def restore(paths, archive: str, identity: str, overwrite: bool = False, then_co
     state = State(paths.state_file)
     state.done = []  # this machine has to be set up again from the restored answers
     state.answers.pop("_ssh_hardened", None)
+    if before is not None:  # same server: its steps and SSH stay done (no fresh-server checks, no key test)
+        state.done = list(before.done)
+        if before.answers.get("_ssh_hardened"):
+            state.answers["_ssh_hardened"] = before.answers["_ssh_hardened"]
     state.answers["_restored"] = {"file": Path(archive).name, "at": time.strftime("%Y-%m-%d %H:%M")}
     state.save()
     # the wizard offered the restore itself and goes on at once: no "now run sudo roadie"

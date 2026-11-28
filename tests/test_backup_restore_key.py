@@ -12,7 +12,7 @@ class RestoreWithKeyTest(unittest.TestCase):
     def test_restore_with_key_removes_temp_file(self):
         seen = []
 
-        def fake_restore(paths, archive, identity, overwrite=False, then_continue=False):
+        def fake_restore(paths, archive, identity, overwrite=False, then_continue=False, same_server=False):
             seen.append(identity)
             self.assertEqual(Path(identity).read_text(), "AGE-SECRET-KEY-1TEST\n")
             self.assertEqual(Path(identity).stat().st_mode & 0o777, 0o600)
@@ -25,7 +25,7 @@ class RestoreWithKeyTest(unittest.TestCase):
     def test_restore_with_key_passes_on_continue(self):
         seen = {}
 
-        def fake_restore(paths, archive, identity, overwrite=False, then_continue=False):
+        def fake_restore(paths, archive, identity, overwrite=False, then_continue=False, same_server=False):
             seen["continue"] = then_continue
             return 0
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(backup, "restore", side_effect=fake_restore):

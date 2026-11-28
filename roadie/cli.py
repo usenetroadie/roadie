@@ -141,8 +141,44 @@ def _menu(args, paths: Paths, ui: Prompter, gather, make_steps) -> int:
         "restart": lambda env, ui: _locked(paths, ui, lambda: menu.restart(env, ui)),
         "people": lambda env, ui: _locked(paths, ui, lambda: menu.people_menu(env, ui, menu.default_api)),
         "ssh": lambda env, ui: _locked(paths, ui, lambda: _finish_ssh(paths, ui, gather)),
+        "restore": lambda env, ui: _locked(paths, ui, lambda: _restore_menu(env, paths, ui, gather, make_steps)),
     }
     return menu.run(env, ui, actions, reload=lambda: common.load_env(paths))
+
+
+def _restore_menu(env, paths: Paths, ui: Prompter, gather, make_steps) -> int:
+    """Menu: put an older backup back on this running server. Pick, key, a clear warning and
+    the word "restore"; a backup of the current state is made first. Then the setup steps run
+    from the restored answers, like an update."""
+    import datetime
+    from roadie.ops import backup
+    found = backup.archives(env)
+    if not found:
+        ui.warn(t("restore.none", dir=str(backup.backup_dir(env))))
+        return EXIT_INVALID
+    choices = [(str(p), t("restore.item", name=p.name,
+                           time=datetime.datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M")))
+               for p in found[:10]]
+    pick = ui.choose(t("restore.pick"), choices + [("back", t("restore.back"))])
+    if pick == "back":
+        return EXIT_OK
+    archive = Path(pick)
+    ui.info(t("cli.restore_key_help"))
+    key = ui.ask_secret(t("cli.restore_key"))
+    if not backup.key_opens(str(archive), key, paths.root):
+        ui.fail(t("restore.key_wrong"))
+        return EXIT_FAILED
+    ui.warn(t("restore.warning", name=archive.name))
+    if ui.ask(t("restore.confirm"), default="", validate=lambda v: None).strip().lower() != "restore":
+        ui.info(t("restore.cancelled"))
+        return EXIT_OK
+    if backup.restore_running(env, archive, key) != 0:
+        ui.fail(t("restore.failed"))
+        return EXIT_FAILED
+    state, secrets = State(paths.state_file), SecretStore(paths.secrets_file)
+    answers = Answers.restore(state, secrets)
+    redact = Redactor(answers.secret_values() + secrets.values())
+    return _run_setup(answers, paths, ui, gather, redact, False, make_steps, update=True)
 
 
 def _finish_ssh(paths: Paths, ui: Prompter, gather) -> int:

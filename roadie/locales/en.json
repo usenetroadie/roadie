@@ -711,5 +711,16 @@
   "q.easynews.username": "Easynews user name",
   "q.easynews.password": "Easynews password",
   "q.easynews.again": "Enter the Easynews login again?",
-  "review.easynews": "Easynews: {user} (search switched on)"
+  "review.easynews": "Easynews: {user} (search switched on)",
+  "menu.restore": "Restore a backup",
+  "restore.none": "No roadie backup found in {dir} (or uploaded to /root or a home folder).",
+  "restore.pick": "Which backup do you want to put back?",
+  "restore.item": "{name} ({time})",
+  "restore.back": "Back",
+  "restore.key_wrong": "This key does not open the backup. Nothing was changed.",
+  "restore.warning": "This replaces everything roadie keeps on this server with the state of {name}: all settings and passwords, the people and their addon addresses, the AIOStreams and Prowlarr data. Changes since then are lost. roadie first makes a backup of the current state, and the services are stopped for a few minutes.",
+  "restore.confirm": "Type restore to go on, or press Enter to cancel",
+  "restore.cancelled": "Cancelled. Nothing was changed.",
+  "restore.failed": "The backup could not be put back. Run 'sudo roadie diagnose' for details.",
+  "restore.safety_failed": "The backup of the current state failed, so nothing was restored."
 }

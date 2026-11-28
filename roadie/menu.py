@@ -99,6 +99,7 @@ ITEMS: list[MenuItem] = [
     MenuItem("people", "menu.people", _people),
     MenuItem("change", "menu.change", None),  # cli injects the setup run
     MenuItem("backup", "menu.backup", _backup),
+    MenuItem("restore", "menu.restore", None),  # cli injects the restore run
     MenuItem("update", "menu.update", None),  # cli injects the update run
     MenuItem("explain", "menu.explain", lambda env, ui: _explain(env, ui), pause=False),
     MenuItem("uninstall", "menu.uninstall", _uninstall),  # last on purpose: not prominent

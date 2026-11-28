@@ -25,7 +25,7 @@
 
 After the setup, `sudo roadie` opens a menu: *Show my access details*, the login confirmation
 code, *Finish SSH setup* (until your key login worked), status, *Restart services*, *Manage people*,
-*Change settings*, backup, updates, and *Help and how your server works*.
+*Change settings*, backup, *Restore a backup*, updates, and *Help and how your server works*.
 
 *Change settings* shows all your answers first and asks only the part you pick again, prefilled
 with the current values. The admin user stays; a new SSH key is added, old ones are kept.

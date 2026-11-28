@@ -430,3 +430,79 @@ class OldPythonTarTest(unittest.TestCase):
             installed = app / "roadie/__main__.py"
             self.assertTrue(installed.exists())
             self.assertEqual(installed.stat().st_mode & 0o7777, 0o755)  # setuid gone, as with filter="data"
+
+
+class RestoreRunningTest(unittest.TestCase):
+    """Restore from the menu on a running server: key checked first, the chosen backup kept,
+    a safety backup of the current state, SSH left as it is."""
+
+    def setUp(self):
+        import shutil
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        if not shutil.which("age"):
+            self.skipTest("age not installed")
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        key_file = self.root / "key.txt"
+        subprocess.run(["age-keygen", "-o", str(key_file)], check=True, capture_output=True)
+        self.key = key_file.read_text()
+        self.public = [l.split(": ")[1] for l in self.key.splitlines() if l.startswith("# public key")][0]
+        src = self.root / "src"
+        (src / "etc/roadie").mkdir(parents=True)
+        (src / "opt/roadie/stack").mkdir(parents=True)
+        (src / "etc/roadie/state.json").write_text('{"done": ["packages"], "answers": {"language": "en", "_ssh_hardened": true}}')
+        (src / "opt/roadie/stack/compose.yaml").write_text("from the backup")
+        from roadie.ops import backup
+        self.archive = self.root / "roadie-backup-2026-11-20.tar.age"
+        backup.encrypt_tar(self.archive, self.public, src)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_key_checked_without_writing(self):
+        import subprocess
+        from roadie.ops import backup
+        dst = self.root / "dst"
+        dst.mkdir()
+        self.assertTrue(backup.key_opens(str(self.archive), self.key, dst))
+        other = self.root / "other.txt"
+        subprocess.run(["age-keygen", "-o", str(other)], check=True, capture_output=True)
+        self.assertFalse(backup.key_opens(str(self.archive), other.read_text(), dst))
+        self.assertEqual(list(dst.iterdir()), [])
+
+    def test_restore_running_keeps_ssh_and_takes_a_safety_backup(self):
+        import json
+        from unittest import mock
+        from roadie.ops import backup
+        from roadie.paths import Paths
+        dst = self.root / "dst"
+        (dst / "etc/roadie").mkdir(parents=True)
+        (dst / "opt/roadie/stack").mkdir(parents=True)
+        (dst / "etc/roadie/state.json").write_text('{"done": ["x"], "answers": {"_ssh_hardened": "2026-11-01"}}')
+        (dst / "opt/roadie/stack/compose.yaml").write_text("now")
+        env = mock.Mock()
+        env.paths = Paths(dst)
+        env.var_dir = self.root / "var"
+        env.var_dir.mkdir()
+        calls = []
+        env.compose.side_effect = lambda *a, **k: calls.append(a) or ""
+        with mock.patch.object(backup, "run", return_value=0) as safety:
+            self.assertEqual(backup.restore_running(env, self.archive, self.key), 0)
+        safety.assert_called_once_with(env, quiet=True, prune_old=False)  # keeps the backup being restored
+        self.assertIn(("stop",), calls)
+        self.assertEqual((dst / "opt/roadie/stack/compose.yaml").read_text(), "from the backup")
+        state = json.loads((dst / "etc/roadie/state.json").read_text())
+        self.assertEqual(state["answers"]["_ssh_hardened"], "2026-11-01")  # same server: no new SSH test
+        self.assertEqual(state["done"], ["x"])  # same server: set up already (no fresh-server preflight)
+        self.assertTrue(self.archive.exists())
+
+    def test_nothing_happens_when_the_safety_backup_fails(self):
+        from unittest import mock
+        from roadie.ops import backup
+        env = mock.Mock()
+        with mock.patch.object(backup, "run", return_value=1), mock.patch.object(backup, "restore_with_key") as rw:
+            self.assertEqual(backup.restore_running(env, self.archive, self.key), 1)
+        rw.assert_not_called()
+        env.compose.assert_not_called()

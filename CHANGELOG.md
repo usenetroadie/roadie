@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.6.5 – 2026-11-28
+
+- The menu has *Restore a backup*: pick a backup, paste your key, confirm with `restore`. roadie
+  checks the key first, makes a backup of the current state, then puts the old one back and
+  starts everything again. Before, this only worked with a command and a key file.
+
 ## 0.6.4 – 2026-11-28
 
 - Settings you changed inside roadie's own addons in AIOStreams stay, also when *Change settings*
