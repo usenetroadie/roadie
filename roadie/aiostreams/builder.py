@@ -6,6 +6,7 @@ validates the result when it is saved through its API."""
 
 import copy
 import hashlib
+import json
 
 TMDB_FEATURES = ("titleMatching", "yearMatching", "digitalReleaseFilter")
 # Which config keys belong to which wizard section (for "change only what was edited").
@@ -30,7 +31,9 @@ PERSON_FIELDS = ("preferredLanguages", "preferredResolutions", "preferredVisualT
 RESULT_LIMITS = {"resolution": 5, "global": 20}
 # Presets the wizard owns (by instanceId); every other preset belongs to the user and stays.
 WIZARD_PRESETS = ("roadieprowlarr", "roadieprowlarrfallback", "roadietmdb", "roadiestreaming", "roadiecollections",
-                  "roadiemetadata")
+                  "roadiemetadata", "roadieeasynews")
+# AIOStreams' built-in Easynews Search, playing straight from Easynews (service "easynews").
+EASYNEWS_PRESET = "roadieeasynews"
 # Main and fallback indexers: Prowlarr tags pick them, so an indexer the user adds in Prowlarr
 # joins a side by getting one of the tags. The fallback side is only asked when the main side
 # found fewer than FALLBACK_BELOW streams (in the chosen languages other than English).
@@ -97,22 +100,42 @@ def _prowlarr_preset(iid: str, name: str, tag: str | None) -> dict:
     return {"type": "prowlarr", "instanceId": iid, "enabled": True, "options": options}
 
 
-def fallback_groups(content: dict) -> dict:
-    """Ask the main indexers first; the fallback ones only when that found too little."""
+def fallback_groups(content: dict, first: tuple[str, ...] = ()) -> dict:
+    """Ask the main indexers (and the addons in `first`, e.g. Easynews) first; the fallback
+    ones only when that found too little."""
     langs = [lang for lang in content["languages"] if lang != "English"]
     found = f"language(totalStreams, {', '.join(repr(lang) for lang in langs)})" if langs else "totalStreams"
     return {"enabled": True, "behaviour": "sequential", "onConditionFailure": "stop",
-            "groupings": [{"addons": ["roadieprowlarr"], "condition": "true"},
+            "groupings": [{"addons": ["roadieprowlarr", *first], "condition": "true"},
                           {"addons": [FALLBACK_PRESET], "condition": f"count({found}) < {FALLBACK_BELOW}"}]}
 
 
-def merge_groups(current: dict | None, new: dict | None) -> dict | None:
+def merge_groups(current: dict | None, new: dict | None, record: dict | None = None) -> dict | None:
     """The wizard's groups replace the current ones; without a split, groups the wizard made
-    earlier go and the user's own stay."""
+    earlier go and the user's own stay. With `record` (key "_groups": fingerprint of the groups
+    the wizard wrote last) groups the user changed by hand stay as they are."""
+    if record is not None and current:
+        wrote = record.setdefault("_groups", fingerprint(current))  # first look: as if written now
+        if fingerprint(current) != wrote:
+            return copy.deepcopy(current)  # changed by hand
     if new:
-        return copy.deepcopy(new)
-    ours = any(FALLBACK_PRESET in g.get("addons", []) for g in (current or {}).get("groupings") or [])
-    return None if ours else copy.deepcopy(current)
+        result = copy.deepcopy(new)
+    else:
+        ours = any(FALLBACK_PRESET in g.get("addons", []) for g in (current or {}).get("groupings") or [])
+        result = None if ours else copy.deepcopy(current)
+    if record is not None:
+        record["_groups"] = fingerprint(result)
+    return result
+
+
+def merge_services(current: list[dict], new: list[dict], record: dict) -> list[dict]:
+    """The wizard's services from `new`, then the ones the user added (record "_services": the
+    ids the wizard wrote last; one of those it no longer wants goes)."""
+    wanted = {s["id"] for s in new}
+    wrote = set(record.get("_services", []))
+    kept = [s for s in current if s.get("id") not in wanted and s.get("id") not in wrote]
+    record["_services"] = sorted(wanted)
+    return copy.deepcopy(list(new) + kept)
 
 
 def content_fields(content: dict) -> dict:
@@ -168,11 +191,46 @@ def tmdb_slot(presets: list[dict]) -> str | None:
     return next((p.get("instanceId") for p in presets if p.get("instanceId") in TMDB_SLOT), None)
 
 
-def merge_presets(current: list[dict], new: list[dict], readd: set[str] = frozenset()) -> list[dict]:
+def fingerprint(value) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _merge_options(iid: str, current: dict, new: dict, record: dict) -> dict:
+    """The options of one wizard preset. `record` holds per option a fingerprint of the value the
+    wizard wrote last; a current value that differs from it was changed by hand and stays. An option
+    seen for the first time counts as written now (so a value that differs already is the user's).
+    Options only the user set stay too."""
+    seen = record.setdefault(iid, {})
+    out = dict(current)
+    for key, value in new.items():
+        wrote = seen.setdefault(key, fingerprint(value))
+        if key in current and fingerprint(current[key]) != wrote:
+            continue  # changed by hand
+        out[key] = value
+        seen[key] = fingerprint(value)
+    return out
+
+
+def record_presets(current: list[dict], new: list[dict], record: dict) -> None:
+    """Start the record for options it does not know yet, without writing anything: a value
+    that already differs from what the wizard would write now counts as the user's."""
+    wanted = {p["instanceId"]: p for p in new}
+    for p in current:
+        iid = p.get("instanceId")
+        if _owned(p) and iid in wanted:
+            seen = record.setdefault(iid, {})
+            for key, value in (wanted[iid].get("options") or {}).items():
+                seen.setdefault(key, fingerprint(value))
+
+
+def merge_presets(current: list[dict], new: list[dict], readd: set[str] = frozenset(),
+                  record: dict | None = None) -> list[dict]:
     """Update the wizard's presets that are still in `current`, in place and with the user's
     `enabled`; a wizard preset not in `new` goes (the TMDB_SLOT presets replace each other at the
     same place). Presets the user added stay as they are. A wizard preset missing from `current`
-    (deleted on the website) only comes back, at the front, when its instanceId is in `readd`."""
+    (deleted on the website) only comes back, at the front, when its instanceId is in `readd`.
+    With `record` (per instanceId the fingerprints of the options the wizard wrote, see
+    _merge_options) options the user changed by hand inside a wizard preset stay too."""
     wanted = {p["instanceId"]: p for p in new}
     have = {p.get("instanceId") for p in current}
     if have & set(TMDB_SLOT):
@@ -186,7 +244,15 @@ def merge_presets(current: list[dict], new: list[dict], readd: set[str] = frozen
         if iid not in wanted and iid in TMDB_SLOT:
             iid = next(i for i in TMDB_SLOT if i != iid)
         if iid in wanted:
-            merged.append({**wanted[iid], **({"enabled": p["enabled"]} if "enabled" in p else {})})
+            preset = {**wanted[iid], **({"enabled": p["enabled"]} if "enabled" in p else {})}
+            if record is not None and iid == p.get("instanceId"):  # a swapped slot starts fresh
+                preset["options"] = _merge_options(iid, p.get("options") or {}, wanted[iid].get("options") or {},
+                                                   record)
+            merged.append(preset)
+    if record is not None:
+        for p in merged:
+            if _owned(p) and p["instanceId"] not in record:  # added now: all of it is the wizard's
+                record[p["instanceId"]] = {k: fingerprint(v) for k, v in (p.get("options") or {}).items()}
     return copy.deepcopy(merged)
 
 
@@ -212,10 +278,16 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
     sort["global"] = _sort_language_first(sort.get("global", []))
 
     services = [{"id": "aiostreams", "enabled": True, "credentials": {"aiostreamsAuth": playback_auth}}]
+    easynews = d.get("easynews")
+    if easynews:
+        services.append({"id": "easynews", "enabled": True,
+                         "credentials": {"username": easynews["username"], "password": easynews["password"]}})
     # URL and API key come from the instance (BUILTIN_PROWLARR_* env), not from this config
     split = has_fallback(d["indexers"])
     presets = [_prowlarr_preset("roadieprowlarr", "Prowlarr", MAIN_TAG if split else None),
                *([_prowlarr_preset(FALLBACK_PRESET, "Prowlarr (fallback indexers)", FALLBACK_TAG)] if split else []),
+               *([{"type": "easynews-search", "instanceId": EASYNEWS_PRESET, "enabled": True,
+                   "options": {"name": "Easynews", "timeout": 10000, "services": ["easynews"]}}] if easynews else []),
                *catalog_presets(content, d.get("tmdb_api_key"))]
     if metadata_preset:
         presets = [metadata_preset if p["instanceId"] == "roadietmdb" else p for p in presets]
@@ -225,7 +297,7 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
     cfg["failover"] = {"enabled": True, "contentTypes": ["usenet"]}
     cfg.pop("groups", None)
     if split:
-        cfg["groups"] = fallback_groups(content)
+        cfg["groups"] = fallback_groups(content, (EASYNEWS_PRESET,) if easynews else ())
 
     cfg.pop("tmdbApiKey", None)
     cfg.pop("tmdbAccessToken", None)
@@ -244,7 +316,7 @@ def build_user_config(answers, template: dict, playback_auth: str, metadata_pres
 
 # Which config sections each answer part feeds ("change settings" writes only these).
 _ANSWER_SECTIONS = {"content": ["languages", "quality", "ranking"], "indexers": ["streams"],
-                    "tmdb_api_key": ["metadata"]}
+                    "tmdb_api_key": ["metadata"], "easynews": ["streams"]}
 CATALOG_PRESETS = {"roadietmdb", "roadiestreaming", "roadiecollections", "roadiemetadata"}
 
 
@@ -266,7 +338,10 @@ def presets_for(changed: set[str]) -> dict:
         readd |= {"roadieprowlarr", FALLBACK_PRESET}
     if every or changed & {"tmdb_api_key", "catalogs"}:
         readd |= CATALOG_PRESETS
-    return {"write": every or bool(changed & {"indexers", "tmdb_api_key", "content", "catalogs"}), "readd": readd}
+    if every or "easynews" in changed:
+        readd.add(EASYNEWS_PRESET)
+    return {"write": every or bool(changed & {"indexers", "tmdb_api_key", "content", "catalogs", "easynews"}),
+            "readd": readd}
 
 
 def merge_sections(current: dict, new: dict, sections: list[str]) -> dict:

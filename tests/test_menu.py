@@ -250,9 +250,27 @@ class PeopleMenuTest(MenuBase):
             menu.people_menu(self.env, self.ui("1\nAnna\n1\n"), lambda env: api)
             self.paths.stack_dir.mkdir(parents=True)
             (self.paths.stack_dir / "compose.yaml").write_text("services:\n  aiometadata:\n    image: x\n")
-            menu.people_menu(self.env, self.ui("1\nBen\n1\n"), lambda env: api)
+            menu.people_menu(self.env, self.ui("1\nBen\n1\n\n"), lambda env: api)  # Enter: no own catalogs
         self.assertIsNone(seen[0])
         self.assertIn("/stremio/META-UUID/manifest.json", seen[1]["options"]["manifestUrl"])
+
+    def test_person_with_own_catalogs_gets_own_aiometadata(self):
+        SecretStore(self.paths.secrets_file).set("aiometadata_uuid", "META-UUID")
+        self.paths.stack_dir.mkdir(parents=True)
+        (self.paths.stack_dir / "compose.yaml").write_text("services:\n  aiometadata:\n    image: x\n")
+        self.env = Env(self.paths, State(self.paths.state_file), SecretStore(self.paths.secrets_file))
+        api = FakeApi()
+        from roadie.aiostreams import metadata as M
+        with mock.patch.object(menu.system, "container_ip", return_value="10.0.0.5"), \
+                mock.patch.object(self.env, "compose", return_value="abc\n"), \
+                mock.patch.object(M, "create", return_value="LISA-META") as create:
+            menu.people_menu(self.env, self.ui("1\nLisa\n1\ny\n"), lambda env: api)  # add, inherit, own catalogs
+        create.assert_called_once()
+        self.assertEqual(create.call_args.args[0], "http://10.0.0.5:3232")
+        lisa = SecretStore(self.paths.secrets_file).get("person.lisa.uuid")
+        meta = next(p for p in api.users[lisa]["presets"] if p["instanceId"] == M.INSTANCE_ID)
+        self.assertIn("/LISA-META/", meta["options"]["manifestUrl"])
+        self.assertTrue(next(p for p in self.env.answers["people"] if p["id"] == "lisa")["own_catalogs"])
 
     def test_people_add_own_asks_content(self):
         api = FakeApi()

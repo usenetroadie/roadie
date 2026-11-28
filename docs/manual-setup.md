@@ -493,7 +493,7 @@ services:
     volumes:
       - "./data/prowlarr:/config"
   aiometadata:
-    image: "ghcr.io/cedya77/aiometadata:3.9.0"
+    image: "ghcr.io/cedya77/aiometadata:4.2.0"
     restart: "always"
     mem_limit: "768m"
     logging:
@@ -786,7 +786,16 @@ access_control:
         - "^/(poster|logo|background)/"
         - "^/poster-cache/"
         - "^/api/image/(blur|banner-to-background)"
-        - "^/stremio/[^/?.][^/?]*/(manifest\\.json|(catalog|subtitles)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)*\\.json|(meta|stream)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)?\\.json|watch_state/pull\\.json|rating)([?][^/]*)?$"
+        - "^/stremio/[^/?.][^/?]*/(manifest\\.json|(catalog|subtitles)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)*\\.json|(meta|stream)/[^/?.][^/?]*/[^/?.][^/?]*(/[^/?.][^/?]*)?\\.json|(library|player)/[^/?.][^/?]*/[^/?.][^/?]*/[^/?.][^/?]*\\.json|watch_state/pull\\.json|rating)([?][^/]*)?$"
+      policy: "bypass"
+    - domain:
+        - "metadata.example.com"
+      methods:
+        - "POST"
+        - "OPTIONS"
+      resources:
+        - "^/stremio/[^/?.][^/?]*/(watch_state/push|playback)/[^/?.][^/?]*/[^/?.][^/?]*\\.json([?][^/]*)?$"
+        - "^/stremio/[^/?.][^/?]*/rating([?][^/]*)?$"
       policy: "bypass"
     - domain:
         - "aiostreams.example.com"

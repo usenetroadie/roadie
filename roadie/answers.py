@@ -25,7 +25,7 @@ SSH_KEY_TYPES = (
 SECRET_FIELDS = (
     ("duckdns", "token"), ("usenet.providers[]", "password"),
     ("indexers[]", "api_key"), ("", "tmdb_api_key"), ("auth", "password"),
-    ("notify", "healthchecks_url"),
+    ("notify", "healthchecks_url"), ("easynews", "password"),
 )
 
 
@@ -207,6 +207,8 @@ def _check_people(c: _Checker, people) -> None:
             c.err(f"{path}.name", t("answers.err.person_name", max=40))
         if p.get("mode") not in ("main", "inherit", "own"):
             c.err(f"{path}.mode", t("answers.err.one_of", options="main, inherit, own"))
+        if "own_catalogs" in p and (not isinstance(p["own_catalogs"], bool) or p.get("mode") == "main"):
+            c.err(f"{path}.own_catalogs", t("answers.err.own_catalogs"))
         if p.get("mode") == "own":
             _check_content(c, p.get("content"), f"{path}.content")
         elif "content" in p:
@@ -288,6 +290,14 @@ def _check(data: dict) -> _Checker:
             if v is not None and (not isinstance(v, int) or v < 1):
                 c.err(f"{path}.{key}", t("answers.err.range", min=1, max="∞"))
 
+    easynews = data.get("easynews")  # optional: the Easynews account for AIOStreams' Easynews Search
+    if easynews is not None:
+        if not isinstance(easynews, dict):
+            c.err("easynews", t("answers.err.missing"))
+        else:
+            for key in ("username", "password"):
+                if not isinstance(easynews.get(key), str) or not easynews[key].strip():
+                    c.err(f"easynews.{key}", t("answers.err.missing"))
     if c.get("content") is not None:
         _check_content(c, data["content"], "content")
     if "people" in data:

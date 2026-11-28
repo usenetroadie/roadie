@@ -16,10 +16,11 @@ PROTECTED_PATHS = ["^/stremio/configure", "^/stremio/[^/]+/[^/]+/configure", "^/
 JELLYFIN_PATHS = ["^/jellyfin([/?]|$)"]
 # AIOMetadata's images: with RPDB and its poster proxy, or with its image cache, the poster
 # addresses point at the metadata host, and players load them without a login.
-# Paths from AIOMetadata 3.9.0 addon/index.ts; its settings pages stay behind the login.
+# Paths from AIOMetadata 4.2.0 addon/index.ts (same as 3.9.0 plus library and player rows); its settings pages stay behind the login.
 METADATA_IMAGE_PATHS = ["^/(poster|logo|background)/", "^/poster-cache/", "^/api/image/(blur|banner-to-background)"]
 # AIOMetadata's player routes (apps cannot log in, so an own configuration installed straight in
-# an app works): manifest, catalog, meta, stream, subtitles, watch state, rating. Go regexp has no
+# an app works): manifest, catalog, meta, stream, subtitles, library and player rows (4.x), watch
+# state, rating. Go regexp has no
 # lookahead, so path segments must not start with a dot (no "..", no "configure" below them).
 # The query tail may not contain "/": Authelia sees the decoded path, so "x%2Fmanifest.json%3F/configure"
 # would look like a player route with a query while AIOMetadata routes the raw path to configure.
@@ -28,8 +29,12 @@ _SEG = r"[^/?.][^/?]*"  # file names and values starting with a dot fail closed 
 _QUERY = r"([?][^/]*)?$"
 METADATA_PLAYER_PATHS = [
     r"^/stremio/" + _SEG + r"/(manifest\.json|(catalog|subtitles)/" + _SEG + "/" + _SEG + "(/" + _SEG
-    + r")*\.json|(meta|stream)/" + _SEG + "/" + _SEG + "(/" + _SEG + r")?\.json|watch_state/pull\.json|rating)"
-    + _QUERY]
+    + r")*\.json|(meta|stream)/" + _SEG + "/" + _SEG + "(/" + _SEG + r")?\.json|(library|player)/" + _SEG + "/"
+    + _SEG + "/" + _SEG + r"\.json|watch_state/pull\.json|rating)" + _QUERY]
+# What apps report back to AIOMetadata (watch progress, playback, rating): POST, same segment rules.
+METADATA_POST_PATHS = [
+    r"^/stremio/" + _SEG + "/(watch_state/push|playback)/" + _SEG + "/" + _SEG + r"\.json" + _QUERY,
+    r"^/stremio/" + _SEG + "/rating" + _QUERY]
 # AIOStreams' player routes, same rules as above: addon (/stremio/<uuid>/<password>, optional
 # /v/<variant>; /stremio/u/<alias> only redirects there), then the playback addresses its streams
 # point at. Usenet streams play through /api/v1/usenet/stream/ and /api/v1/debrid/playback/ (route
@@ -58,7 +63,9 @@ def config_dict(cfg: RenderConfig, own_rules=()) -> dict:
     aio = cfg.host("aiostreams")
     protected = [aio, cfg.host("prowlarr"), cfg.host("status")] + ([cfg.host("metadata")] if cfg.metadata else [])
     images = ([{"domain": [cfg.host("metadata")], "methods": ["GET", "HEAD", "OPTIONS"],
-                "resources": METADATA_IMAGE_PATHS + METADATA_PLAYER_PATHS, "policy": "bypass"}] if cfg.metadata else [])
+                "resources": METADATA_IMAGE_PATHS + METADATA_PLAYER_PATHS, "policy": "bypass"},
+               {"domain": [cfg.host("metadata")], "methods": ["POST", "OPTIONS"],
+                "resources": METADATA_POST_PATHS, "policy": "bypass"}] if cfg.metadata else [])
     return {
         "theme": "auto",
         "server": {

@@ -172,7 +172,8 @@ def default_api(env: Env) -> AioClient:
 
 
 def _mode_text(person: dict) -> str:
-    return t(f"people.mode.{person['mode']}")
+    text = t(f"people.mode.{person['mode']}")
+    return text + t("people.with_own_catalogs") if person.get("own_catalogs") else text
 
 
 _ask_mode = questions.ask_person_mode
@@ -204,10 +205,18 @@ def _sync(env: Env, ui: Prompter, api_factory, changed: set[str]) -> bool:
         api = api_factory(env)
         playback = f"{PLAYBACK}:{env.secrets.get('aiostreams_playback_password')}"
         uuid = env.metadata_uuid  # the same catalogs as the setup gives them
+        data = Answers.restore(env.state, env.secrets).data
+        if uuid and metadata.people_without_config(env.secrets, data):  # their own AIOMetadata configuration
+            meta = f"http://{system.container_ip(env.compose('ps', '-q', 'aiometadata').strip())}:3232"
+            metadata.ensure_people(meta, env.secrets, data, env.secrets.get("aiometadata_addon_password"))
         base = build_user_config(Answers.restore(env.state, env.secrets), api.starter_template(), playback,
                                  metadata.preset(uuid) if uuid else None)
-        people.sync(api, env.secrets, env.answers, base, changed)
-    except (AioError, OSError, system.CommandFailed):
+        records = env.state.answers.setdefault("_preset_options", {})
+        try:
+            people.sync(api, env.secrets, env.answers, base, changed, records)
+        finally:
+            env.state.save()
+    except (AioError, OSError, RuntimeError, system.CommandFailed):  # RuntimeError: AIOMetadata refused
         ui.fail(t("people.sync_failed"))
         return False
     ui.ok(t("people.saved"))
@@ -243,7 +252,7 @@ def _people_action(env: Env, ui: Prompter, api_factory: Callable[[Env], AioClien
             return 1
         name = ui.ask(t("people.name"), validate=_name_check({p["name"].lower() for p in persons})).strip()
         person = {"id": people.slug(name, {p["id"] for p in persons}), "name": name}
-        _ask_mode(ui, person)
+        _ask_mode(ui, person, metadata=bool(env.metadata_uuid))
         env.answers["people"] = [*persons, person]
         env.state.save()
         if not _sync(env, ui, api_factory, set()):  # only the new person is written
@@ -255,7 +264,7 @@ def _people_action(env: Env, ui: Prompter, api_factory: Callable[[Env], AioClien
         person = _choose_person(ui, others)
         if person is None:
             return 0
-        _ask_mode(ui, person)
+        _ask_mode(ui, person, metadata=bool(env.metadata_uuid))
         env.answers["people"] = persons
         env.state.save()
         return 0 if _sync(env, ui, api_factory, {"people"}) else 1

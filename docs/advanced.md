@@ -35,6 +35,11 @@ AIOStreams, Prowlarr and AIOMetadata: whatever you set on their web pages stays.
   disabled, with two exceptions. The Prowlarr addon comes back when you change the indexers,
   because streams do not work without it. roadie's catalog addons (TMDB or AIOMetadata, the
   streaming services and the collections) come back when you change the TMDB key or the catalogs.
+- Settings you changed inside one of roadie's addons stay too, for example the address of the
+  AIOMetadata addon, a timeout or the media types. roadie remembers what it wrote last and only
+  updates what is still the same.
+- Groups you changed (for example a condition so that the fallback indexers only run for anime)
+  and services you added yourself stay when *Change settings* writes the streams.
 - Turning your own AIOMetadata on or off swaps the simple TMDB catalog addon and AIOMetadata in
   place.
 - An update never adds an indexer back that you deleted in Prowlarr. Changing the indexers in
@@ -118,6 +123,22 @@ can load those images without a login; the settings pages stay behind it.
 You can also install AIOMetadata directly in an app, with
 `https://metadata.<your address>/stremio/<uuid>/manifest.json`. That is handy for a separate
 configuration per person. Only the addon routes are open; the settings pages stay behind the login.
+
+### Own catalogs per person
+
+When you add a person (`sudo roadie` → *People*) and your own AIOMetadata runs, roadie asks
+whether they get own catalogs. Then they get their own AIOMetadata configuration: their own start
+page rows and language, and changes there do not touch yours. `sudo roadie access` lists its UUID
+and password, so they (or you) can load it on the metadata settings page. Removing the person
+leaves that configuration unused.
+
+## Easynews
+
+Easynews is a Usenet service with its own fast search. Some Usenet plans include it, for example
+some Newshosting deals. If you have an account, answer yes to the Easynews question (also later
+under *Change settings* → Usenet). roadie then switches on AIOStreams' built-in Easynews Search,
+which plays those streams straight from Easynews. With fallback indexers it runs together with the
+main indexers.
 
 ## More catalogs
 

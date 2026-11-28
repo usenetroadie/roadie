@@ -1,5 +1,6 @@
 """'My access': every address and secret a beginner needs again after the setup."""
 
+from roadie.aiostreams import metadata
 from roadie.aiostreams.api import AioClient
 from roadie.aiostreams.people import MAIN, people_of, secret_names
 from roadie.i18n import t
@@ -85,6 +86,11 @@ def sections(env: Env, mask_login_password: bool = False, essentials_only: bool 
         lines.append(person["name"] + ":")
         lines += _pair(t("access.config_uuid"), env.secrets.get(uuid_name))
         lines += _pair(t("access.config_password"), env.secrets.get(password_name))
+        meta_uuid, meta_password = (env.secrets.get(n) for n in metadata.person_secret_names(person["id"]))
+        if domain and person.get("own_catalogs") and meta_uuid:  # load it on metadata.<domain>/configure
+            lines.append(t("access.person_metadata"))
+            lines += _pair(t("access.config_uuid"), meta_uuid)
+            lines += _pair(t("access.config_password"), meta_password)
     out.append((t("access.t.config"), lines))
 
     if aio:

@@ -39,6 +39,8 @@ d["indexers"][0]["url"] = f"http://{ip}:8099"
 tmdb = open("/root/tmdb-key").read().strip() if os.path.exists("/root/tmdb-key") else ""
 if tmdb:  # the key is never printed or passed on a command line
     d["tmdb_api_key"] = tmdb
+    d["people"] = [{"id": "main", "name": "Me", "mode": "main"},  # and someone with own catalogs
+                   {"id": "guest", "name": "Guest", "mode": "inherit", "own_catalogs": True}]
 if mode == "domain":
     d.pop("duckdns")
     d["domain"] = "example.com"

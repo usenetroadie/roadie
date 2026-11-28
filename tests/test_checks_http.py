@@ -124,3 +124,28 @@ class TmdbTest(unittest.TestCase):
         self.assertNotIn("api_key", self.srv.requests[1][1])
         r = tmdb.check_tmdb("b" * 32, base=self.srv.url)
         self.assertEqual(r.key, "check.tmdb.bad_key")
+
+
+class EasynewsTest(unittest.TestCase):
+    def setUp(self):
+        import base64
+        good = "Basic " + base64.b64encode(b"me:pw").decode()
+
+        def search(query, headers):
+            if query.get("gps") != "test":
+                return 400, "bad"
+            return (200, '{"data": []}', "application/json") if headers.get("Authorization") == good else (401, "no")
+        self.srv = MockHttp({"/3.0/api/search": search})
+
+    def tearDown(self):
+        self.srv.close()
+
+    def test_login_ok_and_wrong(self):
+        from roadie.checks import easynews
+        self.assertEqual(easynews.check_easynews("me", "pw", base=self.srv.url).key, "check.easynews.ok")
+        self.assertEqual(easynews.check_easynews("me", "nope", base=self.srv.url).key, "check.easynews.bad_login")
+
+    def test_sends_a_browser_user_agent(self):
+        from roadie.checks import easynews
+        easynews.check_easynews("me", "pw", base=self.srv.url)
+        self.assertTrue(self.srv.requests[-1][2]["User-Agent"].startswith("Mozilla/5.0"))

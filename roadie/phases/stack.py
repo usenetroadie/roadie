@@ -14,7 +14,7 @@ from pathlib import Path
 from roadie import guard, system
 from roadie.aiostreams import metadata, people
 from roadie.aiostreams.api import AioClient
-from roadie.aiostreams.builder import FALLBACK_TAG, MAIN_TAG, build_user_config, has_fallback
+from roadie.aiostreams.builder import FALLBACK_TAG, MAIN_TAG, build_user_config, has_fallback, record_presets
 from roadie.checks import domain as domain_check, duckdns as duckdns_check
 from roadie.engine import Context, Outcome, Step, StepFailed
 from roadie.i18n import t
@@ -499,20 +499,30 @@ def prowlarr_indexers(ctx: Context) -> Outcome | None:
 
 
 def metadata_config(ctx: Context) -> None:
-    """Create the own AIOMetadata's configuration once; later runs leave it to the user."""
-    if not ctx.extra["render"].metadata or ctx.secrets.get("aiometadata_uuid"):
+    """Create the own AIOMetadata's configuration once, and one for every person with own
+    catalogs; later runs leave them to the user."""
+    if not ctx.extra["render"].metadata:
         return
-    password = ctx.secrets.generate("aiometadata_config_password", 24)
-    ctx.redact.add(password)
-    uuid = metadata.create(_container_url(ctx, "aiometadata", 3232),
-                           metadata.metadata_config(ctx.answers.data["content"]), password,
-                           ctx.secrets.get("aiometadata_addon_password"))
-    ctx.secrets.set("aiometadata_uuid", uuid)
+    if ctx.secrets.get("aiometadata_uuid") and not metadata.people_without_config(ctx.secrets, ctx.answers.data):
+        return
+    url = _container_url(ctx, "aiometadata", 3232)
+    if not ctx.secrets.get("aiometadata_uuid"):
+        password = ctx.secrets.generate("aiometadata_config_password", 24)
+        ctx.redact.add(password)
+        uuid = metadata.create(url, metadata.metadata_config(ctx.answers.data["content"]), password,
+                               ctx.secrets.get("aiometadata_addon_password"))
+        ctx.secrets.set("aiometadata_uuid", uuid)
+    for password in metadata.ensure_people(url, ctx.secrets, ctx.answers.data,
+                                           ctx.secrets.get("aiometadata_addon_password")):
+        ctx.redact.add(password)
 
 
 def _metadata_preset(ctx: Context) -> dict | None:
     uuid = ctx.secrets.get("aiometadata_uuid")
     return metadata.preset(uuid) if uuid and ctx.extra["render"].metadata else None
+
+
+PRESET_RECORDS = "_preset_options"
 
 
 def aiostreams_config(ctx: Context) -> None:
@@ -524,16 +534,21 @@ def aiostreams_config(ctx: Context) -> None:
     # an update leaves the config alone; "change settings" writes only what the changed answers feed
     changed = ctx.extra.get("changed", {"*"})  # other entry points: everything, as before
     sections, flags = people.config_parts(changed)
+    # what roadie last wrote inside its own addons, so settings changed there by hand stay
+    records = ctx.state.answers.setdefault(PRESET_RECORDS, {})
     if uuid:  # with nothing changed only a TMDB/AIOMetadata swap is written; the user's own changes stay
-        people.update_keeping_own(api, uuid, password, config, sections, flags["readd"], flags["write"])
+        people.update_keeping_own(api, uuid, password, config, sections, flags["readd"], flags["write"],
+                                  record=records.setdefault("main", {}))
     else:
         uuid, encrypted = api.create_user(config, password)
+        records["main"] = {}
+        record_presets(config.get("presets") or [], config.get("presets") or [], records["main"])
         ctx.secrets.set("aiostreams_config_uuid", uuid)
         ctx.secrets.set("aiostreams_config_encrypted", encrypted)
     for person, result in people.remove_dropped(api, ctx.secrets, ctx.state, ctx.answers.data):
         ctx.ui.warn(t(people.REMOVE_FAILED_TEXT[result], name=person["name"]))
     try:
-        people.sync(api, ctx.secrets, ctx.answers.data, config, changed)
+        people.sync(api, ctx.secrets, ctx.answers.data, config, changed, records)
     finally:  # also the secrets of people created before a failure
         for person in people.people_of(ctx.answers.data):
             for name in people.secret_names(person["id"]):

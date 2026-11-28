@@ -13,7 +13,7 @@ from roadie.aiostreams.people import MAIN, slug
 from roadie.answers import (MAX_PEOPLE, _data, admin_user_problem, auth_username_problem, content_languages,
                             normalise_domain, normalise_duckdns, normalise_newznab_url, normalise_ssh_key,
                             normalise_time)
-from roadie.checks import domain as domain_check, duckdns, newznab, nntp, tmdb
+from roadie.checks import domain as domain_check, duckdns, easynews, newznab, nntp, tmdb
 from roadie.i18n import t
 from roadie.ui import Prompter
 
@@ -58,6 +58,9 @@ class LiveChecks:
 
     def tmdb(self, key):
         return tmdb.check_tmdb(key)
+
+    def easynews(self, username, password):
+        return easynews.check_easynews(username, password)
 
 
 def _validator(fn):
@@ -412,8 +415,9 @@ def name_check(taken: set[str]):
     return check
 
 
-def ask_person_mode(ui: Prompter, person: dict) -> None:
-    """Inherit everything from the main config, or own languages and quality."""
+def ask_person_mode(ui: Prompter, person: dict, metadata: bool = False) -> None:
+    """Inherit everything from the main config, or own languages and quality. With the own
+    AIOMetadata (`metadata`) also: own catalogs, i.e. an own AIOMetadata configuration."""
     mode = ui.choose(t("people.mode_q", name=person["name"]),
                      [("inherit", t("people.mode_inherit")), ("own", t("people.mode_own"))], default="inherit")
     person["mode"] = mode
@@ -422,6 +426,16 @@ def ask_person_mode(ui: Prompter, person: dict) -> None:
         tmp: dict = {}
         ask_content(ui, tmp)
         person["content"] = tmp["content"]
+    if metadata:
+        if ui.confirm(t("people.own_catalogs_q", name=person["name"]), default=bool(person.get("own_catalogs"))):
+            person["own_catalogs"] = True
+        else:
+            person.pop("own_catalogs", None)
+
+
+def _v3_tmdb_key(key) -> bool:
+    """The own AIOMetadata needs the short TMDB API key (32 hex characters)."""
+    return isinstance(key, str) and re.fullmatch(r"[0-9a-fA-F]{32}", key) is not None
 
 
 def ask_people(ui: Prompter, data: dict) -> None:
@@ -446,7 +460,7 @@ def ask_people(ui: Prompter, data: dict) -> None:
         if not name:
             break
         person = {"id": slug(name, {p["id"] for p in persons}), "name": name}
-        ask_person_mode(ui, person)
+        ask_person_mode(ui, person, metadata=_v3_tmdb_key(data.get("tmdb_api_key")))
         persons.append(person)
     data["people"] = persons
 
@@ -501,9 +515,29 @@ def ask_operations(ui: Prompter, data: dict) -> None:
     data["backup"] = {"age_recipient": rec or None}
 
 
+def ask_easynews(ui: Prompter, data: dict, checks) -> None:
+    """Optional: an Easynews account switches on AIOStreams' built-in Easynews Search, which
+    plays straight from Easynews. Some Usenet plans include it."""
+    old = _current(data, "easynews") or {}
+    ui.info(t("q.easynews.help"))
+    if not ui.confirm(t("q.easynews"), default=bool(old)):
+        data["easynews"] = None
+        return
+    while True:
+        user = ui.ask(t("q.easynews.username"), default=old.get("username"),
+                      validate=lambda v: None if v.strip() else t("ui.required")).strip()
+        password = _ask_secret(ui, t("q.easynews.password"), old.get("password") if user == old.get("username") else None)
+        result = checks.easynews(user, password)
+        (ui.ok if result.ok else ui.fail)(t(result.key, **result.params))
+        if result.ok or not ui.confirm(t("q.easynews.again"), default=True):
+            break  # a login Easynews did not accept is kept on request (it may be down right now)
+    data["easynews"] = {"username": user, "password": password}
+
+
 def _ask_usenet_part(ui: Prompter, data: dict, checks) -> None:
     ask_usenet(ui, data, checks)
     ask_indexers(ui, data, checks)
+    ask_easynews(ui, data, checks)
 
 
 # Ordered parts of the questionnaire: (key, fn(ui, data, checks)).
@@ -560,7 +594,8 @@ def _summary(key: str, data: dict) -> list[str]:
                 + [t("review.indexer", name=x["name"], url=x["url"], secret=_secret(x["api_key"]),
                      role=t("review.indexer_fallback") if x.get("fallback") else "")
                    + (" " + t("review.indexer_unchecked") if x.get("unchecked") else "")
-                   for x in data["indexers"]])
+                   for x in data["indexers"]]
+                + ([t("review.easynews", user=data["easynews"]["username"])] if data.get("easynews") else []))
     if key == "tmdb":
         return [t("review.tmdb", value=_secret(data.get("tmdb_api_key")))]
     if key == "content":

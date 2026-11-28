@@ -167,7 +167,7 @@ class BuilderTest(unittest.TestCase):
         merged = merge_presets(old, new)
         self.assertEqual(merged, new[:2])  # prowlarr and tmdb replaced by the new ones, nothing added
         self.assertEqual(WIZARD_PRESETS, ("roadieprowlarr", "roadieprowlarrfallback", "roadietmdb", "roadiestreaming",
-                                          "roadiecollections", "roadiemetadata"))
+                                          "roadiecollections", "roadiemetadata", "roadieeasynews"))
         self.assertNotIn("presets", SECTIONS["streams"])
 
     def test_deleted_roadie_addon_stays_deleted(self):
@@ -244,7 +244,8 @@ class BuilderTest(unittest.TestCase):
         self.assertEqual(presets_for({"content"}), {"write": True, "readd": set()})
         self.assertEqual(presets_for({"catalogs"}), {"write": True, "readd": catalogs})
         self.assertEqual(presets_for({"tmdb_api_key"}), {"write": True, "readd": catalogs})
-        self.assertEqual(presets_for({"*"}), {"write": True, "readd": catalogs | {"roadieprowlarr", FALLBACK_PRESET}})
+        self.assertEqual(presets_for({"*"}), {"write": True,
+                                              "readd": catalogs | {"roadieprowlarr", FALLBACK_PRESET, "roadieeasynews"}})
 
     def test_fallback_indexers_are_asked_only_when_the_main_ones_find_too_little(self):
         ixs = [{"name": "A", "url": "https://a.example.com", "api_key": "k"},
@@ -286,3 +287,123 @@ class BuilderTest(unittest.TestCase):
         self.assertEqual(merged, {"formatter": {"id": "custom"}, "preferredLanguages": ["German"], "services": [1]})
         with self.assertRaises(ValueError):
             merge_sections(current, new, ["nope"])
+
+
+class PresetOptionsTest(unittest.TestCase):
+    """Settings inside roadie's own addons that the user changed by hand stay (per option key)."""
+
+    def preset(self, iid, **options):
+        return {"type": "custom", "instanceId": iid, "enabled": True, "options": options}
+
+    def test_first_look_records_without_taking_users_value(self):
+        record = {}
+        current = [self.preset("roadiemetadata", name="AIOMetadata", manifestUrl="http://aiometadata:3232/stremio/mine/manifest.json")]
+        new = [self.preset("roadiemetadata", name="AIOMetadata", manifestUrl="http://aiometadata:3232/stremio/main/manifest.json")]
+        merged = merge_presets(current, new, record=record)
+        self.assertIn("/mine/", merged[0]["options"]["manifestUrl"])  # differed on first look: the user's
+        self.assertIn("manifestUrl", record["roadiemetadata"])
+
+    def test_untouched_option_gets_roadies_new_value(self):
+        record = {}
+        old = [self.preset("roadieprowlarr", name="Prowlarr", timeout=10000)]
+        merge_presets(old, old, record=record)  # roadie wrote this
+        new = [self.preset("roadieprowlarr", name="Prowlarr", timeout=10000, tags="roadie-main")]
+        merged = merge_presets(old, new, record=record)
+        self.assertEqual(merged[0]["options"]["tags"], "roadie-main")
+        newer = [self.preset("roadieprowlarr", name="Prowlarr", timeout=12000, tags="roadie-main")]
+        self.assertEqual(merge_presets(merged, newer, record=record)[0]["options"]["timeout"], 12000)
+
+    def test_hand_edited_option_stays_across_changes(self):
+        record = {}
+        wrote = [self.preset("roadiemetadata", manifestUrl="u-main", name="AIOMetadata")]
+        merge_presets(wrote, wrote, record=record)
+        edited = [self.preset("roadiemetadata", manifestUrl="u-person", name="AIOMetadata")]
+        merged = merge_presets(edited, [self.preset("roadiemetadata", manifestUrl="u-main", name="Meta")], record=record)
+        self.assertEqual(merged[0]["options"], {"manifestUrl": "u-person", "name": "Meta"})
+
+    def test_option_the_user_added_stays(self):
+        record = {}
+        wrote = [self.preset("roadieprowlarr", name="Prowlarr")]
+        merge_presets(wrote, wrote, record=record)
+        mine = [self.preset("roadieprowlarr", name="Prowlarr", mediaTypes=["anime"])]
+        self.assertEqual(merge_presets(mine, wrote, record=record)[0]["options"]["mediaTypes"], ["anime"])
+
+    def test_without_record_behaves_as_before(self):
+        current = [self.preset("roadieprowlarr", name="Mine")]
+        self.assertEqual(merge_presets(current, [self.preset("roadieprowlarr", name="Prowlarr")])[0]["options"]["name"],
+                         "Prowlarr")
+
+    def test_record_holds_no_values(self):
+        record = {}
+        p = [self.preset("roadietmdb", apiKey="secret-tmdb-key")]
+        merge_presets(p, p, record=record)
+        self.assertNotIn("secret-tmdb-key", json.dumps(record))
+
+
+class ServicesAndGroupsTest(unittest.TestCase):
+    """Services the user added and groups the user changed stay when roadie writes its part."""
+
+    def test_users_own_service_stays(self):
+        from roadie.aiostreams.builder import merge_services
+        record = {}
+        roadie = [{"id": "aiostreams", "enabled": True, "credentials": {"aiostreamsAuth": "p:1"}}]
+        mine = {"id": "easynews", "enabled": True, "credentials": {"username": "me", "password": "x"}}
+        merged = merge_services(roadie + [mine], roadie, record)
+        self.assertEqual([s["id"] for s in merged], ["aiostreams", "easynews"])
+        self.assertEqual(merged[1], mine)
+
+    def test_service_roadie_added_goes_when_no_longer_wanted(self):
+        from roadie.aiostreams.builder import merge_services
+        record = {}
+        en = {"id": "easynews", "enabled": True, "credentials": {"username": "u", "password": "p"}}
+        base = {"id": "aiostreams", "enabled": True, "credentials": {}}
+        merge_services([], [base, en], record)  # roadie wrote both
+        self.assertEqual([s["id"] for s in merge_services([base, en], [base], record)], ["aiostreams"])
+
+    def test_groups_changed_by_hand_stay(self):
+        from roadie.aiostreams.builder import fallback_groups, merge_groups
+        record = {}
+        wrote = fallback_groups({"languages": ["German"]})
+        self.assertEqual(merge_groups(None, wrote, record), wrote)
+        mine = copy.deepcopy(wrote)
+        mine["groupings"][1]["condition"] = "(queryType == 'anime.series') and count(totalStreams) < 5"
+        self.assertEqual(merge_groups(mine, fallback_groups({"languages": ["French"]}), record), mine)
+
+    def test_untouched_groups_follow_roadie(self):
+        from roadie.aiostreams.builder import fallback_groups, merge_groups
+        record = {}
+        wrote = merge_groups(None, fallback_groups({"languages": ["German"]}), record)
+        new = fallback_groups({"languages": ["French"]})
+        self.assertEqual(merge_groups(wrote, new, record), new)
+
+
+class EasynewsTest(unittest.TestCase):
+    """With an Easynews account roadie switches on AIOStreams' built-in Easynews Search."""
+
+    def test_without_account_nothing(self):
+        cfg = build()
+        self.assertNotIn("easynews", [s["id"] for s in cfg["services"]])
+        self.assertNotIn("roadieeasynews", [p["instanceId"] for p in cfg["presets"]])
+
+    def test_service_and_search_addon(self):
+        cfg = build(easynews={"username": "me", "password": "pw"})
+        en = next(s for s in cfg["services"] if s["id"] == "easynews")
+        self.assertEqual(en["credentials"], {"username": "me", "password": "pw"})
+        self.assertTrue(en["enabled"])
+        preset = next(p for p in cfg["presets"] if p["instanceId"] == "roadieeasynews")
+        self.assertEqual(preset["type"], "easynews-search")
+        self.assertEqual(preset["options"]["services"], ["easynews"])
+        self.assertIn("roadieeasynews", WIZARD_PRESETS)
+
+    def test_with_fallback_indexers_it_runs_in_the_first_group(self):
+        indexers = copy.deepcopy(EXAMPLE["indexers"])
+        indexers.append({**indexers[0], "name": "Spare", "fallback": True})
+        cfg = build(indexers=indexers, easynews={"username": "me", "password": "pw"})
+        self.assertIn("roadieeasynews", cfg["groups"]["groupings"][0]["addons"])
+
+    def test_change_of_easynews_writes_streams_and_brings_it_back(self):
+        from roadie.aiostreams.builder import presets_for, sections_for
+        self.assertEqual(sections_for({"easynews"}), ["streams"])
+        flags = presets_for({"easynews"})
+        self.assertTrue(flags["write"])
+        self.assertIn("roadieeasynews", flags["readd"])

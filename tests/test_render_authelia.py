@@ -7,7 +7,7 @@ from pathlib import Path
 
 from roadie.answers import Answers
 from roadie.render import build_render_config, load_versions
-from roadie.render.authelia import AIOSTREAMS_PLAYER_PATHS, METADATA_IMAGE_PATHS, METADATA_PLAYER_PATHS, PROTECTED_PATHS, config_dict, read_own_rules, render_authelia
+from roadie.render.authelia import AIOSTREAMS_PLAYER_PATHS, METADATA_IMAGE_PATHS, METADATA_PLAYER_PATHS, METADATA_POST_PATHS, PROTECTED_PATHS, config_dict, read_own_rules, render_authelia
 
 try:  # own-rules.yml needs PyYAML (python3-yaml); minimal test images lack it
     import yaml  # noqa: F401
@@ -43,7 +43,9 @@ class AutheliaTest(unittest.TestCase):
         c = cfg()
         c.metadata = True
         rules = config_dict(c)["access_control"]["rules"]
-        bypass = [r for r in rules if r["policy"] == "bypass" and "methods" in r]
+        # the progress reports to AIOMetadata are the one POST exception (MetadataFourTest)
+        bypass = [r for r in rules if r["policy"] == "bypass" and "methods" in r
+                  and r["resources"] != METADATA_POST_PATHS]
         self.assertEqual(len(bypass), 2)
         for rule in bypass:
             self.assertEqual(rule["methods"], ["GET", "HEAD", "OPTIONS"])
@@ -238,3 +240,36 @@ class OwnRulesTest(unittest.TestCase):
                 del sys.modules["yaml"]
             else:
                 sys.modules["yaml"] = saved
+
+
+class MetadataFourTest(unittest.TestCase):
+    """AIOMetadata 4.x: library/player rows for apps and the progress reports apps send (POST)."""
+
+    def rules(self):
+        c = cfg()
+        c.metadata = True
+        return config_dict(c)["access_control"]["rules"]
+
+    def test_library_and_player_routes_open(self):
+        for path in ("/stremio/u1/library/movie/tt1/skip=0.json", "/stremio/u1/player/series/tt2/x=1.json?v=2"):
+            self.assertTrue(matches(METADATA_PLAYER_PATHS, path), path)
+        for path in ("/stremio/u1/library/movie/tt1.json?/configure", "/stremio/u1/player/../../configure.json"):
+            self.assertFalse(matches(METADATA_PLAYER_PATHS, path), path)
+
+    def test_progress_reports_open_for_post_only(self):
+        post = [r for r in self.rules() if r.get("methods") == ["POST", "OPTIONS"]]
+        self.assertEqual(len(post), 1)
+        self.assertEqual(post[0]["domain"], ["metadata.example.duckdns.org"])
+        self.assertEqual(post[0]["resources"], METADATA_POST_PATHS)
+        for path in ("/stremio/u1/watch_state/push/movie/tt1.json", "/stremio/u1/playback/series/tt2:1:3.json",
+                     "/stremio/u1/rating"):
+            self.assertTrue(matches(METADATA_POST_PATHS, path), path)
+        for path in ("/api/config/save", "/stremio/u1/configure", "/api/config/update/u1",
+                     "/stremio/u1/playback/movie/x.json?/configure", "/stremio/u1/watch_state/push/../../x.json"):
+            self.assertFalse(matches(METADATA_POST_PATHS, path), path)
+
+    def test_post_rule_before_own_rules_and_catch_all(self):
+        rules = self.rules()
+        post = next(i for i, r in enumerate(rules) if r.get("methods") == ["POST", "OPTIONS"])
+        self.assertEqual(rules[-1]["policy"], "two_factor")
+        self.assertLess(post, len(rules) - 1)

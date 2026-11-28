@@ -11,7 +11,7 @@ from roadie.aiostreams import metadata as M
 from roadie.aiostreams.builder import build_user_config
 from roadie.answers import Answers
 from roadie.render import build_render_config, load_versions, wants_metadata
-from roadie.render.authelia import METADATA_IMAGE_PATHS, METADATA_PLAYER_PATHS, config_dict
+from roadie.render.authelia import METADATA_IMAGE_PATHS, METADATA_PLAYER_PATHS, METADATA_POST_PATHS, config_dict
 from roadie.render.compose import compose_dict
 from roadie.render.envfiles import render_env
 from roadie.render.traefik import dynamic_dict
@@ -75,7 +75,8 @@ class RenderTest(unittest.TestCase):
         protected = [r for r in rules if r.get("policy") == "two_factor" and "metadata.example.duckdns.org" in r["domain"]]
         self.assertTrue(protected)
         open_rules = [r for r in rules if r.get("policy") == "bypass" and "metadata.example.duckdns.org" in r["domain"]]
-        self.assertEqual([r["resources"] for r in open_rules], [METADATA_IMAGE_PATHS + METADATA_PLAYER_PATHS])  # images and player routes
+        self.assertEqual([r["resources"] for r in open_rules],  # images and player routes, progress reports
+                         [METADATA_IMAGE_PATHS + METADATA_PLAYER_PATHS, METADATA_POST_PATHS])
 
 
 class PresetTest(unittest.TestCase):
@@ -134,6 +135,61 @@ class StepTest(unittest.TestCase):
             stack.metadata_config(ctx)
         create.assert_not_called()
 
+
+
+class PersonCatalogsTest(unittest.TestCase):
+    """A person with own catalogs gets an own AIOMetadata configuration (a real user's wish)."""
+
+    def data(self):
+        return {"content": {"languages": ["English"]},
+                "people": [{"id": "main", "name": "Me", "mode": "main"},
+                           {"id": "lisa", "name": "Lisa", "mode": "inherit", "own_catalogs": True},
+                           {"id": "tom", "name": "Tom", "mode": "own", "content": {"languages": ["German"]},
+                            "own_catalogs": True},
+                           {"id": "kim", "name": "Kim", "mode": "inherit"}]}
+
+    def secrets(self):
+        store = {}
+        s = mock.Mock()
+        s.get = store.get
+        s.set = store.__setitem__
+        s.generate = lambda name, n=24: store.setdefault(name, f"pw-{name}-123456")
+        return s, store
+
+    def test_created_once_per_person_with_own_catalogs(self):
+        secrets, store = self.secrets()
+        with mock.patch.object(M, "create", side_effect=["u-lisa", "u-tom"]) as create:
+            M.ensure_people("http://x:3232", secrets, self.data(), "AddonPw")
+            M.ensure_people("http://x:3232", secrets, self.data(), "AddonPw")  # nothing new the second time
+        self.assertEqual(create.call_count, 2)
+        self.assertEqual(store["person.lisa.metadata_uuid"], "u-lisa")
+        self.assertEqual(store["person.tom.metadata_uuid"], "u-tom")
+        self.assertNotIn("person.kim.metadata_uuid", store)
+        self.assertEqual(create.call_args_list[0].args[1]["language"], "en-US")  # Lisa: the main languages
+        self.assertEqual(create.call_args_list[1].args[1]["language"], "de-DE")  # Tom: his own
+        self.assertEqual(create.call_args_list[0].args[3], "AddonPw")
+
+    def test_child_config_points_at_the_persons_configuration(self):
+        from roadie.aiostreams import people as P
+        base = {"presets": [{"type": "prowlarr", "instanceId": "roadieprowlarr", "options": {}}, M.preset("MAIN")]}
+        child = P.child_config(base, "mu", "mp", {"id": "lisa", "mode": "inherit"}, metadata_uuid="u-lisa")
+        meta = next(p for p in child["presets"] if p["instanceId"] == M.INSTANCE_ID)
+        self.assertIn("/u-lisa/", meta["options"]["manifestUrl"])
+        self.assertIn("/MAIN/", base["presets"][1]["options"]["manifestUrl"])  # base untouched
+        plain = P.child_config(base, "mu", "mp", {"id": "kim", "mode": "inherit"})
+        self.assertIn("/MAIN/", plain["presets"][1]["options"]["manifestUrl"])
+
+    def test_answers_accept_own_catalogs_only_as_bool_and_not_for_main(self):
+        from roadie.answers import validate
+        example = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
+        example["people"] = [{"id": "main", "name": "Me", "mode": "main"},
+                             {"id": "lisa", "name": "Lisa", "mode": "inherit", "own_catalogs": True}]
+        self.assertEqual(validate(example), [])
+        example["people"][1]["own_catalogs"] = "yes"
+        self.assertTrue(any(e.startswith("people[1].own_catalogs") for e in validate(example)))
+        example["people"][1]["own_catalogs"] = True
+        example["people"][0]["own_catalogs"] = True
+        self.assertTrue(any(e.startswith("people[0].own_catalogs") for e in validate(example)))
 
 if __name__ == "__main__":
     unittest.main()

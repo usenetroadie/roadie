@@ -3,6 +3,7 @@ import copy
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from roadie.aiostreams import people as P
@@ -247,6 +248,37 @@ class PeopleTest(unittest.TestCase):
         self.assertNotEqual(config["preferredLanguages"], ["French"])
         self.assertEqual([p["instanceId"] for p in config["presets"]], ["roadieprowlarr"])  # no deleted addon back
         self.assertFalse(config["presets"][0]["enabled"])
+
+    def test_own_metadata_address_survives_update_and_change(self):
+        # a real user pointed roadie's AIOMetadata addon at a second AIOMetadata configuration
+        from roadie.aiostreams import metadata
+        own = metadata.preset("OWN")
+        prowlarr = {"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True,
+                    "options": {"name": "Prowlarr", "timeout": 10000, "services": ["aiostreams"]}}
+        main = {"formatter": {"id": "mine"}, "services": [{"id": "mine"}], "presets": [prowlarr, own]}
+        ctx, after_update = self._main_step(set(), main, meta=True)  # update: nothing written, record started
+        self.assertEqual(after_update, main)
+        ctx.state.save()
+        _, config = self._main_step({"content"}, after_update, meta=True)  # change settings: languages
+        meta = next(p for p in config["presets"] if p["instanceId"] == "roadiemetadata")
+        self.assertIn("/OWN/", meta["options"]["manifestUrl"])
+        self.assertNotEqual(config["preferredLanguages"], None)
+
+    def test_own_group_condition_and_service_survive_indexer_change(self):
+        # a real user made the fallback indexers anime-only and added a service of his own
+        from roadie.aiostreams.builder import fallback_groups
+        prowlarr = {"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True, "options": {}}
+        fallback = {"type": "prowlarr", "instanceId": "roadieprowlarrfallback", "enabled": True, "options": {}}
+        groups = fallback_groups({"languages": ["English"]})
+        groups["groupings"][1]["condition"] = "(queryType == 'anime.series') and count(totalStreams) < 5"
+        easynews = {"id": "easynews", "enabled": True, "credentials": {"username": "u", "password": "p"}}
+        main = {"services": [{"id": "aiostreams", "enabled": True, "credentials": {}}, easynews],
+                "presets": [prowlarr, fallback], "groups": groups}
+        ctx, after_update = self._main_step(set(), main)
+        ctx.state.save()
+        _, config = self._main_step({"indexers"}, after_update)
+        self.assertEqual(config.get("groups"), groups)
+        self.assertIn(easynews, config["services"])
 
     def _tmdb_main(self):
         from roadie.aiostreams.builder import _ADDON_SUFFIX
@@ -586,3 +618,45 @@ class PeopleTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OwnCatalogsSwitchTest(unittest.TestCase):
+    """Switching an existing person to own catalogs (or back) moves only their AIOMetadata address."""
+
+    def setUp(self):
+        from roadie.aiostreams import metadata as M
+        self.M = M
+        self.prowlarr = {"type": "prowlarr", "instanceId": "roadieprowlarr", "enabled": True, "options": {}}
+
+    def run_sync(self, current_url, own_uuid, own_catalogs, record):
+        from roadie.aiostreams import people as P
+        api = mock.Mock()
+        current = {"presets": [self.prowlarr, self.M.preset("X")]}
+        current["presets"][1]["options"]["manifestUrl"] = current_url
+        api.get_user.return_value = copy.deepcopy(current)
+        store = {"main_uuid_name": None}
+        secrets = mock.Mock()
+        values = {"aiostreams_config_uuid": "mu", "aiostreams_config_password": "mp", "person.lisa.uuid": "lu",
+                  "person.lisa.password": "lp", "person.lisa.metadata_uuid": own_uuid}
+        secrets.get = values.get
+        secrets.generate = lambda name, n=24: values.setdefault(name, "gen")
+        data = {"people": [{"id": "main", "name": "Me", "mode": "main"},
+                           {"id": "lisa", "name": "Lisa", "mode": "inherit", **({"own_catalogs": True} if own_catalogs else {})}]}
+        base = {"presets": [self.prowlarr, self.M.preset("MAIN")]}
+        P.sync(api, secrets, data, base, {"people"}, {"lisa": record})
+        if not api.update_user.called:
+            return current_url
+        return next(p for p in api.update_user.call_args.args[2]["presets"]
+                    if p["instanceId"] == self.M.INSTANCE_ID)["options"]["manifestUrl"]
+
+    def test_switch_to_own(self):
+        url = self.run_sync(self.M.MANIFEST.format(uuid="MAIN"), "OWN", True, {})
+        self.assertIn("/OWN/", url)
+
+    def test_switch_back_to_main(self):
+        url = self.run_sync(self.M.MANIFEST.format(uuid="OWN"), "OWN", False, {})
+        self.assertIn("/MAIN/", url)
+
+    def test_hand_made_address_stays(self):
+        url = self.run_sync("http://aiometadata:3232/stremio/HANDMADE/manifest.json", "OWN", True, {})
+        self.assertIn("/HANDMADE/", url)

@@ -39,6 +39,10 @@ class FakeChecks:
     def tmdb(self, key):
         return OK
 
+    def easynews(self, username, password):
+        self.calls.append(("easynews", username))
+        return OK
+
     def domain(self, name):
         self.calls.append(("domain", name))
         return OK
@@ -91,6 +95,7 @@ USENET_LINES = [
     "",             # daily search limit: none
     "",             # daily download limit: none
     "n",            # another indexer?
+    "n",            # easynews account?
     "n",            # tmdb key?
     f"{german()},1",  # content languages: German, English (English is first in an English UI)
     "", "1", "",    # original audio (default), quality: 4K first, hdr (default no)
@@ -168,7 +173,7 @@ class QuestionsTest(unittest.TestCase):
         self.assertNotIn(i18n.t("q.indexers.tiers"), " ".join(out.split()))
 
     def test_login_name_and_indexer_name_are_checked_when_typed(self):
-        lines = USENET_LINES[:21] + ["Max Mustermann", "max"] + USENET_LINES[22:]  # 22: login name
+        lines = USENET_LINES[:22] + ["Max Mustermann", "max"] + USENET_LINES[23:]  # 23: login name
         second = ["y", "My indexer", "Other", "https://other.example.com", "", "", "n"]
         lines = lines[:14] + second + ["", ""] + lines[15:]
         data, out, _ = run(lines, USENET_SECRETS[:3] + ["OTHERKEY"] + USENET_SECRETS[3:])
@@ -280,7 +285,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_people_several_with_own_settings(self):
         lines = list(USENET_LINES)
-        lines[20:21] = ["2", "Tim", "Anna", "2", german(), "", "2", "Ben", "", ""]
+        lines[21:22] = ["2", "Tim", "Anna", "2", german(), "", "2", "Ben", "", ""]
         data, out, _ = run(lines, USENET_SECRETS)
         Answers.from_dict(data)
         self.assertEqual([(p["id"], p["mode"]) for p in data["people"]],
@@ -397,7 +402,7 @@ class BeginnerTest(unittest.TestCase):
         _, out, _ = run(USENET_LINES, USENET_SECRETS)
         self.assertNotIn(i18n.t("q.content.narrow"), " ".join(out.split()))
         lines = list(USENET_LINES)
-        lines[16:18] = [german(), "n"]  # only German, no original audio
+        lines[17:19] = [german(), "n"]  # only German, no original audio
         data, out, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["content"]["languages"], ["German"])
         self.assertIn(i18n.t("q.content.narrow"), " ".join(out.split()))
@@ -417,7 +422,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_review_shows_own_person_settings(self):
         lines = list(USENET_LINES)
-        lines[20:21] = ["2", "Tim", "Anna", "2", lang_no("English"), "", "2", ""]
+        lines[21:22] = ["2", "Tim", "Anna", "2", lang_no("English"), "", "2", ""]
         _, out, _ = run(lines, USENET_SECRETS)
         review = " ".join(out.split()).split(i18n.t("review.heading"))[-1]
         self.assertIn("Anna", review)
@@ -436,7 +441,7 @@ class BeginnerTest(unittest.TestCase):
 
     def test_advanced_asked_when_wanted(self):
         lines = list(USENET_LINES)
-        lines[22:23] = ["y", "06:30", "https://hc-ping.com/abc"]
+        lines[23:24] = ["y", "06:30", "https://hc-ping.com/abc"]
         data, _, _ = run(lines, USENET_SECRETS)
         self.assertEqual(data["maintenance"]["reboot_time"], "06:30")
         self.assertEqual(data["notify"]["healthchecks_url"], "https://hc-ping.com/abc")
@@ -617,3 +622,64 @@ class ChangeSettingsTest(unittest.TestCase):
         data, out, _ = change(["1"], copy.deepcopy(stored))
         self.assertIn(i18n.t("review.backup_key", value=i18n.t("review.backup_present")), out)
         self.assertNotIn("_age_recipient", data)
+
+
+class OwnCatalogsQuestionTest(unittest.TestCase):
+    def ask(self, lines, metadata, person=None):
+        from roadie import questions
+        person = person or {"id": "lisa", "name": "Lisa"}
+        ui = Prompter(inp=io.StringIO("\n".join(lines) + "\n"), out=io.StringIO())
+        questions.ask_person_mode(ui, person, metadata=metadata)
+        return person
+
+    def test_asked_only_with_own_aiometadata(self):
+        self.assertTrue(self.ask(["1", "y"], metadata=True)["own_catalogs"])
+        self.assertNotIn("own_catalogs", self.ask(["1", "n"], metadata=True))
+        self.assertNotIn("own_catalogs", self.ask(["1"], metadata=False))
+
+    def test_answering_no_later_drops_the_flag(self):
+        person = {"id": "lisa", "name": "Lisa", "own_catalogs": True}
+        self.assertNotIn("own_catalogs", self.ask(["1", "n"], metadata=True, person=person))
+
+    def test_v3_key_detection(self):
+        from roadie.questions import _v3_tmdb_key
+        self.assertTrue(_v3_tmdb_key("a" * 32))
+        self.assertFalse(_v3_tmdb_key("eyJ" + "a" * 200))
+        self.assertFalse(_v3_tmdb_key(None))
+
+
+class EasynewsQuestionTest(unittest.TestCase):
+    def ask(self, lines, secrets, data=None, result=OK):
+        from roadie import questions
+        data = data if data is not None else {}
+        checks = FakeChecks()
+        checks.easynews = lambda u, p: (checks.calls.append(("easynews", u)), result)[1]
+        queue = list(secrets)
+        out = io.StringIO()
+        ui = Prompter(inp=io.StringIO("\n".join(lines) + "\n"), out=out, secret_reader=lambda p: queue.pop(0))
+        questions.ask_easynews(ui, data, checks)
+        return data, checks, out.getvalue()
+
+    def test_no_account(self):
+        data, checks, _ = self.ask(["n"], [])
+        self.assertIsNone(data["easynews"])
+        self.assertEqual(checks.calls, [])
+
+    def test_account_checked_and_kept(self):
+        data, checks, _ = self.ask(["y", "me"], ["pw"])
+        self.assertEqual(data["easynews"], {"username": "me", "password": "pw"})
+        self.assertEqual(checks.calls, [("easynews", "me")])
+
+    def test_rejected_login_can_be_kept(self):
+        from roadie.checks import CheckResult
+        data, _, out = self.ask(["y", "me", "n"], ["wrong"], result=CheckResult(False, "check.easynews.bad_login"))
+        self.assertEqual(data["easynews"]["password"], "wrong")
+        self.assertIn(i18n.t("check.easynews.bad_login")[:20], " ".join(out.split()))
+
+    def test_answers_check(self):
+        from roadie.answers import validate
+        example = json.loads((Path(__file__).parent.parent / "examples/answers.example.json").read_text())
+        example["easynews"] = {"username": "me", "password": "pw"}
+        self.assertEqual(validate(example), [])
+        example["easynews"] = {"username": "", "password": "pw"}
+        self.assertTrue(any(e.startswith("easynews.username") for e in validate(example)))

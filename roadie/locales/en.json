@@ -699,5 +699,17 @@
   "summary.restored_title": "Restored from your backup",
   "summary.restored": "The addon links are the same as before: nothing to change in Nuvio or Stremio. Your login and your passkey or code app work as before, and so does your SSH key.",
   "check.nntp.busy": "The provider is busy (all connections in use, for example while streaming). The login is fine.",
-  "watch.backup_not_downloaded_page": "The newest backup ({file}, {mb} MB) was not downloaded from your status page yet. If the server breaks, a backup that is only on the server is gone with it. Downloads via SFTP cannot be seen on this server: if you used SFTP, all is fine."
+  "watch.backup_not_downloaded_page": "The newest backup ({file}, {mb} MB) was not downloaded from your status page yet. If the server breaks, a backup that is only on the server is gone with it. Downloads via SFTP cannot be seen on this server: if you used SFTP, all is fine.",
+  "answers.err.own_catalogs": "Must be true or false, and only for people other than the main one.",
+  "people.own_catalogs_q": "Own catalogs for {name}? They get their own AIOMetadata settings (start page rows, language), separate from yours.",
+  "people.with_own_catalogs": ", own catalogs",
+  "access.person_metadata": "Own catalogs (AIOMetadata, load on the metadata settings page):",
+  "check.easynews.ok": "Easynews accepted the login.",
+  "check.easynews.bad_login": "Easynews rejected the user name or password. Use the login of your Easynews account (not the one of your Usenet provider).",
+  "q.easynews.help": "Easynews is a Usenet service with its own fast search. Some Usenet plans include it for free (for example some Newshosting deals). With an account, AIOStreams also searches Easynews and plays those streams straight from Easynews.",
+  "q.easynews": "Do you have an Easynews account?",
+  "q.easynews.username": "Easynews user name",
+  "q.easynews.password": "Easynews password",
+  "q.easynews.again": "Enter the Easynews login again?",
+  "review.easynews": "Easynews: {user} (search switched on)"
 }

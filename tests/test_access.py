@@ -3,6 +3,7 @@ import json
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from roadie import i18n
@@ -289,3 +290,26 @@ class MetadataAccessTest(AccessBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PersonCatalogsAccessTest(unittest.TestCase):
+    def test_own_catalogs_listed_for_that_person_only(self):
+        from types import SimpleNamespace
+        from roadie import access
+        store = {"person.lisa.uuid": "L-UUID", "person.lisa.password": "L-PW", "person.lisa.metadata_uuid": "LM-UUID",
+                 "person.lisa.metadata_password": "LM-PW", "person.kim.metadata_uuid": "KM-UUID"}
+        env = mock.MagicMock()
+        env.answers = {"people": [{"id": "main", "name": "Me", "mode": "main"},
+                                  {"id": "lisa", "name": "Lisa", "mode": "inherit", "own_catalogs": True},
+                                  {"id": "kim", "name": "Kim", "mode": "inherit"}]}
+        env.secrets = SimpleNamespace(get=store.get)
+        env.domain = "example.duckdns.org"
+        env.metadata_uuid = None
+        env.load_json.return_value = {}
+        with mock.patch.object(access, "_domain", return_value="example.duckdns.org"), \
+                mock.patch.object(access, "addon_url", return_value=None), \
+                mock.patch.object(access.backup_ops, "backup_dir", return_value="/x"):
+            text = "\n".join(line for _, lines in access.sections(env) for line in lines)
+        self.assertIn("LM-UUID", text)
+        self.assertIn("LM-PW", text)
+        self.assertNotIn("KM-UUID", text)  # Kim has no own catalogs (left over from before)

@@ -53,6 +53,15 @@ print(min(len(metas), 1))
 PY
 )"
   check "AIOMetadata catalog has titles"      1 "${titles:-0}"
+  muuid="$(python3 -c 'import json;print(json.load(open("/etc/roadie/secrets.json")).get("aiometadata_uuid",""))')"
+  check "AIOMetadata manifest without login"  200 "$(mcode "https://$meta/stremio/$muuid/manifest.json")"
+  progress="$(mcode -H 'Content-Type: application/json' -d '{}' -X POST "https://$meta/stremio/$muuid/watch_state/push/movie/tt0111161.json")"
+  check "AIOMetadata progress report not sent to login" no "$([ "$progress" = 302 ] && echo yes || echo no)"
+  # people with own catalogs (run.sh adds one with a TMDB key) have their own configuration
+  for puuid in $(python3 -c 'import json;[print(v) for k, v in json.load(open("/etc/roadie/secrets.json")).items() if k.startswith("person.") and k.endswith(".metadata_uuid")]'); do
+    check "own catalogs of a person answer"   200 "$(mcode "https://$meta/stremio/$puuid/manifest.json")"
+    check "own catalogs are not the main ones" yes "$([ "$puuid" != "$muuid" ] && echo yes || echo no)"
+  done
 fi
 st="status.$domain"
 check "status page needs login"             302 "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 60 --resolve "$st:443:127.0.0.1" "https://$st/")"

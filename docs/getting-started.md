@@ -49,6 +49,7 @@ roadie asks for these during the setup and checks each one right away:
 | A password manager | for the passwords, keys and the backup key roadie creates for you |
 | ntfy app (optional) | free app for push messages; roadie shows you the topic to subscribe to |
 | TMDB API key (optional, recommended) | free at [themoviedb.org](https://www.themoviedb.org/settings/api) – use the short **API key** (32 characters), not the long read access token. Improves title matching, and roadie also sets up your own AIOMetadata for catalogs and details |
+| Easynews account (optional) | if your Usenet plan includes Easynews, roadie switches on its fast search in AIOStreams |
 
 ### Using your own domain
 

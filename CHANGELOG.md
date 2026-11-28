@@ -2,6 +2,19 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.6.4 – 2026-11-28
+
+- Settings you changed inside roadie's own addons in AIOStreams stay, also when *Change settings*
+  writes the addons again. For example a person's own AIOMetadata address no longer jumps back to
+  the main one. The same goes for groups you changed (like an anime-only condition for the
+  fallback indexers) and services you added yourself.
+- Own catalogs per person: when you add someone and your own AIOMetadata runs, roadie can give
+  them their own AIOMetadata configuration. `sudo roadie access` shows its login.
+- Easynews: if you have an Easynews account (some Usenet plans include it), roadie asks for it and
+  switches on AIOStreams' built-in Easynews Search.
+- AIOMetadata 4.2.0. Apps can now send watch progress and ratings to your own AIOMetadata, and its
+  new library and player rows load without the login.
+
 ## 0.6.3 – 2026-11-27
 
 - Indexers that need no API key (for example AnimeTosho) work now. Leave the key empty. To remove a

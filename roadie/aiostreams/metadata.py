@@ -78,3 +78,28 @@ def create(base_url: str, config: dict, password: str, addon_password: str, time
     if not isinstance(uuid, str) or not uuid:
         raise RuntimeError("AIOMetadata did not return a configuration id")
     return uuid
+
+
+def person_secret_names(pid: str) -> tuple[str, str]:
+    """SecretStore names (uuid, password) of a person's own AIOMetadata configuration."""
+    return f"person.{pid}.metadata_uuid", f"person.{pid}.metadata_password"
+
+
+def people_without_config(secrets, data: dict) -> list[dict]:
+    """People with own catalogs whose AIOMetadata configuration does not exist yet."""
+    return [p for p in data.get("people") or []
+            if p.get("own_catalogs") and not secrets.get(person_secret_names(p["id"])[0])]
+
+
+def ensure_people(base_url: str, secrets, data: dict, addon_password: str) -> list[str]:
+    """Create an own configuration for every person with own_catalogs that has none yet, in
+    their languages (their own, else the main ones). Later runs leave it to them. Returns the
+    passwords created now (for the redactor)."""
+    created = []
+    for person in people_without_config(secrets, data):
+        uuid_name, password_name = person_secret_names(person["id"])
+        password = secrets.generate(password_name, 24)
+        created.append(password)
+        content = person.get("content") or data["content"]
+        secrets.set(uuid_name, create(base_url, metadata_config(content), password, addon_password))
+    return created

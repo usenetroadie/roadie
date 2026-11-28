@@ -5,7 +5,7 @@
     "authelia": {"image": "ghcr.io/authelia/authelia", "tag": "4.39.28", "tested": true},
     "aiostreams": {"image": "ghcr.io/viren070/aiostreams", "tag": "v2.38.1", "tested": true},
     "prowlarr": {"image": "ghcr.io/hotio/prowlarr", "tag": "release-2.7.0.5723", "tested": true},
-    "aiometadata": {"image": "ghcr.io/cedya77/aiometadata", "tag": "3.9.0", "tested": true},
+    "aiometadata": {"image": "ghcr.io/cedya77/aiometadata", "tag": "4.2.0", "tested": true},
     "aiometadata-redis": {"image": "redis", "tag": "8.10.3-alpine", "tested": true},
     "status": {"image": "busybox", "tag": "1.36.1", "tested": true}
   }
