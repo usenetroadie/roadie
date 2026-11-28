@@ -453,7 +453,11 @@ def _run_setup(answers: Answers | None, paths: Paths, ui: Prompter, gather, reda
 
     interactive = answers is None
     if answers is None:
-        answers = _interactive_answers(state, secrets, ui, test_mode, change, paths)
+        try:
+            answers = _interactive_answers(state, secrets, ui, test_mode, change, paths)
+        except questions.Cancelled:  # "Change settings" left without changes
+            ui.info(t("review.cancelled"))
+            return EXIT_OK
         if answers is None:
             return EXIT_INVALID
     for value in answers.secret_values() + secrets.values():

@@ -68,9 +68,11 @@ def _remove(path: Path) -> bool:
             path.unlink(missing_ok=True)
         if path.exists() or path.is_symlink():
             return False
-        backup = path.with_name(path.name + ".roadie-bak")
-        if backup.is_file():
-            backup.replace(path)
+        for suffix in (system.BACKUP_SUFFIX, system.OLD_BACKUP_SUFFIX):  # the old name from before 0.6.6
+            backup = path.with_name(path.name + suffix)
+            if backup.is_file() and not system._roadies_own(backup):
+                backup.replace(path)
+                break
     except OSError:
         return False
     return True

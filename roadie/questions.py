@@ -616,8 +616,13 @@ def _summary(key: str, data: dict) -> list[str]:
             t("review.backup_key", value=rec[:16] + "…" if rec else created)]
 
 
-def review(ui: Prompter, data: dict) -> str | None:
-    """Show every answer (no secrets); None = all fine, else the key of the part to ask again."""
+class Cancelled(Exception):
+    """The user left "Change settings" without changes."""
+
+
+def review(ui: Prompter, data: dict, can_cancel: bool = False) -> str | None:
+    """Show every answer (no secrets); None = all fine, else the key of the part to ask again.
+    With `can_cancel` ("Change settings") there is a way back to the menu (raises Cancelled)."""
     keys = PART_KEYS
     while True:
         ui.heading(t("review.heading"))
@@ -625,7 +630,11 @@ def review(ui: Prompter, data: dict) -> str | None:
             ui.info(t(f"part.{key}"))
             for line in _summary(key, data):
                 ui.hint(line)
-        if ui.choose(t("review.ok_q"), [("ok", t("review.ok")), ("change", t("review.change"))]) == "ok":
+        options = [("ok", t("review.ok")), ("change", t("review.change"))]
+        choice = ui.choose(t("review.ok_q"), options + ([("cancel", t("review.cancel"))] if can_cancel else []))
+        if choice == "cancel":
+            raise Cancelled
+        if choice == "ok":
             return None
         key = ui.choose(t("review.which"), [(k, t(f"part.{k}")) for k in keys] + [("back", t("review.back"))])
         if key != "back":
@@ -657,13 +666,13 @@ def change_settings(ui: Prompter, data: dict, checks=None) -> dict:
     # markers stay in the state file; the backup key one is only shown in the review
     data = {k: v for k, v in copy.deepcopy(data).items() if not k.startswith("_") or k == AGE_MARKER}
     data[PREFILL] = True
-    data = _review_until_ok(ui, data, checks or LiveChecks())
+    data = _review_until_ok(ui, data, checks or LiveChecks(), can_cancel=True)
     data.pop(PREFILL)
     data.pop(AGE_MARKER, None)
     return data
 
 
-def _review_until_ok(ui: Prompter, data: dict, checks) -> dict:
-    while (key := review(ui, data)) is not None:
+def _review_until_ok(ui: Prompter, data: dict, checks, can_cancel: bool = False) -> dict:
+    while (key := review(ui, data, can_cancel)) is not None:
         _ask_part(ui, data, checks, key)
     return data

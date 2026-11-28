@@ -161,7 +161,7 @@ class UninstallTest(UninstallBase):
 
     def test_restores_replaced_system_file(self):
         jail = self.root / "etc/fail2ban/jail.d/roadie.conf"
-        jail.with_name(jail.name + ".roadie-bak").write_text("original\n")
+        jail.with_name(jail.name + ".roadie.bak").write_text("original\n")
         uninstall.run(self.env(), self.ui(), confirmed=True)
         self.assertEqual(jail.read_text(), "original\n")
 

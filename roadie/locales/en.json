@@ -722,5 +722,8 @@
   "restore.confirm": "Type restore to go on, or press Enter to cancel",
   "restore.cancelled": "Cancelled. Nothing was changed.",
   "restore.failed": "The backup could not be put back. Run 'sudo roadie diagnose' for details.",
-  "restore.safety_failed": "The backup of the current state failed, so nothing was restored."
+  "restore.safety_failed": "The backup of the current state failed, so nothing was restored.",
+  "review.cancel": "Back to the menu, change nothing",
+  "review.cancelled": "Nothing was changed.",
+  "people.name_or_back": "Name of the person (Enter: back)"
 }

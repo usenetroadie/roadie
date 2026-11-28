@@ -683,3 +683,16 @@ class EasynewsQuestionTest(unittest.TestCase):
         self.assertEqual(validate(example), [])
         example["easynews"] = {"username": "", "password": "pw"}
         self.assertTrue(any(e.startswith("easynews.username") for e in validate(example)))
+
+
+class BackOutOfChangeSettingsTest(unittest.TestCase):
+    """A real user had to press Ctrl+C to leave "Change settings" without changes."""
+
+    def test_back_to_the_menu_changes_nothing(self):
+        from roadie.questions import Cancelled
+        with self.assertRaises(Cancelled):
+            change(["3"], stored_answers())  # [1] Yes [2] Change something [3] Back to the menu
+
+    def test_first_setup_has_no_back(self):
+        out = run(USENET_LINES, USENET_SECRETS)[1]
+        self.assertNotIn(i18n.t("review.cancel"), out)

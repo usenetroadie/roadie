@@ -44,6 +44,8 @@ def compose_dict(cfg: RenderConfig) -> dict:
             cfg, "aiostreams", _aiostreams_mem(cfg.mem_mb),
             _health(["CMD", "/nodejs/bin/node", "-e", AIOSTREAMS_HEALTH]),
             environment=env, env_file=["env/aiostreams.env"], volumes=["./data/aiostreams:/app/data"],
+            # it reads Prowlarr's indexer list only when it starts
+            depends_on={"prowlarr": {"condition": "service_healthy"}},
         ),
         "prowlarr": _service(
             cfg, "prowlarr", "512m", _health(["CMD", "curl", "-fsS", "http://127.0.0.1:9696/ping"]),

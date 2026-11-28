@@ -462,6 +462,9 @@ services:
       - "env/aiostreams.env"
     volumes:
       - "./data/aiostreams:/app/data"
+    depends_on:
+      prowlarr:
+        condition: "service_healthy"
   prowlarr:
     image: "ghcr.io/hotio/prowlarr:release-2.7.0.5723"
     restart: "always"

@@ -14,6 +14,19 @@ from roadie.state import State
 
 # stopped during a backup (only those that run); Traefik keeps running
 APP_SERVICES = ("aiostreams", "authelia", "prowlarr", "aiometadata", "aiometadata-redis")
+
+def aiostreams_missed_prowlarr(container_id: str) -> str | None:
+    """AIOStreams fetches Prowlarr's indexer list only when it starts. When Prowlarr was not
+    ready then, its log says so and the Indexers field of the Prowlarr addon stays empty until
+    the next start (searches still work). Returns that start time, else None."""
+    if not container_id:
+        return None
+    try:
+        started = system.run(["docker", "inspect", "-f", "{{.State.StartedAt}}", container_id]).strip()
+        logs = system.run(["docker", "logs", "--since", started, container_id], check=False)
+    except (system.CommandFailed, OSError):
+        return None
+    return started if "Failed to initialise Prowlarr" in logs else None
 BACKUP_MARKER = "backup-running.json"  # in var_dir while a backup has the apps stopped
 
 

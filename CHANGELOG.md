@@ -2,6 +2,16 @@
 
 All notable changes. Versions follow [semantic versioning](https://semver.org).
 
+## 0.6.6 – 2026-11-29
+
+- After an update or a reboot the Indexers field of the Prowlarr addons in AIOStreams could stay
+  empty until AIOStreams was restarted (AIOStreams reads the list only when it starts). AIOStreams
+  now starts after Prowlarr, and roadie restarts it once when it still missed the list. Searches
+  worked all along.
+- *Manage people* and *Change settings* have a way back to the menu at every step, no Ctrl+C needed.
+- `apt update` no longer says "Ignoring file '99zz-roadie.roadie-bak'". roadie keeps copies of
+  system files as `.roadie.bak` now, and only of files it did not write itself.
+
 ## 0.6.5 – 2026-11-28
 
 - The menu has *Restore a backup*: pick a backup, paste your key, confirm with `restore`. roadie

@@ -72,7 +72,7 @@ class ProwlarrIndexersTest(unittest.TestCase):
                            ui=None, redact=Redactor())
         self.fake, self.restarts = FakeProwlarr(), []
         patches = {"_prowlarr": self.fake, "_container_url": lambda ctx, s, p: "http://prowlarr",
-                   "_compose": lambda ctx, *a: self.restarts.append(a), "stack_healthy": lambda ctx: True}
+                   "_compose": lambda ctx, *a, **k: (self.restarts.append(a) if a[:1] != ("ps",) else None) or "", "stack_healthy": lambda ctx: True}
         for name, fn in patches.items():
             original = getattr(stack, name)
             setattr(stack, name, fn)

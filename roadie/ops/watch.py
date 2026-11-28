@@ -16,7 +16,7 @@ from roadie.checks.http import HttpError, http_get
 from roadie.i18n import t
 from roadie.ops import selfupdate, statuspage
 from roadie.ops.passkey import fix_discoverable
-from roadie.ops.common import APP_SERVICES, BACKUP_MARKER, Env, disk_used_percent, mem_available_mb
+from roadie.ops.common import APP_SERVICES, BACKUP_MARKER, Env, aiostreams_missed_prowlarr, disk_used_percent, mem_available_mb
 from roadie.ops.watchlogic import Message, Problem, decide, new_login_ips, parse_accepted_logins, sftp_downloads
 from roadie.render.system import SFTP_LOG_LINE, SSHD_DROPIN
 
@@ -254,6 +254,18 @@ def format_messages(messages: list[Message]) -> list[tuple[str, str, int]]:
     return out
 
 
+def restart_if_prowlarr_missed(env: Env, saved: dict) -> bool:
+    """After a reboot Docker starts all containers at once, so AIOStreams may ask Prowlarr for
+    its indexers too early. Restart it once per start of AIOStreams (never in a loop)."""
+    started = aiostreams_missed_prowlarr(env.compose("ps", "-q", "aiostreams", check=False).strip())
+    if not started or saved.get("aiostreams_restarted_for") == started:
+        return False
+    saved["aiostreams_restarted_for"] = started
+    env.compose("restart", "aiostreams", check=False)
+    print("aiostreams restarted: it started before Prowlarr was ready", file=sys.stderr)
+    return True
+
+
 def fix_passkeys(env: Env) -> None:
     changed = fix_discoverable(env.paths.stack_dir / "data/authelia/db.sqlite3")
     if changed:
@@ -265,6 +277,11 @@ def run(env: Env, dry: bool = False) -> int:
     if not dry:
         fix_passkeys(env)
     saved = env.load_json("watch.json")
+    if not dry and not backup_running(env, now):
+        try:  # optional, like the provider check below
+            restart_if_prowlarr_missed(env, saved)
+        except Exception as exc:
+            print(f"prowlarr check failed: {type(exc).__name__}", file=sys.stderr)
     problems = collect_problems(env, now)
     try:  # optional: a provider check that breaks must not stop the watcher
         problems += provider_problems(env, saved, now)

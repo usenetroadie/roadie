@@ -184,8 +184,8 @@ def _choose_person(ui: Prompter, persons: list[dict]) -> dict | None:
     if not persons:
         ui.info(t("people.none"))
         return None
-    pid = ui.choose(t("people.pick"), [(p["id"], p["name"]) for p in persons])
-    return next(p for p in persons if p["id"] == pid)
+    pid = ui.choose(t("people.pick"), [(p["id"], p["name"]) for p in persons] + [("back", t("people.back"))])
+    return next((p for p in persons if p["id"] == pid), None)
 
 
 def _show_url(env: Env, ui: Prompter, person: dict) -> None:
@@ -251,7 +251,10 @@ def _people_action(env: Env, ui: Prompter, api_factory: Callable[[Env], AioClien
         if len(persons) >= MAX_PEOPLE:
             ui.warn(t("people.full", max=MAX_PEOPLE))
             return 1
-        name = ui.ask(t("people.name"), validate=_name_check({p["name"].lower() for p in persons})).strip()
+        check = _name_check({p["name"].lower() for p in persons})
+        name = ui.ask(t("people.name_or_back"), default="", validate=lambda v: check(v) if v.strip() else None).strip()
+        if not name:  # Enter: back to the menu
+            return 0
         person = {"id": people.slug(name, {p["id"] for p in persons}), "name": name}
         _ask_mode(ui, person, metadata=bool(env.metadata_uuid))
         env.answers["people"] = [*persons, person]

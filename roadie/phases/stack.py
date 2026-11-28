@@ -13,6 +13,7 @@ from pathlib import Path
 
 from roadie import guard, system
 from roadie.aiostreams import metadata, people
+from roadie.ops.common import aiostreams_missed_prowlarr
 from roadie.aiostreams.api import AioClient
 from roadie.aiostreams.builder import FALLBACK_TAG, MAIN_TAG, build_user_config, has_fallback, record_presets
 from roadie.checks import domain as domain_check, duckdns as duckdns_check
@@ -488,7 +489,9 @@ def prowlarr_indexers(ctx: Context) -> Outcome | None:
         ctx.state.answers["_indexers_missing"] = [n for n, _ in failed]
     else:
         ctx.state.answers.pop("_indexers_missing", None)
-    if changed:  # AIOStreams reads Prowlarr's indexer list only once at startup
+    # AIOStreams reads Prowlarr's indexer list only once at startup: after new indexers, or when
+    # it started before Prowlarr was ready (then the addon's Indexers field stays empty)
+    if changed or aiostreams_missed_prowlarr(_compose(ctx, "ps", "-q", "aiostreams", check=False).strip()):
         _compose(ctx, "restart", "aiostreams")
         if not stack_healthy(ctx):
             raise StepFailed("prowlarr_indexers", t("stack.unhealthy", services="aiostreams"))

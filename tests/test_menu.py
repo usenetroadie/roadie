@@ -407,3 +407,37 @@ class HelpTest(MenuBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PeopleBackTest(unittest.TestCase):
+    """Every people sub menu can be left without Ctrl+C."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.paths = Paths(Path(self.tmp.name))
+        state = State(self.paths.state_file)
+        state.answers.update({"people": [{"id": "main", "name": "Me", "mode": "main"},
+                                         {"id": "buser", "name": "buser", "mode": "inherit"}]})
+        state.save()
+        self.env = Env(self.paths, State(self.paths.state_file), SecretStore(self.paths.secrets_file))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def menu(self, text):
+        out = io.StringIO()
+        api = FakeApi()
+        code = menu.people_menu(self.env, Prompter(inp=io.StringIO(text), out=out, secret_reader=lambda p: ""),
+                                lambda env: api)
+        return code, api, [p["id"] for p in self.env.answers["people"]]
+
+    def test_remove_back(self):
+        self.assertEqual(self.menu("3\n2\n"), (0, mock.ANY, ["main", "buser"]))  # remove -> Back
+
+    def test_change_back(self):
+        self.assertEqual(self.menu("2\n2\n")[2], ["main", "buser"])  # change -> Back
+
+    def test_add_with_empty_name_goes_back(self):
+        code, api, ids = self.menu("1\n\n")
+        self.assertEqual((code, ids, api.users), (0, ["main", "buser"], {}))
